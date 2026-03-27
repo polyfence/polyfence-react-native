@@ -38,14 +38,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/blackabass/polyfence-react-native.git"
+    "url": "git+https://github.com/polyfence/polyfence-react-native.git"
   },
   "author": "Polyfence <hello@polyfence.io> (https://polyfence.io)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/blackabass/polyfence-react-native/issues"
+    "url": "https://github.com/polyfence/polyfence-react-native/issues"
   },
-  "homepage": "https://github.com/blackabass/polyfence-react-native#readme",
+  "homepage": "https://github.com/polyfence/polyfence-react-native#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

@@ -168,7 +168,7 @@ The `intelligent` strategy hierarchy:
 
 ```bash
 # Clone the package
-git clone https://github.com/blackabass/polyfence-react-native.git
+git clone https://github.com/polyfence/polyfence-react-native.git
 cd polyfence-react-native
 
 # Install JavaScript dependencies
@@ -191,7 +191,7 @@ polyfence-core is pulled automatically as a dependency via CocoaPods (iOS) and M
 
 ```bash
 # Clone polyfence-core
-git clone https://github.com/blackabass/polyfence-core.git
+git clone https://github.com/polyfence/polyfence-core.git
 
 # Android
 cd polyfence-core/android && ./gradlew build
@@ -204,7 +204,7 @@ cd polyfence-core/ios && pod lib lint
 
 | Repository | Purpose |
 |---|---|
-| [polyfence-core](https://github.com/blackabass/polyfence-core) | Shared native engine (Kotlin + Swift) |
-| [polyfence-flutter](https://github.com/blackabass/polyfence-flutter) | Flutter plugin |
-| [polyfence](https://github.com/blackabass/polyfence) | SaaS platform (Next.js + Supabase) |
-| [polyfence-intelligence](https://github.com/blackabass/polyfence-intelligence) | ML training pipeline |
+| [polyfence-core](https://github.com/polyfence/polyfence-core) | Shared native engine (Kotlin + Swift) |
+| [polyfence-flutter](https://github.com/polyfence/polyfence-flutter) | Flutter plugin |
+| [polyfence](https://github.com/polyfence/polyfence) | SaaS platform (Next.js + Supabase) |
+| [polyfence-intelligence](https://github.com/polyfence/polyfence-intelligence) | ML training pipeline |

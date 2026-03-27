@@ -19,7 +19,7 @@ polyfence-react-native is a bridge package that connects React Native applicatio
 
 All location processing happens in polyfence-core on the device. No location data leaves the device unless the developer explicitly configures the optional SaaS integration via an API key.
 
-When SaaS telemetry is enabled (opt-out with one line), only aggregated session metrics are sent. See [polyfence-core PRIVACY.md](https://github.com/blackabass/polyfence-core/blob/main/PRIVACY.md) for details on what is and is not collected.
+When SaaS telemetry is enabled (opt-out with one line), only aggregated session metrics are sent. See [polyfence-core PRIVACY.md](https://github.com/polyfence/polyfence-core/blob/main/PRIVACY.md) for details on what is and is not collected.
 
 ## Dependencies
 

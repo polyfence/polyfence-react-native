@@ -3,7 +3,7 @@
 **Privacy-first, on-device geofencing for React Native.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
 
 [![npm version](https://img.shields.io/npm/v/polyfence-react-native.svg)](https://www.npmjs.com/package/polyfence-react-native)
-[![CI](https://github.com/blackabass/polyfence-react-native/actions/workflows/ci.yml/badge.svg)](https://github.com/blackabass/polyfence-react-native/actions/workflows/ci.yml)
+[![CI](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml/badge.svg)](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 ![Platform: Android & iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)
 
@@ -63,7 +63,7 @@ npm install polyfence-react-native
 yarn add polyfence-react-native
 ```
 
-**Native dependency:** Polyfence uses [polyfence-core](https://github.com/blackabass/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
+**Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 
 ```bash
 cd ios && pod install
@@ -615,7 +615,7 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 ## Support
 
-- **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-react-native/issues)
+- **Plugin Issues**: [GitHub Issues](https://github.com/polyfence/polyfence-react-native/issues)
 - **Questions & Discussions**: Open an issue with the `question` label
 - **Security Issues**: See [SECURITY.md](SECURITY.md)
 - **Commercial Support**: [polyfence.io](https://polyfence.io)

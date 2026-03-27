@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
   s.homepage     = package["homepage"]
   s.license      = package["license"]
   s.authors      = { "Polyfence" => "hello@polyfence.io" }
-  s.source       = { :git => "https://github.com/blackabass/polyfence-react-native.git", :tag => "v#{s.version}" }
+  s.source       = { :git => "https://github.com/polyfence/polyfence-react-native.git", :tag => "v#{s.version}" }
 
   s.platforms    = { :ios => "14.0" }
   s.swift_version = "5.0"

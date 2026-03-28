@@ -191,6 +191,13 @@ export interface SessionTelemetry {
   [key: string]: unknown; // future-proof for new fields
 }
 
+// Health score (J19 — emitted by polyfence-core every 5 minutes via onPerformanceEvent)
+export interface HealthScoreEvent {
+  score: number;
+  topIssue: string | null;
+  timestamp: number;
+}
+
 // Subscription
 export interface Subscription {
   remove: () => void;

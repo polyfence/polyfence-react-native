@@ -7,6 +7,7 @@ import type {
   SessionTelemetry,
   TrackingSchedule,
   GeofenceEvent,
+  HealthScoreEvent,
   PolyfenceLocation,
   PolyfenceError,
   PerformanceEventPayload,
@@ -19,9 +20,13 @@ import {
   onGeofenceEvent,
   onError,
   onPerformance,
+  onHealthScore,
   normalizePolyfenceError,
   removeAllListeners as removeAllEventListeners,
 } from './events';
+import { PolyfenceAnalytics } from './analytics';
+import type { AnalyticsConfig, StorageAdapter } from './analytics';
+import { AppLifecycleManager } from './lifecycle';
 
 const { Polyfence: NativePolyfence } = NativeModules;
 
@@ -34,6 +39,8 @@ if (!NativePolyfence) {
 export class Polyfence {
   private static _instance: Polyfence | null = null;
   private _isDisposed = false;
+  private _analyticsAvailable = false;
+  private _lifecycleManagerAvailable = false;
 
   static get instance(): Polyfence {
     if (!Polyfence._instance) {
@@ -52,9 +59,47 @@ export class Polyfence {
     }
   }
 
-  async initialize(config?: PolyfenceConfiguration): Promise<void> {
+  /**
+   * Initialize the geofencing engine and optionally analytics.
+   *
+   * @param config Geofencing configuration
+   * @param analyticsConfig Optional analytics config. Omit to use defaults (telemetry ON).
+   * @param storage Optional storage adapter for persistent retry queue (e.g. AsyncStorage).
+   */
+  async initialize(
+    config?: PolyfenceConfiguration,
+    analyticsConfig?: AnalyticsConfig,
+    storage?: StorageAdapter,
+  ): Promise<void> {
     this.assertNotDisposed();
-    return NativePolyfence.initialize(config ? { config } : {});
+    await NativePolyfence.initialize(config ? { config } : {});
+
+    // Initialize analytics (failure-isolated — never blocks geofencing)
+    try {
+      const resolvedConfig: AnalyticsConfig = analyticsConfig ?? {};
+      if (!resolvedConfig.disableTelemetry) {
+        PolyfenceAnalytics.instance.initialize(
+          resolvedConfig,
+          '0.1.0', // TODO: read from package version
+          () => this.getSessionTelemetry(),
+          storage,
+        );
+        this._analyticsAvailable = true;
+      }
+    } catch {
+      // Analytics init failed — continue without it
+      this._analyticsAvailable = false;
+    }
+
+    // Initialize lifecycle manager (failure-isolated)
+    try {
+      if (this._analyticsAvailable) {
+        AppLifecycleManager.instance.initialize();
+        this._lifecycleManagerAvailable = true;
+      }
+    } catch {
+      this._lifecycleManagerAvailable = false;
+    }
   }
 
   async startTracking(): Promise<void> {
@@ -124,6 +169,14 @@ export class Polyfence {
 
   onPerformance(callback: (payload: PerformanceEventPayload) => void): Subscription {
     return onPerformance(callback);
+  }
+
+  /**
+   * Subscribe to health score updates (emitted every 5 minutes).
+   * Score 0-100 with a top issue description when score < 90.
+   */
+  onHealthScore(callback: (event: HealthScoreEvent) => void): Subscription {
+    return onHealthScore(callback);
   }
 
   onZoneEnter(callback: (event: GeofenceEvent) => void): Subscription {
@@ -212,6 +265,25 @@ export class Polyfence {
   }
 
   async dispose(): Promise<void> {
+    // End session before tearing down (if analytics available)
+    if (this._analyticsAvailable) {
+      try {
+        await PolyfenceAnalytics.instance.endSession();
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    if (this._lifecycleManagerAvailable) {
+      AppLifecycleManager.instance.dispose();
+      this._lifecycleManagerAvailable = false;
+    }
+
+    if (this._analyticsAvailable) {
+      PolyfenceAnalytics.instance.reset();
+      this._analyticsAvailable = false;
+    }
+
     this._isDisposed = true;
     removeAllEventListeners();
     return NativePolyfence.dispose();

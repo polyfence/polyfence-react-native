@@ -2,6 +2,7 @@ import { NativeEventEmitter, NativeModules } from 'react-native';
 import type {
   GeofenceEvent,
   GeofenceEventType,
+  HealthScoreEvent,
   PolyfenceLocation,
   PolyfenceError,
   PolyfenceErrorType,
@@ -143,6 +144,24 @@ export function onError(callback: (error: PolyfenceError) => void): Subscription
 
 export function onPerformance(callback: (payload: PerformanceEventPayload) => void): Subscription {
   return addListener('onPerformance', callback);
+}
+
+/**
+ * Subscribe to health score updates (emitted every 5 minutes by polyfence-core).
+ * Filters onPerformance events for `type: "health_score"`.
+ */
+export function onHealthScore(callback: (event: HealthScoreEvent) => void): Subscription {
+  return addListener('onPerformance', (raw: Record<string, unknown>) => {
+    if (raw.type === 'health_score') {
+      callback({
+        score: (raw.score as number) ?? 0,
+        topIssue: typeof raw.topIssue === 'string' && raw.topIssue.length > 0
+          ? raw.topIssue
+          : null,
+        timestamp: (raw.timestamp as number) ?? Date.now(),
+      });
+    }
+  });
 }
 
 export function removeAllListeners(): void {

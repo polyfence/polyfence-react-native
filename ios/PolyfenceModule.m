@@ -1,7 +1,7 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 
-@interface RCT_EXTERN_MODULE(PolyfenceModule, RCTEventEmitter)
+@interface RCT_EXTERN_MODULE(Polyfence, RCTEventEmitter)
 
 RCT_EXTERN_METHOD(initialize:(NSDictionary *)config
                   resolver:(RCTPromiseResolveBlock)resolve

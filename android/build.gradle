@@ -9,8 +9,8 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.0'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0'
+        classpath "com.android.tools.build:gradle:${safeExtGet('agpVersion', '8.2.0')}"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', '1.9.25')}"
     }
 }
 
@@ -33,12 +33,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 
     sourceSets {
@@ -58,8 +58,8 @@ repositories {
 }
 
 dependencies {
-    implementation "com.facebook.react:react-android:0.73.11"
-    implementation "io.polyfence:polyfence-core:1.0.2"
+    compileOnly "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '+')}"
+    implementation "io.polyfence:polyfence-core:1.0.4"
     implementation "com.google.android.gms:play-services-location:21.3.0"
     implementation "androidx.core:core-ktx:1.15.0"
 }

@@ -572,6 +572,17 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         }
     }
 
+    // Required by NativeEventEmitter in RN 0.65+ / Bridgeless mode
+    @ReactMethod
+    fun addListener(eventName: String) {
+        // No-op: event delivery is handled by sendEvent/RCTDeviceEventEmitter
+    }
+
+    @ReactMethod
+    fun removeListeners(count: Int) {
+        // No-op: cleanup handled by JS-side subscription management
+    }
+
     /**
      * Helper: send event to React Native listeners.
      * Guards against crashes when React context is not ready or has been torn down.

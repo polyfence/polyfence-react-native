@@ -3,7 +3,7 @@ import UIKit
 import CoreLocation
 import PolyfenceCore
 
-@objc(PolyfenceModule)
+@objc(Polyfence)
 class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     private static let prefsName = "polyfence_state"

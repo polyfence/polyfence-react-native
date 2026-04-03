@@ -15,6 +15,9 @@ doc/
 
 # Build
 android/build/
+android/.gradle/
+android/local.properties
+android/lint-baseline.xml
 ios/build/
 ios/Pods/
 

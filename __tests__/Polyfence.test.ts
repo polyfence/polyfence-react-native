@@ -4,7 +4,6 @@ import { NativeModules } from 'react-native';
 import type {
   Zone,
   PolyfenceConfiguration,
-  TrackingSchedule,
 } from '../src/types';
 
 describe('Polyfence', () => {
@@ -88,9 +87,9 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('removeAllZones', () => {
+  describe('clearAllZones', () => {
     it('should call native removeAllZones', async () => {
-      await Polyfence.instance.removeAllZones();
+      await Polyfence.instance.clearAllZones();
       expect(NativePolyfence.removeAllZones).toHaveBeenCalled();
     });
   });
@@ -115,7 +114,7 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('getDebugInfo', () => {
+  describe('debugInfo', () => {
     it('should return native result', async () => {
       const mockDebugInfo = {
         engineVersion: '1.0.0',
@@ -126,7 +125,7 @@ describe('Polyfence', () => {
       (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce(
         mockDebugInfo
       );
-      const result = await Polyfence.instance.getDebugInfo();
+      const result = await Polyfence.instance.debugInfo();
       expect(result).toEqual(mockDebugInfo);
       expect(NativePolyfence.getDebugInfo).toHaveBeenCalled();
     });
@@ -148,28 +147,6 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('setTrackingSchedule', () => {
-    it('should pass schedule to native', async () => {
-      const schedule: TrackingSchedule = {
-        startHour: 9,
-        startMinute: 0,
-        endHour: 17,
-        endMinute: 0,
-        daysOfWeek: [1, 2, 3, 4, 5],
-      };
-      await Polyfence.instance.setTrackingSchedule(schedule);
-      expect(NativePolyfence.setTrackingSchedule).toHaveBeenCalledWith(
-        schedule
-      );
-    });
-  });
-
-  describe('clearTrackingSchedule', () => {
-    it('should call native clearTrackingSchedule', async () => {
-      await Polyfence.instance.clearTrackingSchedule();
-      expect(NativePolyfence.clearTrackingSchedule).toHaveBeenCalled();
-    });
-  });
 
   describe('requestPermissions', () => {
     it('should pass options to native and return boolean', async () => {
@@ -277,20 +254,20 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('getErrorHistory', () => {
+  describe('errorHistory', () => {
     it('should pass options to native and return array', async () => {
       const mockErrors = [
         {
-          type: 'permission_denied' as const,
+          type: 'gpsPermissionDenied' as const,
           message: 'Permission denied',
         },
       ];
       (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce(
         mockErrors
       );
-      const result = await Polyfence.instance.getErrorHistory({ limit: 10 });
+      const result = await Polyfence.instance.errorHistory({ limit: 10 });
       expect(result[0]).toMatchObject({
-        type: 'permission_denied',
+        type: 'gpsPermissionDenied',
         message: 'Permission denied',
       });
       expect(NativePolyfence.getErrorHistory).toHaveBeenCalledWith({
@@ -300,7 +277,7 @@ describe('Polyfence', () => {
 
     it('should pass empty object when no options provided', async () => {
       (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce([]);
-      await Polyfence.instance.getErrorHistory();
+      await Polyfence.instance.errorHistory();
       expect(NativePolyfence.getErrorHistory).toHaveBeenCalledWith({});
     });
   });
@@ -329,10 +306,10 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('onLocation', () => {
+  describe('onLocationUpdate', () => {
     it('should register location listener and return subscription', () => {
       const callback = jest.fn();
-      const subscription = Polyfence.instance.onLocation(callback);
+      const subscription = Polyfence.instance.onLocationUpdate(callback);
       expect(subscription).toHaveProperty('remove');
       expect(typeof subscription.remove).toBe('function');
     });
@@ -366,7 +343,7 @@ describe('Polyfence', () => {
   });
 
   describe('onZoneEnter', () => {
-    it('should only trigger on enter and recovery_enter events', (done) => {
+    it('should only trigger on enter and recoveryEnter events', (done) => {
       const callback = jest.fn();
       Polyfence.instance.onZoneEnter(callback);
 
@@ -412,7 +389,7 @@ describe('Polyfence', () => {
         expect(callback).toHaveBeenCalledWith(
           expect.objectContaining({
             zoneId: 'zone1',
-            type: 'recovery_enter',
+            type: 'recoveryEnter',
           })
         );
         done();
@@ -421,7 +398,7 @@ describe('Polyfence', () => {
   });
 
   describe('onZoneExit', () => {
-    it('should only trigger on exit and recovery_exit events', (done) => {
+    it('should only trigger on exit and recoveryExit events', (done) => {
       const callback = jest.fn();
       Polyfence.instance.onZoneExit(callback);
 
@@ -467,7 +444,7 @@ describe('Polyfence', () => {
         expect(callback).toHaveBeenCalledWith(
           expect.objectContaining({
             zoneId: 'zone1',
-            type: 'recovery_exit',
+            type: 'recoveryExit',
           })
         );
         done();

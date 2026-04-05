@@ -173,6 +173,7 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                     "isInside": isInside,
                 ])
             }
+
             resolve(result)
         } catch {
             NSLog("PolyfenceModule: Get zone states failed: %@", error.localizedDescription)

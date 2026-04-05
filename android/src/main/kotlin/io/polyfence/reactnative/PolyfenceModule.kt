@@ -589,7 +589,8 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
      */
     private fun sendEvent(eventName: String, params: WritableMap) {
         try {
-            if (reactApplicationContext.hasActiveReactInstance()) {
+            val hasInstance = reactApplicationContext.hasActiveReactInstance()
+            if (hasInstance) {
                 reactApplicationContext
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                     .emit(eventName, params)
@@ -699,7 +700,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             }
             context.startService(intent)
         } catch (e: Exception) {
-            Log.d("PolyfenceModule", "Config stored for when tracking starts: ${e.message}")
+            Log.w("PolyfenceModule", "Failed to apply config: ${e.message}")
         }
     }
 }

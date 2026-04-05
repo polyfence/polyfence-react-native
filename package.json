@@ -1,6 +1,6 @@
 {
   "name": "polyfence-react-native",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Privacy-first polygon and circle geofencing for React Native",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",

@@ -36,17 +36,15 @@ interface ErrorLog {
 const ACCURACY_PROFILES: AccuracyProfile[] = [
   'maxAccuracy',
   'balanced',
-  'powerSaver',
+  'batteryOptimal',
   'adaptive',
 ];
 
 const PROFILE_LABELS: Record<AccuracyProfile, string> = {
   maxAccuracy: 'Max',
   balanced: 'Balanced',
-  powerSaver: 'Battery',
-  adaptive: 'Adaptive',
   batteryOptimal: 'Optimal',
-  custom: 'Custom',
+  adaptive: 'Adaptive',
 };
 
 export default function App(): React.ReactElement {
@@ -103,7 +101,7 @@ export default function App(): React.ReactElement {
         },
       );
 
-      const sub2 = Polyfence.instance.onLocation(
+      const sub2 = Polyfence.instance.onLocationUpdate(
         (location: PolyfenceLocation) => {
           setLastLocation(location);
         },
@@ -284,7 +282,7 @@ export default function App(): React.ReactElement {
                   <View>
                     <Text style={styles.label}>Accuracy</Text>
                     <Text style={styles.value}>
-                      {lastLocation.accuracy.toFixed(1)}m
+                      {(lastLocation.accuracy ?? 0).toFixed(1)}m
                     </Text>
                   </View>
                 </View>

@@ -5,7 +5,6 @@ import type {
   ZoneState,
   PolyfenceDebugInfo,
   SessionTelemetry,
-  TrackingSchedule,
   GeofenceEvent,
   HealthScoreEvent,
   PolyfenceLocation,
@@ -16,7 +15,7 @@ import type {
   BatteryOptimizationStatus,
 } from './types';
 import {
-  onLocation,
+  onLocationUpdate,
   onGeofenceEvent,
   onError,
   onPerformance,
@@ -123,7 +122,7 @@ export class Polyfence {
     return NativePolyfence.removeZone(zoneId);
   }
 
-  async removeAllZones(): Promise<void> {
+  async clearAllZones(): Promise<void> {
     this.assertNotDisposed();
     return NativePolyfence.removeAllZones();
   }
@@ -136,7 +135,7 @@ export class Polyfence {
     return NativePolyfence.getZoneStates();
   }
 
-  async getDebugInfo(): Promise<PolyfenceDebugInfo> {
+  async debugInfo(): Promise<PolyfenceDebugInfo> {
     this.assertNotDisposed();
     return NativePolyfence.getDebugInfo();
   }
@@ -146,18 +145,8 @@ export class Polyfence {
     return NativePolyfence.getSessionTelemetry();
   }
 
-  async setTrackingSchedule(schedule: TrackingSchedule): Promise<void> {
-    this.assertNotDisposed();
-    return NativePolyfence.setTrackingSchedule(schedule);
-  }
-
-  async clearTrackingSchedule(): Promise<void> {
-    this.assertNotDisposed();
-    return NativePolyfence.clearTrackingSchedule();
-  }
-
-  onLocation(callback: (location: PolyfenceLocation) => void): Subscription {
-    return onLocation(callback);
+  onLocationUpdate(callback: (location: PolyfenceLocation) => void): Subscription {
+    return onLocationUpdate(callback);
   }
 
   onGeofenceEvent(callback: (event: GeofenceEvent) => void): Subscription {
@@ -182,7 +171,7 @@ export class Polyfence {
 
   onZoneEnter(callback: (event: GeofenceEvent) => void): Subscription {
     return onGeofenceEvent((event) => {
-      if (event.type === 'enter' || event.type === 'recovery_enter') {
+      if (event.type === 'enter' || event.type === 'recoveryEnter') {
         callback(event);
       }
     });
@@ -190,7 +179,7 @@ export class Polyfence {
 
   onZoneExit(callback: (event: GeofenceEvent) => void): Subscription {
     return onGeofenceEvent((event) => {
-      if (event.type === 'exit' || event.type === 'recovery_exit') {
+      if (event.type === 'exit' || event.type === 'recoveryExit') {
         callback(event);
       }
     });
@@ -250,7 +239,7 @@ export class Polyfence {
     return NativePolyfence.requestBatteryOptimizationExemption();
   }
 
-  async getErrorHistory(options?: {
+  async errorHistory(options?: {
     limit?: number;
     timeRangeMs?: number;
     errorTypes?: string[];

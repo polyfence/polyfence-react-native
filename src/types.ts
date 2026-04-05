@@ -23,8 +23,8 @@ export type GeofenceEventType =
   | 'enter'
   | 'exit'
   | 'dwell'
-  | 'recovery_enter'
-  | 'recovery_exit';
+  | 'recoveryEnter'
+  | 'recoveryExit';
 
 export interface GeofenceEvent {
   zoneId: string;
@@ -34,37 +34,108 @@ export interface GeofenceEvent {
   timestamp: number;
   confidence?: number;
   dwellDurationMs?: number;
+  zone?: Zone;
 }
 
 // Location
 export interface PolyfenceLocation {
   latitude: number;
   longitude: number;
-  accuracy: number;
+  accuracy?: number;
   altitude?: number;
   speed?: number;
   bearing?: number;
-  timestamp: number;
+  timestamp?: number;
+  interval?: number;
+  isFallback?: boolean;
+  activity?: string;
 }
 
 // Configuration
 export type AccuracyProfile =
   | 'maxAccuracy'
   | 'balanced'
-  | 'powerSaver'
-  | 'adaptive'
   | 'batteryOptimal'
-  | 'custom';
+  | 'adaptive';
 
 export type UpdateStrategy =
-  | 'fixed'
+  | 'continuous'
   | 'proximityBased'
-  | 'activityBased'
+  | 'movementBased'
   | 'intelligent';
+
+// Nested settings interfaces
+export interface ProximitySettings {
+  nearZoneThresholdMeters?: number;
+  farZoneThresholdMeters?: number;
+  nearZoneUpdateIntervalMs?: number;
+  farZoneUpdateIntervalMs?: number;
+}
+
+export interface MovementSettings {
+  stationaryThresholdMs?: number;
+  movementThresholdMeters?: number;
+  stationaryUpdateIntervalMs?: number;
+  movingUpdateIntervalMs?: number;
+}
+
+export interface BatterySettings {
+  lowBatteryThreshold?: number;
+  criticalBatteryThreshold?: number;
+  lowBatteryUpdateIntervalMs?: number;
+  pauseOnCriticalBattery?: boolean;
+}
+
+export interface DwellSettings {
+  enabled?: boolean;
+  dwellThresholdMs?: number;
+}
+
+export interface ClusterSettings {
+  enabled?: boolean;
+  activeRadiusMeters?: number;
+  refreshDistanceMeters?: number;
+}
+
+export interface TimeWindow {
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+  daysOfWeek?: number[];
+}
+
+export interface ScheduleSettings {
+  enabled?: boolean;
+  timeWindows?: TimeWindow[];
+  startImmediatelyIfInWindow?: boolean;
+}
+
+export interface ActivitySettings {
+  enabled?: boolean;
+  confidenceThreshold?: number;
+  debounceSeconds?: number;
+  stillIntervalMs?: number;
+  walkingIntervalMs?: number;
+  runningIntervalMs?: number;
+  cyclingIntervalMs?: number;
+  drivingIntervalMs?: number;
+}
 
 export interface PolyfenceConfiguration {
   accuracyProfile?: AccuracyProfile;
   updateStrategy?: UpdateStrategy;
+  gpsAccuracyThreshold?: number;
+  enableDebugLogging?: boolean;
+  // Nested settings (Flutter parity)
+  proximitySettings?: ProximitySettings;
+  movementSettings?: MovementSettings;
+  batterySettings?: BatterySettings;
+  dwellSettings?: DwellSettings;
+  clusterSettings?: ClusterSettings;
+  scheduleSettings?: ScheduleSettings;
+  activitySettings?: ActivitySettings;
+  // Legacy flat properties (kept for backward compatibility during migration)
   desiredIntervalMs?: number;
   fastestIntervalMs?: number;
   smallestDisplacementM?: number;
@@ -79,19 +150,6 @@ export interface PolyfenceConfiguration {
   saasBaseUrl?: string;
   analyticsEnabled?: boolean;
   industryCategory?: string;
-  /** iOS bridge forwards these when present; Android may ignore until parity lands. */
-  gpsAccuracyThreshold?: number;
-  dwellSettings?: {
-    enabled?: boolean;
-    dwellThresholdMs?: number;
-  };
-  clusterSettings?: {
-    enabled?: boolean;
-    activeRadiusMeters?: number;
-    refreshDistanceMeters?: number;
-  };
-  scheduleSettings?: Record<string, unknown>;
-  activitySettings?: Record<string, unknown>;
 }
 
 // Runtime status
@@ -120,20 +178,31 @@ export interface BatteryOptimizationStatus {
 
 // Error
 export type PolyfenceErrorType =
-  | 'permission_denied'
-  | 'location_disabled'
-  | 'activity_recognition_unavailable'
-  | 'configuration_error'
-  | 'zone_error'
-  | 'tracking_error'
-  | 'network_error'
+  | 'gpsTimeout'
+  | 'gpsPermissionDenied'
+  | 'gpsServiceDisabled'
+  | 'gpsAccuracyPoor'
+  | 'gpsUnreliable'
+  | 'serviceStartFailed'
+  | 'serviceKilled'
+  | 'serviceRestartFailed'
+  | 'batteryOptimizationRequired'
+  | 'lowBattery'
+  | 'zoneValidationFailed'
+  | 'zoneStorageFailed'
+  | 'zoneLoadFailed'
+  | 'networkTimeout'
+  | 'analyticsUploadFailed'
+  | 'permissionRevoked'
+  | 'memoryLow'
   | 'unknown';
 
 export interface PolyfenceError {
   type: PolyfenceErrorType;
   message: string;
-  code?: string;
-  details?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  timestamp?: number;
+  correlationId?: string;
 }
 
 // Debug info
@@ -159,15 +228,6 @@ export interface ZoneState {
   lastEventTimestamp?: number;
   dwellStartTimestamp?: number;
   distanceToBoundaryM?: number;
-}
-
-// Tracking schedule
-export interface TrackingSchedule {
-  startHour: number;
-  startMinute: number;
-  endHour: number;
-  endMinute: number;
-  daysOfWeek?: number[]; // 1=Monday, 7=Sunday
 }
 
 // Session telemetry (D016 — aggregated in core)

@@ -54,7 +54,7 @@ export function PolyfenceDebugOverlay({
 
   const fetchDebugInfo = useCallback(async () => {
     try {
-      const info = await Polyfence.instance.getDebugInfo();
+      const info = await Polyfence.instance.debugInfo();
       setDebugInfo(info);
     } catch {
       // Non-fatal

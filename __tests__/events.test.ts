@@ -1,6 +1,6 @@
 import { getMockEventEmitter } from './setup';
 import {
-  onLocation,
+  onLocationUpdate,
   onGeofenceEvent,
   onError,
   onPerformance,
@@ -15,17 +15,17 @@ describe('Events', () => {
     mockEmitter = getMockEventEmitter();
   });
 
-  describe('onLocation', () => {
+  describe('onLocationUpdate', () => {
     it('should register listener on onLocation event', () => {
       const callback = jest.fn();
-      onLocation(callback);
+      onLocationUpdate(callback);
       const [[eventName]] = (mockEmitter.addListener as jest.Mock).mock.calls;
       expect(eventName).toBe('onLocation');
     });
 
     it('should return subscription with remove method', () => {
       const callback = jest.fn();
-      const subscription = onLocation(callback);
+      const subscription = onLocationUpdate(callback);
       expect(subscription).toHaveProperty('remove');
       expect(typeof subscription.remove).toBe('function');
     });
@@ -35,7 +35,7 @@ describe('Events', () => {
       const mockSub = { remove: jest.fn() };
       (mockEmitter.addListener as jest.Mock).mockReturnValueOnce(mockSub);
 
-      const subscription = onLocation(callback);
+      const subscription = onLocationUpdate(callback);
       subscription.remove();
 
       expect(mockSub.remove).toHaveBeenCalled();
@@ -197,8 +197,8 @@ describe('Events', () => {
         .mockReturnValueOnce(mockSub1)
         .mockReturnValueOnce(mockSub2);
 
-      const sub1 = onLocation(callback1);
-      onLocation(callback2);
+      const sub1 = onLocationUpdate(callback1);
+      onLocationUpdate(callback2);
 
       sub1.remove();
 
@@ -212,8 +212,8 @@ describe('Events', () => {
       const callback1 = jest.fn();
       const callback2 = jest.fn();
 
-      const sub1 = onLocation(callback1);
-      const sub2 = onLocation(callback2);
+      const sub1 = onLocationUpdate(callback1);
+      const sub2 = onLocationUpdate(callback2);
 
       expect((mockEmitter.addListener as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
       expect(sub1).toHaveProperty('remove');
@@ -226,7 +226,7 @@ describe('Events', () => {
       const errCallback = jest.fn();
       const perfCallback = jest.fn();
 
-      const locSub = onLocation(locCallback);
+      const locSub = onLocationUpdate(locCallback);
       const geoSub = onGeofenceEvent(geoCallback);
       const errSub = onError(errCallback);
       const perfSub = onPerformance(perfCallback);

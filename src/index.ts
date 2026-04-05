@@ -1,6 +1,6 @@
 export { Polyfence } from './Polyfence';
 export {
-  onLocation,
+  onLocationUpdate,
   onGeofenceEvent,
   onError,
   onPerformance,
@@ -29,9 +29,16 @@ export type {
   PolyfenceErrorType,
   PolyfenceDebugInfo,
   ZoneState,
-  TrackingSchedule,
   SessionTelemetry,
   HealthScoreEvent,
   Subscription,
   BatteryOptimizationStatus,
+  ProximitySettings,
+  MovementSettings,
+  BatterySettings,
+  DwellSettings,
+  ClusterSettings,
+  ScheduleSettings,
+  TimeWindow,
+  ActivitySettings,
 } from './types';

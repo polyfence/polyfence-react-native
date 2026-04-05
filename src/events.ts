@@ -1,4 +1,4 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { DeviceEventEmitter, Platform, NativeEventEmitter, NativeModules } from 'react-native';
 import type {
   GeofenceEvent,
   GeofenceEventType,
@@ -11,30 +11,41 @@ import type {
 } from './types';
 
 const { Polyfence: NativePolyfence } = NativeModules;
-const emitter = new NativeEventEmitter(NativePolyfence);
 
-const GEOFENCE_EVENT_TYPES: ReadonlySet<string> = new Set<GeofenceEventType>([
-  'enter',
-  'exit',
-  'dwell',
-  'recovery_enter',
-  'recovery_exit',
-]);
+// Android Bridgeless mode: RCTDeviceEventEmitter events don't reach NativeEventEmitter.
+// Use DeviceEventEmitter directly on Android; NativeEventEmitter on iOS (required for RCTEventEmitter).
+const emitter = Platform.OS === 'android'
+  ? DeviceEventEmitter
+  : new NativeEventEmitter(NativePolyfence);
+
+// Valid geofence event types: enter, exit, dwell, recoveryEnter, recoveryExit
+// Normalization uses the mapping in normalizeEventType() below.
 
 /** Map native error codes/keys to the public PolyfenceErrorType union. */
 const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
-  permission_denied: 'permission_denied',
-  location_disabled: 'location_disabled',
-  activity_recognition_unavailable: 'activity_recognition_unavailable',
-  configuration_error: 'configuration_error',
-  zone_error: 'zone_error',
-  tracking_error: 'tracking_error',
-  network_error: 'network_error',
-  gps_permission_denied: 'permission_denied',
-  gps_service_disabled: 'location_disabled',
-  permission_revoked: 'permission_denied',
-  battery_optimization_required: 'tracking_error',
+  permission_denied: 'gpsPermissionDenied',
+  location_disabled: 'gpsServiceDisabled',
+  activity_recognition_unavailable: 'unknown',
+  configuration_error: 'unknown',
+  zone_error: 'zoneValidationFailed',
+  tracking_error: 'serviceStartFailed',
+  network_error: 'networkTimeout',
+  gps_permission_denied: 'gpsPermissionDenied',
+  gps_service_disabled: 'gpsServiceDisabled',
+  permission_revoked: 'permissionRevoked',
+  battery_optimization_required: 'batteryOptimizationRequired',
   battery_check_failed: 'unknown',
+  gps_timeout: 'gpsTimeout',
+  gps_accuracy_poor: 'gpsAccuracyPoor',
+  gps_unreliable: 'gpsUnreliable',
+  service_start_failed: 'serviceStartFailed',
+  service_killed: 'serviceKilled',
+  service_restart_failed: 'serviceRestartFailed',
+  low_battery: 'lowBattery',
+  zone_storage_failed: 'zoneStorageFailed',
+  zone_load_failed: 'zoneLoadFailed',
+  analytics_upload_failed: 'analyticsUploadFailed',
+  memory_low: 'memoryLow',
 };
 
 function addListener<T>(eventName: string, callback: (data: T) => void): Subscription {
@@ -46,11 +57,26 @@ function addListener<T>(eventName: string, callback: (data: T) => void): Subscri
   };
 }
 
+function normalizeEventType(raw: string): GeofenceEventType {
+  const mapping: Record<string, GeofenceEventType> = {
+    'enter': 'enter',
+    'exit': 'exit',
+    'dwell': 'dwell',
+    'recovery_enter': 'recoveryEnter',
+    'recovery_exit': 'recoveryExit',
+    // Handle uppercase from native
+    'ENTER': 'enter',
+    'EXIT': 'exit',
+    'DWELL': 'dwell',
+    'RECOVERY_ENTER': 'recoveryEnter',
+    'RECOVERY_EXIT': 'recoveryExit',
+  };
+  return mapping[raw] ?? 'enter';
+}
+
 function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent {
-  const rawType = (raw.eventType as string | undefined)?.toLowerCase() ?? '';
-  const type: GeofenceEventType = GEOFENCE_EVENT_TYPES.has(rawType)
-    ? (rawType as GeofenceEventType)
-    : 'enter';
+  const rawType = (raw.eventType as string | undefined) ?? '';
+  const type: GeofenceEventType = normalizeEventType(rawType);
 
   return {
     zoneId: raw.zoneId as string,
@@ -87,15 +113,14 @@ export function normalizePolyfenceError(raw: Record<string, unknown>): Polyfence
         ? raw.type
         : undefined;
 
+  // All 18 Flutter-aligned error types
   const ALLOWED_ERROR_TYPES: ReadonlySet<string> = new Set<PolyfenceErrorType>([
-    'permission_denied',
-    'location_disabled',
-    'activity_recognition_unavailable',
-    'configuration_error',
-    'zone_error',
-    'tracking_error',
-    'network_error',
-    'unknown',
+    'gpsTimeout', 'gpsPermissionDenied', 'gpsServiceDisabled', 'gpsAccuracyPoor', 'gpsUnreliable',
+    'serviceStartFailed', 'serviceKilled', 'serviceRestartFailed',
+    'batteryOptimizationRequired', 'lowBattery',
+    'zoneValidationFailed', 'zoneStorageFailed', 'zoneLoadFailed',
+    'networkTimeout', 'analyticsUploadFailed',
+    'permissionRevoked', 'memoryLow', 'unknown',
   ]);
 
   let type: PolyfenceErrorType = 'unknown';
@@ -111,22 +136,23 @@ export function normalizePolyfenceError(raw: Record<string, unknown>): Polyfence
   }
 
   const skip = new Set(['type', 'message', 'code']);
-  const details: Record<string, unknown> = {};
+  const context: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (!skip.has(key)) {
-      details[key] = value;
+      context[key] = value;
     }
   }
 
   return {
     type,
     message,
-    code: codeStr,
-    details: Object.keys(details).length > 0 ? details : undefined,
+    context: Object.keys(context).length > 0 ? context : undefined,
+    timestamp: typeof raw.timestamp === 'number' ? raw.timestamp : Date.now(),
+    correlationId: typeof raw.correlationId === 'string' ? raw.correlationId : undefined,
   };
 }
 
-export function onLocation(callback: (location: PolyfenceLocation) => void): Subscription {
+export function onLocationUpdate(callback: (location: PolyfenceLocation) => void): Subscription {
   return addListener('onLocation', callback);
 }
 

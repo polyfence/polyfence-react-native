@@ -9,7 +9,6 @@ import type {
   PolyfenceError,
   PolyfenceDebugInfo,
   ZoneState,
-  TrackingSchedule,
   SessionTelemetry,
   Subscription,
   PolyfenceErrorType,
@@ -144,11 +143,11 @@ describe('Types', () => {
       expect(event.type).toBe('dwell');
     });
 
-    it('should accept recovery_enter event type', () => {
+    it('should accept recoveryEnter event type', () => {
       const event: GeofenceEvent = {
         zoneId: 'zone1',
         zoneName: 'Home',
-        type: 'recovery_enter',
+        type: 'recoveryEnter',
         location: {
           latitude: 37.7749,
           longitude: -122.4194,
@@ -157,14 +156,14 @@ describe('Types', () => {
         },
         timestamp: Date.now(),
       };
-      expect(event.type).toBe('recovery_enter');
+      expect(event.type).toBe('recoveryEnter');
     });
 
-    it('should accept recovery_exit event type', () => {
+    it('should accept recoveryExit event type', () => {
       const event: GeofenceEvent = {
         zoneId: 'zone1',
         zoneName: 'Home',
-        type: 'recovery_exit',
+        type: 'recoveryExit',
         location: {
           latitude: 37.7749,
           longitude: -122.4194,
@@ -173,7 +172,7 @@ describe('Types', () => {
         },
         timestamp: Date.now(),
       };
-      expect(event.type).toBe('recovery_exit');
+      expect(event.type).toBe('recoveryExit');
     });
 
     it('should support optional confidence', () => {
@@ -226,13 +225,6 @@ describe('Types', () => {
       expect(config.accuracyProfile).toBe('balanced');
     });
 
-    it('should accept powerSaver profile', () => {
-      const config: PolyfenceConfiguration = {
-        accuracyProfile: 'powerSaver',
-      };
-      expect(config.accuracyProfile).toBe('powerSaver');
-    });
-
     it('should accept adaptive profile', () => {
       const config: PolyfenceConfiguration = {
         accuracyProfile: 'adaptive',
@@ -247,18 +239,11 @@ describe('Types', () => {
       expect(config.accuracyProfile).toBe('batteryOptimal');
     });
 
-    it('should accept custom profile', () => {
+    it('should accept continuous update strategy', () => {
       const config: PolyfenceConfiguration = {
-        accuracyProfile: 'custom',
+        updateStrategy: 'continuous',
       };
-      expect(config.accuracyProfile).toBe('custom');
-    });
-
-    it('should accept fixed update strategy', () => {
-      const config: PolyfenceConfiguration = {
-        updateStrategy: 'fixed',
-      };
-      expect(config.updateStrategy).toBe('fixed');
+      expect(config.updateStrategy).toBe('continuous');
     });
 
     it('should accept proximityBased update strategy', () => {
@@ -268,11 +253,11 @@ describe('Types', () => {
       expect(config.updateStrategy).toBe('proximityBased');
     });
 
-    it('should accept activityBased update strategy', () => {
+    it('should accept movementBased update strategy', () => {
       const config: PolyfenceConfiguration = {
-        updateStrategy: 'activityBased',
+        updateStrategy: 'movementBased',
       };
-      expect(config.updateStrategy).toBe('activityBased');
+      expect(config.updateStrategy).toBe('movementBased');
     });
 
     it('should accept intelligent update strategy', () => {
@@ -392,14 +377,12 @@ describe('Types', () => {
   describe('PolyfenceError', () => {
     it('should accept all error types', () => {
       const errorTypes: PolyfenceErrorType[] = [
-        'permission_denied',
-        'location_disabled',
-        'activity_recognition_unavailable',
-        'configuration_error',
-        'zone_error',
-        'tracking_error',
-        'network_error',
-        'unknown',
+        'gpsTimeout', 'gpsPermissionDenied', 'gpsServiceDisabled',
+        'gpsAccuracyPoor', 'gpsUnreliable', 'serviceStartFailed',
+        'serviceKilled', 'serviceRestartFailed', 'batteryOptimizationRequired',
+        'lowBattery', 'zoneValidationFailed', 'zoneStorageFailed',
+        'zoneLoadFailed', 'networkTimeout', 'analyticsUploadFailed',
+        'permissionRevoked', 'memoryLow', 'unknown',
       ];
 
       errorTypes.forEach((errorType) => {
@@ -411,15 +394,16 @@ describe('Types', () => {
       });
     });
 
-    it('should support optional code and details', () => {
+    it('should support optional context and correlationId', () => {
       const error: PolyfenceError = {
-        type: 'permission_denied',
+        type: 'gpsPermissionDenied',
         message: 'Permission denied',
-        code: 'PERMISSION_DENIED',
-        details: { permission: 'LOCATION' },
+        context: { permission: 'LOCATION' },
+        timestamp: Date.now(),
+        correlationId: 'abc-123',
       };
-      expect(error.code).toBe('PERMISSION_DENIED');
-      expect(error.details?.permission).toBe('LOCATION');
+      expect(error.context?.permission).toBe('LOCATION');
+      expect(error.correlationId).toBe('abc-123');
     });
   });
 
@@ -465,32 +449,6 @@ describe('Types', () => {
         distanceToBoundaryM: 50.5,
       };
       expect(state.distanceToBoundaryM).toBe(50.5);
-    });
-  });
-
-  describe('TrackingSchedule', () => {
-    it('should have required fields', () => {
-      const schedule: TrackingSchedule = {
-        startHour: 9,
-        startMinute: 0,
-        endHour: 17,
-        endMinute: 0,
-      };
-      expect(schedule.startHour).toBe(9);
-      expect(schedule.startMinute).toBe(0);
-      expect(schedule.endHour).toBe(17);
-      expect(schedule.endMinute).toBe(0);
-    });
-
-    it('should support optional daysOfWeek', () => {
-      const schedule: TrackingSchedule = {
-        startHour: 9,
-        startMinute: 0,
-        endHour: 17,
-        endMinute: 0,
-        daysOfWeek: [1, 2, 3, 4, 5],
-      };
-      expect(schedule.daysOfWeek).toEqual([1, 2, 3, 4, 5]);
     });
   });
 
@@ -559,13 +517,9 @@ describe('Types', () => {
       const location: PolyfenceLocation = {
         latitude: 37.7749,
         longitude: -122.4194,
-        accuracy: 10,
-        timestamp: Date.now(),
       };
       expect(location.latitude).toBe(37.7749);
       expect(location.longitude).toBe(-122.4194);
-      expect(location.accuracy).toBe(10);
-      expect(location.timestamp).toBeDefined();
     });
 
     it('should support optional fields', () => {
@@ -577,10 +531,17 @@ describe('Types', () => {
         speed: 5.5,
         bearing: 90,
         timestamp: Date.now(),
+        interval: 5000,
+        isFallback: false,
+        activity: 'WALKING',
       };
+      expect(location.accuracy).toBe(10);
       expect(location.altitude).toBe(50);
       expect(location.speed).toBe(5.5);
       expect(location.bearing).toBe(90);
+      expect(location.interval).toBe(5000);
+      expect(location.isFallback).toBe(false);
+      expect(location.activity).toBe('WALKING');
     });
   });
 

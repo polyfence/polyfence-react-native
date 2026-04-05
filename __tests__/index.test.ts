@@ -1,7 +1,7 @@
 import './setup'; // Must import first to set up mocks
 import {
   Polyfence,
-  onLocation,
+  onLocationUpdate,
   onGeofenceEvent,
   onError,
   onPerformance,
@@ -22,7 +22,6 @@ import type {
   PolyfenceErrorType,
   PolyfenceDebugInfo,
   ZoneState,
-  TrackingSchedule,
   SessionTelemetry,
   Subscription,
   BatteryOptimizationStatus,
@@ -42,8 +41,8 @@ describe('index exports', () => {
   });
 
   describe('Event functions', () => {
-    it('should export onLocation function', () => {
-      expect(typeof onLocation).toBe('function');
+    it('should export onLocationUpdate function', () => {
+      expect(typeof onLocationUpdate).toBe('function');
     });
 
     it('should export onGeofenceEvent function', () => {
@@ -151,15 +150,15 @@ describe('index exports', () => {
 
     it('should allow PolyfenceError type usage', () => {
       const error: PolyfenceError = {
-        type: 'permission_denied',
+        type: 'gpsPermissionDenied',
         message: 'Permission denied',
       };
-      expect(error.type).toBe('permission_denied');
+      expect(error.type).toBe('gpsPermissionDenied');
     });
 
     it('should allow PolyfenceErrorType type usage', () => {
-      const errorType: PolyfenceErrorType = 'permission_denied';
-      expect(errorType).toBe('permission_denied');
+      const errorType: PolyfenceErrorType = 'gpsPermissionDenied';
+      expect(errorType).toBe('gpsPermissionDenied');
     });
 
     it('should allow PolyfenceDebugInfo type usage', () => {
@@ -184,16 +183,6 @@ describe('index exports', () => {
         isInside: true,
       };
       expect(state.zoneId).toBe('zone1');
-    });
-
-    it('should allow TrackingSchedule type usage', () => {
-      const schedule: TrackingSchedule = {
-        startHour: 9,
-        startMinute: 0,
-        endHour: 17,
-        endMinute: 0,
-      };
-      expect(schedule.startHour).toBe(9);
     });
 
     it('should allow SessionTelemetry type usage', () => {
@@ -239,7 +228,7 @@ describe('index exports', () => {
       const callback = (location: PolyfenceLocation) => {
         expect(location.latitude).toBeDefined();
       };
-      const subscription = onLocation(callback);
+      const subscription = onLocationUpdate(callback);
       expect(subscription).toHaveProperty('remove');
     });
 

@@ -75,7 +75,7 @@ body:
     attributes:
       label: Polyfence React Native Version
       description: Which version of polyfence-react-native are you using?
-      placeholder: "0.1.0"
+      placeholder: "1.0.0"
     validations:
       required: true
 

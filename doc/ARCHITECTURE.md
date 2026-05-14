@@ -87,6 +87,8 @@ JavaScript handler (developer's listener)
 
 ### Telemetry Flow
 
+Telemetry posture: opt-out by default, one-line disable. Different data classes have different defaults — positions are opt-in, telemetry is opt-out, zone events are always-on. See PRIVACY.md.
+
 Telemetry is opt-out. When enabled:
 
 ```

@@ -1,6 +1,6 @@
 # Polyfence React Native
 
-**Privacy-first, on-device geofencing for React Native.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
+**The Polyfence geofence layer for React Native.** Define zones once; same zones run on your mobile app, your IoT device, and your server (Polyfence platform). This package is the React Native bridge over polyfence-core (engine source: [github.com/polyfence/polyfence-core](https://github.com/polyfence/polyfence-core)). Privacy-first by default — positions never leave the device; only zone events.
 
 [![npm version](https://img.shields.io/npm/v/polyfence-react-native.svg)](https://www.npmjs.com/package/polyfence-react-native)
 [![CI](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml/badge.svg)](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml)
@@ -11,6 +11,12 @@
   <img alt="Dashboard" src="assets/screenshot-dashboard.png" width="280" />
   <img alt="Zone Map" src="assets/screenshot-map.png" width="280" />
 </p>
+
+## Who this is for
+
+You're building a React Native app that needs geofencing — delivery, logistics, fitness, healthcare, asset tracking, agritech, fleet, or consumer. You want the math on-device, the zones defined once, and the same definitions reusable on your IoT firmware or server when you grow into those surfaces.
+
+This package is the React Native bridge. The same engine runs on iOS/Android via [polyfence-core](https://github.com/polyfence/polyfence-core), on embedded MCUs via [polyfence-embedded](https://github.com/polyfence/polyfence-embedded), and server-side via the Polyfence API.
 
 ## Why Polyfence?
 
@@ -23,17 +29,17 @@
 - **TypeScript-first** — Full type definitions. Built for type safety.
 - **Dwell detection** — Detect when users stay in zones for a configured duration.
 
-## How to Use Polyfence
+## Where your zones come from
 
-**Three ways to use Polyfence** — choose what fits your workflow:
+Three storage choices — same plugin API in all cases:
 
 | Approach | Backend | API Key | Best For |
 |----------|---------|---------|----------|
 | **Hardcode zones in your app** | None | Not needed | Static zones, full control, privacy-first apps |
 | **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
-| **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, analytics dashboard |
+| **Use the Polyfence dashboard** | polyfence.io | Required | Visual zone editor, analytics dashboard |
 
-All three approaches use the **same plugin API** — switch anytime without code changes.
+Same plugin API in all cases. The Polyfence platform layer (SDK + dashboard + API) is the geofence layer underneath your product, whether you store zones in code or in the dashboard.
 
 ---
 
@@ -472,22 +478,19 @@ See [Expo Custom Development Client docs](https://docs.expo.dev/develop/developm
 
 ---
 
-## Privacy & Security
+## Privacy
 
-Polyfence is built with privacy as the foundation.
+**Zero PII about your end users.** The only personal information Polyfence holds is the *developer's* account info (email, billing) — same as any paid SaaS.
 
-### What We NEVER Send
+Different defaults for different data classes:
 
-- **GPS coordinates** or location data
-- **Zone definitions** or boundaries
-- **User identifiers** (name, email, phone, device ID)
-- **Personal information** of any kind
+- **Positions** — opt-in. Never persisted on Polyfence servers by default. If you turn retention on, positions are stored in your tenant — never names, phones, emails, or health data.
+- **Anonymous telemetry** — opt-out, one line disables (see below). Never coordinates, never identifiers, never PII — only aggregates (platform, plugin version, accuracy averages, error counts).
+- **Zone events** — always on. They're the value we deliver, not surveillance.
 
-**Your users' location data stays on their device. Always.**
+This is the deliberate posture, not an inconsistency. See [PRIVACY.md](PRIVACY.md) for the full breakdown.
 
-### Anonymous Plugin Telemetry (Opt-Out)
-
-Polyfence collects anonymous performance telemetry to help improve plugin reliability. Telemetry is **enabled by default** — disable it with:
+### Disable telemetry (one line)
 
 ```typescript
 await Polyfence.instance.initialize({
@@ -495,14 +498,12 @@ await Polyfence.instance.initialize({
 });
 ```
 
-Only anonymous aggregate metrics are sent: platform, plugin version, performance metrics (detection times, GPS accuracy averages), battery impact statistics, and error counts. **No GPS coordinates, zone definitions, or PII are ever transmitted.**
-
 ### Architecture Guarantees
 
 - **On-device geofencing**: All zone detection runs locally using native GPS APIs
 - **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)
 - **No tracking**: No user behavior tracking, no cross-app tracking
-- **GDPR/CCPA-friendly**: Anonymous telemetry only, easy opt-out
+- **GDPR/CCPA-friendly**: Anonymous aggregates only by default, one-line disable for telemetry, opt-in for position retention
 
 ---
 
@@ -565,7 +566,7 @@ android {
 
 ## Known Differences from Flutter
 
-The following Flutter APIs are intentionally deferred from v0.1.0 of the React Native bridge:
+The following Flutter APIs are intentionally deferred from v1.0.0 of this package:
 
 - `enableIntelligentOptimization()`, `enableProximityOptimization()`, `enableMovementOptimization()` — ML-powered optimization APIs. These will be added when the intelligence layer is integrated (planned for v0.2.0).
 - `zones` getter — Use `getZoneStates()` to query current zone state.

@@ -1,6 +1,6 @@
 # Polyfence React Native
 
-**Privacy-first, on-device geofencing for React Native.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
+**The Polyfence geofence layer for React Native.** Define zones once; same zones run on your mobile app, your IoT device, and your server (Polyfence platform). This package is the React Native bridge over polyfence-core (engine source: [github.com/polyfence/polyfence-core](https://github.com/polyfence/polyfence-core)). Privacy-first by default — positions never leave the device; only zone events.
 
 [![npm version](https://img.shields.io/npm/v/polyfence-react-native.svg)](https://www.npmjs.com/package/polyfence-react-native)
 [![CI](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml/badge.svg)](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml)

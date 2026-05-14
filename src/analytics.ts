@@ -58,6 +58,11 @@ function generateIdempotencyKey(): string {
  *
  * Port of Flutter's PolyfenceAnalytics — same endpoint, same payload shape,
  * same opt-out behavior (D008), same retry queue (capped at 50).
+ *
+ * Posture: opt-OUT with one-line disable for anonymous aggregates.
+ * Never coordinates, never identifiers, never PII.
+ * See PRIVACY.md and BRAND_POSITIONING.md (the polyfence-internal repo)
+ * for the platform-wide privacy stance.
  */
 export class PolyfenceAnalytics {
   private static _instance: PolyfenceAnalytics | null = null;

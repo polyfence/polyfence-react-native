@@ -130,4 +130,4 @@ Ensure you have the correct Android/iOS permission declarations in:
 - Demo zones use London coordinates; actual geofencing requires GPS-enabled device
 - Location updates shown in status only work with location services enabled
 - All geofencing runs on-device; no data sent to cloud (privacy-first)
-- Telemetry is opt-out by default; see plugin docs to disable
+- Telemetry is opt-out by default. To disable, pass `analyticsEnabled: false` to `Polyfence.instance.initialize({ analyticsEnabled: false })` (one line). All telemetry is anonymous aggregates — never coordinates, never identifiers.

@@ -478,22 +478,19 @@ See [Expo Custom Development Client docs](https://docs.expo.dev/develop/developm
 
 ---
 
-## Privacy & Security
+## Privacy
 
-Polyfence is built with privacy as the foundation.
+**Zero PII about your end users.** The only personal information Polyfence holds is the *developer's* account info (email, billing) — same as any paid SaaS.
 
-### What We NEVER Send
+Different defaults for different data classes:
 
-- **GPS coordinates** or location data
-- **Zone definitions** or boundaries
-- **User identifiers** (name, email, phone, device ID)
-- **Personal information** of any kind
+- **Positions** — opt-in. Never persisted on Polyfence servers by default. If you turn retention on, positions are stored in your tenant — never names, phones, emails, or health data.
+- **Anonymous telemetry** — opt-out, one line disables (see below). Never coordinates, never identifiers, never PII — only aggregates (platform, plugin version, accuracy averages, error counts).
+- **Zone events** — always on. They're the value we deliver, not surveillance.
 
-**Your users' location data stays on their device. Always.**
+This is the deliberate posture, not an inconsistency. See [PRIVACY.md](PRIVACY.md) for the full breakdown.
 
-### Anonymous Plugin Telemetry (Opt-Out)
-
-Polyfence collects anonymous performance telemetry to help improve plugin reliability. Telemetry is **enabled by default** — disable it with:
+### Disable telemetry (one line)
 
 ```typescript
 await Polyfence.instance.initialize({
@@ -501,14 +498,12 @@ await Polyfence.instance.initialize({
 });
 ```
 
-Only anonymous aggregate metrics are sent: platform, plugin version, performance metrics (detection times, GPS accuracy averages), battery impact statistics, and error counts. **No GPS coordinates, zone definitions, or PII are ever transmitted.**
-
 ### Architecture Guarantees
 
 - **On-device geofencing**: All zone detection runs locally using native GPS APIs
 - **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)
 - **No tracking**: No user behavior tracking, no cross-app tracking
-- **GDPR/CCPA-friendly**: Anonymous telemetry only, easy opt-out
+- **GDPR/CCPA-friendly**: Anonymous aggregates only by default, one-line disable for telemetry, opt-in for position retention
 
 ---
 

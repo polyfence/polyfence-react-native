@@ -12,6 +12,12 @@
   <img alt="Zone Map" src="assets/screenshot-map.png" width="280" />
 </p>
 
+## Who this is for
+
+You're building a React Native app that needs geofencing — delivery, logistics, fitness, healthcare, asset tracking, agritech, fleet, or consumer. You want the math on-device, the zones defined once, and the same definitions reusable on your IoT firmware or server when you grow into those surfaces.
+
+This package is the React Native bridge. The same engine runs on iOS/Android via [polyfence-core](https://github.com/polyfence/polyfence-core), on embedded MCUs via [polyfence-embedded](https://github.com/polyfence/polyfence-embedded), and server-side via the Polyfence API.
+
 ## Why Polyfence?
 
 - **Polygon geofencing** — Not just circles. Define zones with arbitrary polygon boundaries (complex city zones, campus outlines, delivery areas).

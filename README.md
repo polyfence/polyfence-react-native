@@ -29,17 +29,17 @@ This package is the React Native bridge. The same engine runs on iOS/Android via
 - **TypeScript-first** — Full type definitions. Built for type safety.
 - **Dwell detection** — Detect when users stay in zones for a configured duration.
 
-## How to Use Polyfence
+## Where your zones come from
 
-**Three ways to use Polyfence** — choose what fits your workflow:
+Three storage choices — same plugin API in all cases:
 
 | Approach | Backend | API Key | Best For |
 |----------|---------|---------|----------|
 | **Hardcode zones in your app** | None | Not needed | Static zones, full control, privacy-first apps |
 | **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
-| **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, analytics dashboard |
+| **Use the Polyfence dashboard** | polyfence.io | Required | Visual zone editor, analytics dashboard |
 
-All three approaches use the **same plugin API** — switch anytime without code changes.
+Same plugin API in all cases. The Polyfence platform layer (SDK + dashboard + API) is the geofence layer underneath your product, whether you store zones in code or in the dashboard.
 
 ---
 

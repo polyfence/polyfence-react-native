@@ -14,7 +14,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 {
   "app_identifier": "com.example.logistics",
   "platform": "android",
-  "plugin_version": "0.1.0",
+  "plugin_version": "1.0.0",
   "core_version": "1.0.4",
 
   "industry_category": null,
@@ -81,7 +81,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 |-------|------|---------|-------------|
 | `app_identifier` | string | `"com.example.logistics"` | App package name (not a user identifier) |
 | `platform` | string | `"android"` | Operating system |
-| `plugin_version` | string | `"0.1.0"` | Package version |
+| `plugin_version` | string | `"1.0.0"` | Package version |
 | `bridge_platform` | string | `"react-native"` | Bridge layer. Set automatically. |
 | `core_version` | string | `"1.0.4"` | Native engine version from polyfence-core. Stamped automatically. |
 
@@ -241,7 +241,7 @@ All telemetry aggregation happens in polyfence-core's `TelemetryAggregator`. The
 ### 2026-04-03
 - Added `core_version` field — native engine version from polyfence-core, stamped automatically by TelemetryAggregator (D043)
 
-### 2026-03-27 (v0.1.0)
+### 2026-03-27 (initial release)
 - Initial release
 - Added `bridge_platform` field — identifies which bridge layer produced the session. Set to `"react-native"` automatically.
 - Session telemetry aggregation delegated to polyfence-core (D016)

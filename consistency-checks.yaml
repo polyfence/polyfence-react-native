@@ -1,0 +1,27 @@
+# Phase 2 declarative drift checks — polyfence-react-native
+checks:
+  - id: bootstrap-files-not-tracked
+    description: CLAUDE.md, .cursorrules, tasks/, prompts/, .claude/ must never be tracked
+    type: subprocess
+    runs: bash scripts/consistency-bootstrap-not-tracked.sh
+    fix: Remove tracked bootstrap paths via git rm --cached — keep them local-only.
+
+  - id: package-readme-version-sync
+    description: package.json semver appears in README, SECURITY train marker, and doc/TELEMETRY sentinel
+    type: subprocess
+    runs: bash scripts/consistency-package-readme-version.sh
+    fix: Update README / SECURITY / doc/TELEMETRY.md sentinels whenever package.json version changes.
+
+  - id: tsc-clean
+    description: TypeScript compiler emits zero diagnostics on bridge sources
+    type: subprocess
+    runs: npx tsc --noEmit
+    fix: Fix TS compile errors reported by npx tsc --noEmit.
+
+  - id: ios-podspec-version-declared
+    description: CocoaPods podspec publishes an explicit s.version for iOS consumers
+    type: regex-presence
+    files:
+      - polyfence-react-native.podspec
+    pattern: 's\.version\s*='
+    fix: Restore polyfence-react-native.podspec s.version line aligned with package.json releases.

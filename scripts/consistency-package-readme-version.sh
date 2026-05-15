@@ -5,6 +5,10 @@ cd "$ROOT"
 
 ver="$(node -p "require('./package.json').version")"
 grep -qF "$ver" README.md || { echo "package.json version ${ver} not cited in README.md"; exit 1; }
+grep -qF "$ver" doc/API_SURFACE.md || {
+  echo "package.json version ${ver} not cited in doc/API_SURFACE.md"
+  exit 1
+}
 grep -qF "\"plugin_version\": \"$ver\"" doc/TELEMETRY.md || {
   echo "doc/TELEMETRY.md missing plugin_version sentinel for ${ver}"
   exit 1

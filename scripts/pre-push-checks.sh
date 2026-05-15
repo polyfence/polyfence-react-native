@@ -38,4 +38,7 @@ fi
 echo "  Running TypeScript check..."
 npx tsc --noEmit
 
+echo "  Running consistency checks..."
+bash scripts/consistency-check.sh --local-only
+
 echo "All pre-push checks passed."

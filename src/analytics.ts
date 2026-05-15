@@ -229,6 +229,8 @@ export class PolyfenceAnalytics {
   private _buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'User-Agent': `polyfence-react-native/${this._pluginVersion}`,
+      'X-Platform': Platform.OS,
     };
     if (this._config.apiKey) {
       headers['x-api-key'] = this._config.apiKey;

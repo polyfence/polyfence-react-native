@@ -1,4 +1,4 @@
-# Phase 2 declarative drift checks — polyfence-react-native
+# Phase 3 declarative drift checks — polyfence-react-native
 checks:
   - id: bootstrap-files-not-tracked
     description: CLAUDE.md, .cursorrules, tasks/, prompts/, .claude/ must never be tracked
@@ -7,10 +7,10 @@ checks:
     fix: Remove tracked bootstrap paths via git rm --cached — keep them local-only.
 
   - id: package-readme-version-sync
-    description: package.json semver appears in README, SECURITY train marker, and doc/TELEMETRY sentinel
+    description: package.json semver appears in README, doc/API_SURFACE.md, SECURITY train marker, and doc/TELEMETRY sentinel
     type: subprocess
     runs: bash scripts/consistency-package-readme-version.sh
-    fix: Update README / SECURITY / doc/TELEMETRY.md sentinels whenever package.json version changes.
+    fix: Update README / doc/API_SURFACE.md / SECURITY / doc/TELEMETRY.md sentinels whenever package.json version changes.
 
   - id: tsc-clean
     description: TypeScript compiler emits zero diagnostics on bridge sources
@@ -25,3 +25,27 @@ checks:
       - polyfence-react-native.podspec
     pattern: 's\.version\s*='
     fix: Restore polyfence-react-native.podspec s.version line aligned with package.json releases.
+
+  - id: privacy-md-zero-pii-headline
+    description: PRIVACY.md keeps the zero-PII-about-end-users headline (template anchor)
+    type: regex-presence
+    files:
+      - PRIVACY.md
+    pattern: "Zero PII about your end users"
+    fix: Restore templates/PRIVACY_ROLE1.md headline language in PRIVACY.md; do not paraphrase away the zero-PII line.
+
+  - id: package-json-spdx-license
+    description: package.json declares an SPDX license string for registry consumers
+    type: regex-presence
+    files:
+      - package.json
+    pattern: '"license": "MIT"'
+    fix: Set package.json license to MIT to match the SPDX field expected by npm metadata checks.
+
+  - id: readme-links-polyfence-core-origin
+    description: README points integrators at the polyfence-core engine repository
+    type: regex-presence
+    files:
+      - README.md
+    pattern: "github\\.com/polyfence/polyfence-core"
+    fix: Link README native dependency explanation to the public polyfence-core repo URL.

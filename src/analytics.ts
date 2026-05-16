@@ -30,7 +30,7 @@ export interface StorageAdapter {
   getAllKeys(): Promise<readonly string[]>;
 }
 
-const DEFAULT_ENDPOINT = 'https://polyfence.io/api/v1/analytics/session';
+const DEFAULT_ENDPOINT = 'https://polyfence.io/api/v1/telemetry/session';
 const RETRY_KEY_PREFIX = 'polyfence_analytics_retry_';
 const MAX_RETRY_ENTRIES = 50;
 

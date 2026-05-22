@@ -12,8 +12,23 @@ import type {
 
 const { Polyfence: NativePolyfence } = NativeModules;
 
-// Android Bridgeless mode: RCTDeviceEventEmitter events don't reach NativeEventEmitter.
-// Use DeviceEventEmitter directly on Android; NativeEventEmitter on iOS (required for RCTEventEmitter).
+// iOS uses NativeEventEmitter so that JS-side `addListener` calls invoke the
+// native module's `addListener:` method — which calls super.addListener →
+// increments RCTEventEmitter's INTERNAL `_listenerCount`. RN gates
+// `sendEventWithName:body:` on `_listenerCount > 0 || _observationDisabled`
+// (RCTEventEmitter.m line ~51), so without the listener-count handshake every
+// event we emit is silently logged as "Sending `…` with no listeners".
+//
+// This requires the native module to explicitly export `addListener:` and
+// `removeListeners:` via RCT_EXTERN_METHOD — inherited RCTEventEmitter methods
+// are not visible to the New Arch codegen / TurboModuleManager under
+// Bridgeless. See PolyfenceModule.swift + PolyfenceModule.m for the @objc
+// override + extern declaration that completes this hop.
+//
+// Android uses DeviceEventEmitter because the Android side bypasses the
+// RCTEventEmitter base class entirely — it emits directly via
+// RCTDeviceEventEmitter.emit (see PolyfenceModule.kt:597-608), so there's no
+// listener-count gate to satisfy.
 const emitter = Platform.OS === 'android'
   ? DeviceEventEmitter
   : new NativeEventEmitter(NativePolyfence);

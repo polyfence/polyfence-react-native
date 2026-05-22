@@ -26,7 +26,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     override func startObserving() {
         eventQueue.sync {
-            NSLog("[Polyfence][bridge-trace] startObserving — flushing %d pending events", pendingEvents.count)
             hasListeners = true
             for event in pendingEvents {
                 sendEvent(withName: event.name, body: event.body)
@@ -37,7 +36,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     override func stopObserving() {
         eventQueue.sync {
-            NSLog("[Polyfence][bridge-trace] stopObserving")
             hasListeners = false
         }
     }
@@ -54,12 +52,10 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     // Android already has the equivalent at PolyfenceModule.kt:583-591 — this
     // brings iOS into parity. See react-native#41394.
     @objc override func addListener(_ eventName: String!) {
-        NSLog("[Polyfence][bridge-trace] addListener: %@", eventName ?? "(nil)")
         super.addListener(eventName)
     }
 
     @objc override func removeListeners(_ count: Double) {
-        NSLog("[Polyfence][bridge-trace] removeListeners: %f", count)
         super.removeListeners(count)
     }
 
@@ -510,12 +506,10 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     }
 
     private func sendGeofenceEvent(_ eventData: [String: Any]) {
-        NSLog("[Polyfence][bridge-trace] sendGeofenceEvent — emitting")
         sendEvent(withName: "onGeofenceEvent", body: eventData)
     }
 
     private func sendErrorEvent(_ errorData: [String: Any]) {
-        NSLog("[Polyfence][bridge-trace] sendErrorEvent — emitting")
         sendEvent(withName: "onError", body: errorData)
     }
 

@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-05-22
+
 ### Fixed
-- **iOS / React Native 0.76 Bridgeless:** Export `addListener` / `removeListeners` (`RCT_EXTERN_METHOD`) and forward to `RCTEventEmitter` so `NativeEventEmitter` subscriptions register under the New Architecture; emit location, geofence, error, and performance events unconditionally (aligned with Android). Previously `hasListeners` stayed false when `startObserving` never ran, so events were buffered then dropped after 50 entries.
+- **iOS / React Native 0.76 Bridgeless:** Events from native (`onLocation`, `onGeofenceEvent`, `onError`, `onPerformance`) were silently dropped on iOS under RN 0.76+ New Architecture. Root cause:
+  - JS-side `new NativeEventEmitter(NativePolyfence).addListener(...)` calls the native module's `addListener:` to increment `RCTEventEmitter._listenerCount`.
+  - Inherited `addListener:` / `removeListeners:` on `RCTEventEmitter` subclasses are not visible to the New Arch codegen / TurboModuleManager unless explicitly re-exported.
+  - Without that export, `_listenerCount` stayed `0` and `RCTEventEmitter.sendEventWithName:body:` short-circuited to `RCTLogWarn("Sending '...' with no listeners registered")` instead of routing to `RCTDeviceEventEmitter.emit`.
+- Fix: re-declare `addListener:` / `removeListeners:` in Swift (`@objc override`, calling `super`) and re-export them via `RCT_EXTERN_METHOD` in `PolyfenceModule.m`. Verified end-to-end on iOS 26.4 + RN 0.76.7 + `newArchEnabled=true`: a JS-side `polyfence.onGeofenceEvent(cb)` subscription now receives events emitted via the `coreDelegate.onGeofenceEvent` path.
+- Also removed the redundant `hasListeners` / `pendingEvents` plumbing from `sendLocationEvent` / `sendGeofenceEvent` / `sendErrorEvent` / `sendPerformanceEvent` — `RCTEventEmitter`'s internal `_listenerCount` gate is what matters and is now properly maintained by the explicit exports.
+
+See `react-native#41394` for upstream context on `RCTEventEmitter` listener-export semantics under New Architecture.
 
 ## [1.0.1] - 2026-05-22
 

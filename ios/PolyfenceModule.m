@@ -3,6 +3,14 @@
 
 @interface RCT_EXTERN_MODULE(Polyfence, RCTEventEmitter)
 
+// Explicit listener-lifecycle exports — required under RN 0.76+ Bridgeless /
+// New Architecture. Inherited RCTEventEmitter methods aren't visible to
+// codegen / TurboModuleManager unless re-exported. See the matching
+// `@objc override` declarations in PolyfenceModule.swift, and
+// react-native#41394 for context.
+RCT_EXTERN_METHOD(addListener:(NSString *)eventName)
+RCT_EXTERN_METHOD(removeListeners:(double)count)
+
 RCT_EXTERN_METHOD(initialize:(NSDictionary *)config
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)

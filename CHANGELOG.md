@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **iOS / React Native 0.76 Bridgeless:** Export `addListener` / `removeListeners` (`RCT_EXTERN_METHOD`) and forward to `RCTEventEmitter` so `NativeEventEmitter` subscriptions register under the New Architecture; emit location, geofence, error, and performance events unconditionally (aligned with Android). Previously `hasListeners` stayed false when `startObserving` never ran, so events were buffered then dropped after 50 entries.
+
 ## [1.0.1] - 2026-05-22
 
 ### Fixed

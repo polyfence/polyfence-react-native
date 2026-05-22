@@ -26,6 +26,7 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     override func startObserving() {
         eventQueue.sync {
+            NSLog("[Polyfence][bridge-trace] startObserving — flushing %d pending events", pendingEvents.count)
             hasListeners = true
             for event in pendingEvents {
                 sendEvent(withName: event.name, body: event.body)
@@ -36,8 +37,30 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     override func stopObserving() {
         eventQueue.sync {
+            NSLog("[Polyfence][bridge-trace] stopObserving")
             hasListeners = false
         }
+    }
+
+    // Under RN 0.76+ Bridgeless / New Architecture, NativeEventEmitter on the JS
+    // side calls `addListener(eventName)` and `removeListeners(count)` on the
+    // native module to signal subscription lifecycle. The inherited
+    // RCTEventEmitter implementations are not visible to the New Arch
+    // codegen / TurboModuleManager unless re-declared `@objc` here AND
+    // re-exported via RCT_EXTERN_METHOD in PolyfenceModule.m. Without these,
+    // `startObserving` never fires under Bridgeless and events queue silently
+    // into `pendingEvents`.
+    //
+    // Android already has the equivalent at PolyfenceModule.kt:583-591 — this
+    // brings iOS into parity. See react-native#41394.
+    @objc override func addListener(_ eventName: String!) {
+        NSLog("[Polyfence][bridge-trace] addListener: %@", eventName ?? "(nil)")
+        super.addListener(eventName)
+    }
+
+    @objc override func removeListeners(_ count: Double) {
+        NSLog("[Polyfence][bridge-trace] removeListeners: %f", count)
+        super.removeListeners(count)
     }
 
     @objc(initialize:resolver:rejecter:)
@@ -466,61 +489,38 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     }
 
     // MARK: - Private Event Sending Methods
+    //
+    // Under RN 0.76+ Bridgeless / New Architecture, the `hasListeners` flag
+    // (which is supposed to be set by `startObserving` when JS subscribes) is
+    // unreliable — the JS-side listener-count handshake doesn't always reach
+    // the native module. The pendingEvents buffer then silently swallows
+    // every event until it caps at 50.
+    //
+    // Android sidesteps this entirely by emitting events unconditionally via
+    // `RCTDeviceEventEmitter.emit` with no gate (see
+    // android/.../PolyfenceModule.kt sendEvent helper).
+    //
+    // Mirror that pattern here: always call sendEvent. If no JS listener is
+    // attached yet, RCTEventEmitter logs a benign warning and drops the
+    // event — same outcome as the pendingEvents queue at capacity, but
+    // events DO flow once a listener attaches via the bridge.
 
     private func sendLocationEvent(_ locationData: [String: Any]) {
-        var shouldSend = false
-        eventQueue.sync {
-            if hasListeners {
-                shouldSend = true
-            } else if pendingEvents.count < maxPendingEvents {
-                pendingEvents.append((name: "onLocation", body: locationData))
-            }
-        }
-        if shouldSend {
-            sendEvent(withName: "onLocation", body: locationData)
-        }
+        sendEvent(withName: "onLocation", body: locationData)
     }
 
     private func sendGeofenceEvent(_ eventData: [String: Any]) {
-        var shouldSend = false
-        eventQueue.sync {
-            if hasListeners {
-                shouldSend = true
-            } else if pendingEvents.count < maxPendingEvents {
-                pendingEvents.append((name: "onGeofenceEvent", body: eventData))
-            }
-        }
-        if shouldSend {
-            sendEvent(withName: "onGeofenceEvent", body: eventData)
-        }
+        NSLog("[Polyfence][bridge-trace] sendGeofenceEvent — emitting")
+        sendEvent(withName: "onGeofenceEvent", body: eventData)
     }
 
     private func sendErrorEvent(_ errorData: [String: Any]) {
-        var shouldSend = false
-        eventQueue.sync {
-            if hasListeners {
-                shouldSend = true
-            } else if pendingEvents.count < maxPendingEvents {
-                pendingEvents.append((name: "onError", body: errorData))
-            }
-        }
-        if shouldSend {
-            sendEvent(withName: "onError", body: errorData)
-        }
+        NSLog("[Polyfence][bridge-trace] sendErrorEvent — emitting")
+        sendEvent(withName: "onError", body: errorData)
     }
 
     private func sendPerformanceEvent(_ eventData: [String: Any]) {
-        var shouldSend = false
-        eventQueue.sync {
-            if hasListeners {
-                shouldSend = true
-            } else if pendingEvents.count < maxPendingEvents {
-                pendingEvents.append((name: "onPerformance", body: eventData))
-            }
-        }
-        if shouldSend {
-            sendEvent(withName: "onPerformance", body: eventData)
-        }
+        sendEvent(withName: "onPerformance", body: eventData)
     }
 
     private func sendStatus(trackingEnabled: Bool?) {

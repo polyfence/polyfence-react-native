@@ -61,8 +61,7 @@ function generateIdempotencyKey(): string {
  *
  * Posture: opt-OUT with one-line disable for anonymous aggregates.
  * Never coordinates, never identifiers, never PII.
- * See PRIVACY.md and BRAND_POSITIONING.md (the polyfence-internal repo)
- * for the platform-wide privacy stance.
+ * See PRIVACY.md for the SDK privacy stance.
  */
 export class PolyfenceAnalytics {
   private static _instance: PolyfenceAnalytics | null = null;

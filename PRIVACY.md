@@ -70,5 +70,3 @@ This package is the React Native bridge over `polyfence-core` — the geofence m
 ## Contact
 
 For any privacy questions, security concerns, or general inquiries: [hello@polyfence.io](mailto:hello@polyfence.io)
-
-<!-- source: ../polyfence-internal/templates/PRIVACY_ROLE1.md -->

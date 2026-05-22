@@ -365,7 +365,14 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
             val targetProfile = SmartGpsConfig.AccuracyProfile.values().firstOrNull { profile ->
                 profile.name.uppercase(Locale.US).replace("_", "") == normalized
-            } ?: SmartGpsConfig.AccuracyProfile.MAX_ACCURACY
+            }
+            if (targetProfile == null) {
+                promise.reject(
+                    "INVALID_PROFILE",
+                    "Unknown accuracy profile: \"$profileName\". Valid values: maxAccuracy, balanced, batteryOptimal, adaptive."
+                )
+                return
+            }
 
             val currentConfig = LocationTracker.getCurrentSmartConfiguration()
             val updatedConfig = currentConfig.copy(accuracyProfile = targetProfile)

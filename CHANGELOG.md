@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-05-22
+
+### Fixed
+- `setAccuracyProfile` on both bridges now rejects unknown profile names instead of silently falling back to `maxAccuracy`. Previously, passing `'powerSaver'` or `'custom'` (removed in 1.0.0) or any typo normalized to a value with no matching enum case and degraded to `MAX_ACCURACY`, the opposite of battery-savings intent. The TypeScript type already disallowed these values; this brings the native bridges into line with the typed contract.
+
 ## [1.0.0] - 2026-04-05
 
 ### Breaking Changes

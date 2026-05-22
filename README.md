@@ -389,7 +389,7 @@ await Polyfence.instance.setAccuracyProfile('maxAccuracy');
 await Polyfence.instance.setAccuracyProfile('balanced');
 
 // Battery-optimized for background monitoring
-await Polyfence.instance.setAccuracyProfile('powerSaver');
+await Polyfence.instance.setAccuracyProfile('batteryOptimal');
 
 // Intelligent auto-adjustment
 await Polyfence.instance.setAccuracyProfile('adaptive');
@@ -399,7 +399,7 @@ await Polyfence.instance.setAccuracyProfile('adaptive');
 |---------|-----------------|----------------|----------|
 | **maxAccuracy** | 5 seconds | High | Delivery, navigation, fleet tracking |
 | **balanced** | 10 seconds | Medium | Most location-aware apps (DEFAULT) |
-| **powerSaver** | 30 seconds | Low | Background monitoring, casual use |
+| **batteryOptimal** | 30 seconds | Low | Background monitoring, casual use |
 | **adaptive** | Dynamic | Variable | Apps with varying accuracy needs |
 
 ### Dwell Detection
@@ -630,4 +630,4 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 MIT — see [LICENSE](LICENSE)
 
-Copyright (c) 2025–2026 Polyfence
+Copyright (c) 2026 Polyfence

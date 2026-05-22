@@ -189,8 +189,6 @@ await Polyfence.instance.setAccuracyProfile('batteryOptimal');
 - `'balanced'` — Default; balanced accuracy/battery
 - `'batteryOptimal'` — Prioritizes battery life
 - `'adaptive'` — Context-aware auto-adjustment
-- `'powerSaver'` — Extreme battery optimization
-- `'custom'` — User-defined intervals
 
 ## Permissions & System Status
 

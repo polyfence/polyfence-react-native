@@ -362,9 +362,15 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
             let normalized = normalizeEnumValue(profile)
             let currentConfig = tracker.getCurrentSmartConfiguration()
-            let targetProfile = SmartGpsConfig.AccuracyProfile.allCases.first(where: {
+            guard let targetProfile = SmartGpsConfig.AccuracyProfile.allCases.first(where: {
                 normalizeEnumValue($0.rawValue) == normalized
-            }) ?? .maxAccuracy
+            }) else {
+                throw NSError(
+                    domain: "PolyfenceModule",
+                    code: 20,
+                    userInfo: [NSLocalizedDescriptionKey: "Unknown accuracy profile: \"\(profile)\". Valid values: maxAccuracy, balanced, batteryOptimal, adaptive."]
+                )
+            }
 
             let updatedConfig = SmartGpsConfig(
                 accuracyProfile: targetProfile,

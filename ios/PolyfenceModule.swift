@@ -9,6 +9,27 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     private static let prefsName = "polyfence_state"
     private static let keyTrackingEnabled = "tracking_enabled"
 
+    // Process-wide singletons so the tracker + persistence outlive any
+    // single PolyfenceModule instance.
+    //
+    // RCTEventEmitter modules can be deallocated and re-created across an
+    // RN bridge reload or — more importantly here — when iOS suspends the
+    // app and later wakes it (significant-location change, background
+    // fetch) before the JS bridge boots. If the LocationTracker is owned
+    // solely by the bridge module, that wake-up arrives at a delegate
+    // that's already nil; CLLocationManager has nothing to forward to and
+    // the location is dropped. Events for the next zone the user crosses
+    // get lost.
+    //
+    // Holding the tracker statically here keeps CLLocationManager + its
+    // delegate alive for the lifetime of the app process. When a new
+    // PolyfenceModule materialises (new bridge), `initialize()` reuses
+    // the existing tracker and just re-wires `coreDelegate` to the new
+    // bridge. iOS Flutter doesn't hit this because its FlutterAppDelegate
+    // retains the plugin instance across Dart isolate restarts.
+    private static var sharedLocationTracker: LocationTracker?
+    private static var sharedZonePersistence: ZonePersistence?
+
     private var locationTracker: LocationTracker?
     private var zonePersistence: ZonePersistence?
 
@@ -61,10 +82,27 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 PolyfenceDebugCollector.shared.setPluginVersion(version)
             }
 
-            zonePersistence = ZonePersistence()
-            locationTracker = LocationTracker()
-            locationTracker?.coreDelegate = self
-            locationTracker?.setBridgePlatform("react-native")
+            // Reuse the process-wide tracker if it exists (the previous
+            // bridge instance was deallocated but CLLocationManager and
+            // its delegate are alive on the static). Just re-wire the
+            // delegate to the current bridge instance and we're back in
+            // business — including a wired event path for whatever
+            // location updates iOS buffered while the bridge was down.
+            if let existingTracker = Self.sharedLocationTracker,
+               let existingPersistence = Self.sharedZonePersistence {
+                zonePersistence = existingPersistence
+                locationTracker = existingTracker
+                existingTracker.coreDelegate = self
+            } else {
+                let newPersistence = ZonePersistence()
+                let newTracker = LocationTracker()
+                newTracker.coreDelegate = self
+                newTracker.setBridgePlatform("react-native")
+                Self.sharedZonePersistence = newPersistence
+                Self.sharedLocationTracker = newTracker
+                zonePersistence = newPersistence
+                locationTracker = newTracker
+            }
 
             if let configDict = config?["config"] as? [String: Any],
                let disableAlerts = configDict["disableAlertNotifications"] as? Bool {
@@ -431,11 +469,16 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     @objc(dispose:rejecter:)
     func dispose(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        // Explicit dispose() from JS *does* tear the tracker down — user
+        // is opting out. Clears the static so a later initialize() builds
+        // a fresh tracker.
         locationTracker?.stopTracking()
         setTrackingEnabled(false)
         locationTracker?.coreDelegate = nil
         locationTracker = nil
         zonePersistence = nil
+        Self.sharedLocationTracker = nil
+        Self.sharedZonePersistence = nil
         resolve(nil)
     }
 

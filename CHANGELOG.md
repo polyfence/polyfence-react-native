@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-05-23
+
+### Fixed
+- **iOS background event drop after bridge teardown / app suspension:** The `LocationTracker` (and its `CLLocationManager` delegate) was owned exclusively by the `PolyfenceModule` bridge instance. When iOS suspended the app and later woke it for a significant-location change — or when the RN bridge reloaded for any reason — the previous `PolyfenceModule` was deallocated, taking the tracker with it. CLLocationManager arrived at a nil delegate, the buffered location was dropped, and the next ENTER/EXIT/DWELL never fired. Symptom: iOS RN apps caught a fraction of the events that iOS Flutter / Android RN / Android Flutter siblings caught for the same trip, with multi-hour gaps in the Events Log.
+- Fix: hold `LocationTracker` and `ZonePersistence` in process-wide static refs on `PolyfenceModule`. When a new bridge instance comes online (cold launch, RN reload, post-suspension bootstrap), `initialize()` reuses the existing tracker and just re-wires `coreDelegate` to the current bridge — so the wake-up arrives at a live delegate with full state. `dispose()` still tears everything down (including the static) because that's an explicit user opt-out.
+
 ## [1.0.3] - 2026-05-23
 
 ### Fixed

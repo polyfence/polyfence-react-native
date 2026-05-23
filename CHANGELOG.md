@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-05-23
+
+### Fixed
+- **iOS event delivery under RN 0.76+ Bridgeless / New Architecture:** Even with the explicit `addListener:` / `removeListeners:` codegen re-exports added in 1.0.2, events from native (`onLocation`, `onGeofenceEvent`, `onError`, `onPerformance`) were still being silently dropped on iOS in some bridgeless configurations. The JS-side `NativeEventEmitter` handshake doesn't reliably reach the native module under all RN 0.76+ codegen paths, leaving `RCTEventEmitter._listenerCount` at `0` and `sendEventWithName:body:` short-circuiting to `RCTLogWarn("Sending '…' with no listeners")`.
+- Fix: align iOS with Android by emitting directly through `RCTDeviceEventEmitter.emit` (via the inherited `callableJSModules.invokeModule(...)`), bypassing the `RCTEventEmitter` listener-count gate entirely. The Android bridge has always used this pattern (`PolyfenceModule.kt:597-608`). On the JS side, `src/events.ts` now subscribes through `DeviceEventEmitter` for both platforms — no more `NativeEventEmitter(NativePolyfence)` on iOS.
+- Removed the now-redundant `hasListeners` / `pendingEvents` queue, `startObserving` / `stopObserving` overrides, and `eventQueue` from `PolyfenceModule.swift`. The Swift `addListener` / `removeListeners` overrides are kept as no-ops to satisfy the New Arch codegen handshake (still exported via `RCT_EXTERN_METHOD` in `PolyfenceModule.m`).
+
+See `react-native#41394` for the underlying RN issue.
+
 ## [1.0.2] - 2026-05-22
 
 ### Fixed

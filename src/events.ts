@@ -1,4 +1,4 @@
-import { DeviceEventEmitter, Platform, NativeEventEmitter, NativeModules } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import type {
   GeofenceEvent,
   GeofenceEventType,
@@ -10,28 +10,13 @@ import type {
   Subscription,
 } from './types';
 
-const { Polyfence: NativePolyfence } = NativeModules;
-
-// iOS uses NativeEventEmitter so that JS-side `addListener` calls invoke the
-// native module's `addListener:` method — which calls super.addListener →
-// increments RCTEventEmitter's INTERNAL `_listenerCount`. RN gates
-// `sendEventWithName:body:` on `_listenerCount > 0 || _observationDisabled`
-// (RCTEventEmitter.m line ~51), so without the listener-count handshake every
-// event we emit is silently logged as "Sending `…` with no listeners".
-//
-// This requires the native module to explicitly export `addListener:` and
-// `removeListeners:` via RCT_EXTERN_METHOD — inherited RCTEventEmitter methods
-// are not visible to the New Arch codegen / TurboModuleManager under
-// Bridgeless. See PolyfenceModule.swift + PolyfenceModule.m for the @objc
-// override + extern declaration that completes this hop.
-//
-// Android uses DeviceEventEmitter because the Android side bypasses the
-// RCTEventEmitter base class entirely — it emits directly via
-// RCTDeviceEventEmitter.emit (see PolyfenceModule.kt:597-608), so there's no
-// listener-count gate to satisfy.
-const emitter = Platform.OS === 'android'
-  ? DeviceEventEmitter
-  : new NativeEventEmitter(NativePolyfence);
+// Both platforms emit through `RCTDeviceEventEmitter.emit` on the native
+// side (Android: PolyfenceModule.kt:597-608; iOS: PolyfenceModule.swift
+// `emit` helper). So we subscribe through the matching `DeviceEventEmitter`
+// on the JS side regardless of platform — no NativeEventEmitter handshake,
+// no RCTEventEmitter listener-count gate, no react-native#41394 fallout
+// under RN 0.76+ Bridgeless / New Architecture.
+const emitter = DeviceEventEmitter;
 
 // Valid geofence event types: enter, exit, dwell, recoveryEnter, recoveryExit
 // Normalization uses the mapping in normalizeEventType() below.

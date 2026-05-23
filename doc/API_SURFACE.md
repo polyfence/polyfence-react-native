@@ -1,4 +1,4 @@
-# Polyfence React Native API Surface — v1.0.1
+# Polyfence React Native API Surface — v1.0.2
 
 Complete reference for the public API of the Polyfence React Native package.
 

@@ -17,3 +17,17 @@ build/
 .cxx/
 .ruby-version
 .watchmanconfig
+
+# iOS build artifacts (CocoaPods + Xcode)
+ios/Pods/
+ios/Podfile.lock
+ios/.xcode.env
+ios/.xcode.env.local
+ios/*.xcworkspace/
+ios/build/
+ios/DerivedData/
+ios/xcuserdata/
+
+# macOS Finder duplicates
+*\ \(1\).*
+*\ \(2\).*

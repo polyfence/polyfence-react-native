@@ -19,7 +19,7 @@ import type {
 const emitter = DeviceEventEmitter;
 
 // Valid geofence event types: enter, exit, dwell, recoveryEnter, recoveryExit
-// Normalization uses the mapping in normalizeEventType() below.
+// Normalization uses parseGeofenceEventType() below (unknown → dropped).
 
 /** Map native error codes/keys to the public PolyfenceErrorType union. */
 const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
@@ -57,26 +57,33 @@ function addListener<T>(eventName: string, callback: (data: T) => void): Subscri
   };
 }
 
-function normalizeEventType(raw: string): GeofenceEventType {
-  const mapping: Record<string, GeofenceEventType> = {
-    'enter': 'enter',
-    'exit': 'exit',
-    'dwell': 'dwell',
-    'recovery_enter': 'recoveryEnter',
-    'recovery_exit': 'recoveryExit',
-    // Handle uppercase from native
-    'ENTER': 'enter',
-    'EXIT': 'exit',
-    'DWELL': 'dwell',
-    'RECOVERY_ENTER': 'recoveryEnter',
-    'RECOVERY_EXIT': 'recoveryExit',
-  };
-  return mapping[raw] ?? 'enter';
+/** Collapse native variants (ENTER, recovery_enter, etc.) to a single upper key. */
+function canonicalGeofenceTypeKey(raw: string): string {
+  return raw.trim().replace(/\s+/g, '_').toUpperCase();
 }
 
-function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent {
+/**
+ * Parses native `eventType` strings. Unknown or empty payloads return null —
+ * callers must not pretend a bogus event was an ENTER (old default masked EXIT).
+ */
+function parseGeofenceEventType(raw: string): GeofenceEventType | null {
+  const key = canonicalGeofenceTypeKey(raw);
+  const mapping: Record<string, GeofenceEventType> = {
+    ENTER: 'enter',
+    EXIT: 'exit',
+    DWELL: 'dwell',
+    RECOVERY_ENTER: 'recoveryEnter',
+    RECOVERY_EXIT: 'recoveryExit',
+  };
+  return mapping[key] ?? null;
+}
+
+function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent | null {
   const rawType = (raw.eventType as string | undefined) ?? '';
-  const type: GeofenceEventType = normalizeEventType(rawType);
+  const type = parseGeofenceEventType(rawType);
+  if (type === null || rawType.trim() === '') {
+    return null;
+  }
 
   return {
     zoneId: raw.zoneId as string,
@@ -158,7 +165,10 @@ export function onLocationUpdate(callback: (location: PolyfenceLocation) => void
 
 export function onGeofenceEvent(callback: (event: GeofenceEvent) => void): Subscription {
   return addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
-    callback(normalizeGeofenceEvent(raw));
+    const event = normalizeGeofenceEvent(raw);
+    if (event !== null) {
+      callback(event);
+    }
   });
 }
 

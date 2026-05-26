@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Unknown native `eventType` strings silently became false ENTER events on the JS side.** `normalizeEventType()` in `src/events.ts` mapped each recognised native string (`enter`, `EXIT`, `recovery_enter`, etc.) to a known `GeofenceEventType`, but its `?? 'enter'` fallback meant any unrecognised or empty `eventType` payload — a future native value the bridge hasn't been updated for, a malformed event, or a partial payload during a state transition — was silently delivered to JS subscribers as an `enter`. That's the worst possible default: it masks EXIT misclassifications, fabricates ENTER events that never occurred, and breaks any zone-state machine on the consumer side. **Fix:** renamed to `parseGeofenceEventType()`, now returns `null` for anything that does not normalise to one of the five known types (`ENTER`, `EXIT`, `DWELL`, `RECOVERY_ENTER`, `RECOVERY_EXIT`). `normalizeGeofenceEvent()` drops the event entirely when parsing fails (no callback dispatch) instead of fabricating an ENTER. Adds an internal `canonicalGeofenceTypeKey()` helper that trims and upper-cases the raw string so case / whitespace variants from native still match. Regression coverage in `__tests__/events.test.ts` (lowercase normalises correctly; unknown-type input is dropped, callback not invoked).
+
 ## [1.0.4] - 2026-05-23
 
 ### Fixed

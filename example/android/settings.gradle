@@ -1,9 +1,0 @@
-pluginManagement {
-    includeBuild("../node_modules/@react-native/gradle-plugin")
-}
-
-rootProject.name = 'PolyfenceExample'
-apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
-include ':app'
-include ':polyfence-react-native'
-project(':polyfence-react-native').projectDir = new File(rootProject.projectDir, '../node_modules/polyfence-react-native/android')

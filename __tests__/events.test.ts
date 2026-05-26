@@ -119,6 +119,50 @@ describe('Events', () => {
         })
       );
     });
+
+    it('should normalize lowercase native eventType', () => {
+      const callback = jest.fn();
+      onGeofenceEvent(callback);
+      const geoCall = (mockEmitter.addListener as jest.Mock).mock.calls.find(
+        (call: any[]) => call[0] === 'onGeofenceEvent',
+      );
+      const listener = geoCall![1];
+
+      listener({
+        zoneId: 'z1',
+        zoneName: 'Test',
+        eventType: 'exit',
+        latitude: 0,
+        longitude: 0,
+        gpsAccuracy: 10,
+        timestamp: 1000,
+      });
+
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'exit' }),
+      );
+    });
+
+    it('should ignore events with unknown eventType (no false ENTER)', () => {
+      const callback = jest.fn();
+      onGeofenceEvent(callback);
+      const geoCall = (mockEmitter.addListener as jest.Mock).mock.calls.find(
+        (call: any[]) => call[0] === 'onGeofenceEvent',
+      );
+      const listener = geoCall![1];
+
+      listener({
+        zoneId: 'z1',
+        zoneName: 'Test',
+        eventType: 'not_a_real_type',
+        latitude: 0,
+        longitude: 0,
+        gpsAccuracy: 10,
+        timestamp: 1000,
+      });
+
+      expect(callback).not.toHaveBeenCalled();
+    });
   });
 
   describe('onError', () => {

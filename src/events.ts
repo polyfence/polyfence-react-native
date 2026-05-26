@@ -1,4 +1,4 @@
-import { DeviceEventEmitter, Platform, NativeEventEmitter, NativeModules } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import type {
   GeofenceEvent,
   GeofenceEventType,
@@ -10,31 +10,16 @@ import type {
   Subscription,
 } from './types';
 
-const { Polyfence: NativePolyfence } = NativeModules;
-
-// iOS uses NativeEventEmitter so that JS-side `addListener` calls invoke the
-// native module's `addListener:` method — which calls super.addListener →
-// increments RCTEventEmitter's INTERNAL `_listenerCount`. RN gates
-// `sendEventWithName:body:` on `_listenerCount > 0 || _observationDisabled`
-// (RCTEventEmitter.m line ~51), so without the listener-count handshake every
-// event we emit is silently logged as "Sending `…` with no listeners".
-//
-// This requires the native module to explicitly export `addListener:` and
-// `removeListeners:` via RCT_EXTERN_METHOD — inherited RCTEventEmitter methods
-// are not visible to the New Arch codegen / TurboModuleManager under
-// Bridgeless. See PolyfenceModule.swift + PolyfenceModule.m for the @objc
-// override + extern declaration that completes this hop.
-//
-// Android uses DeviceEventEmitter because the Android side bypasses the
-// RCTEventEmitter base class entirely — it emits directly via
-// RCTDeviceEventEmitter.emit (see PolyfenceModule.kt:597-608), so there's no
-// listener-count gate to satisfy.
-const emitter = Platform.OS === 'android'
-  ? DeviceEventEmitter
-  : new NativeEventEmitter(NativePolyfence);
+// Both platforms emit through `RCTDeviceEventEmitter.emit` on the native
+// side (Android: PolyfenceModule.kt:597-608; iOS: PolyfenceModule.swift
+// `emit` helper). So we subscribe through the matching `DeviceEventEmitter`
+// on the JS side regardless of platform — no NativeEventEmitter handshake,
+// no RCTEventEmitter listener-count gate, no react-native#41394 fallout
+// under RN 0.76+ Bridgeless / New Architecture.
+const emitter = DeviceEventEmitter;
 
 // Valid geofence event types: enter, exit, dwell, recoveryEnter, recoveryExit
-// Normalization uses the mapping in normalizeEventType() below.
+// Normalization uses parseGeofenceEventType() below (unknown → dropped).
 
 /** Map native error codes/keys to the public PolyfenceErrorType union. */
 const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
@@ -72,26 +57,45 @@ function addListener<T>(eventName: string, callback: (data: T) => void): Subscri
   };
 }
 
-function normalizeEventType(raw: string): GeofenceEventType {
-  const mapping: Record<string, GeofenceEventType> = {
-    'enter': 'enter',
-    'exit': 'exit',
-    'dwell': 'dwell',
-    'recovery_enter': 'recoveryEnter',
-    'recovery_exit': 'recoveryExit',
-    // Handle uppercase from native
-    'ENTER': 'enter',
-    'EXIT': 'exit',
-    'DWELL': 'dwell',
-    'RECOVERY_ENTER': 'recoveryEnter',
-    'RECOVERY_EXIT': 'recoveryExit',
-  };
-  return mapping[raw] ?? 'enter';
+/** Collapse native variants (ENTER, recovery_enter, etc.) to a single upper key. */
+function canonicalGeofenceTypeKey(raw: string): string {
+  return raw.trim().replace(/\s+/g, '_').toUpperCase();
 }
 
-function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent {
+/**
+ * Parses native `eventType` strings. Unknown or empty payloads return null —
+ * callers must not pretend a bogus event was an ENTER (old default masked EXIT).
+ */
+function parseGeofenceEventType(raw: string): GeofenceEventType | null {
+  const key = canonicalGeofenceTypeKey(raw);
+  const mapping: Record<string, GeofenceEventType> = {
+    ENTER: 'enter',
+    EXIT: 'exit',
+    DWELL: 'dwell',
+    RECOVERY_ENTER: 'recoveryEnter',
+    RECOVERY_EXIT: 'recoveryExit',
+  };
+  return mapping[key] ?? null;
+}
+
+function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent | null {
   const rawType = (raw.eventType as string | undefined) ?? '';
-  const type: GeofenceEventType = normalizeEventType(rawType);
+  const type = parseGeofenceEventType(rawType);
+  if (type === null || rawType.trim() === '') {
+    // Visibility-over-silence: emit a __DEV__ warning when we drop a non-empty
+    // unknown eventType so a future native value the bridge hasn't been updated
+    // for surfaces in the console rather than disappearing. Empty strings are
+    // absence, not malformedness — those stay silent.
+    if (__DEV__ && rawType.trim() !== '') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[Polyfence] dropped geofence event with unknown eventType=${JSON.stringify(rawType)} ` +
+          `for zoneId=${JSON.stringify(raw.zoneId ?? null)}. ` +
+          `Expected one of: ENTER, EXIT, DWELL, RECOVERY_ENTER, RECOVERY_EXIT.`,
+      );
+    }
+    return null;
+  }
 
   return {
     zoneId: raw.zoneId as string,
@@ -173,7 +177,10 @@ export function onLocationUpdate(callback: (location: PolyfenceLocation) => void
 
 export function onGeofenceEvent(callback: (event: GeofenceEvent) => void): Subscription {
   return addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
-    callback(normalizeGeofenceEvent(raw));
+    const event = normalizeGeofenceEvent(raw);
+    if (event !== null) {
+      callback(event);
+    }
   });
 }
 

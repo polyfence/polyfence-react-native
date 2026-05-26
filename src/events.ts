@@ -82,6 +82,18 @@ function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent | n
   const rawType = (raw.eventType as string | undefined) ?? '';
   const type = parseGeofenceEventType(rawType);
   if (type === null || rawType.trim() === '') {
+    // Visibility-over-silence: emit a __DEV__ warning when we drop a non-empty
+    // unknown eventType so a future native value the bridge hasn't been updated
+    // for surfaces in the console rather than disappearing. Empty strings are
+    // absence, not malformedness — those stay silent.
+    if (__DEV__ && rawType.trim() !== '') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[Polyfence] dropped geofence event with unknown eventType=${JSON.stringify(rawType)} ` +
+          `for zoneId=${JSON.stringify(raw.zoneId ?? null)}. ` +
+          `Expected one of: ENTER, EXIT, DWELL, RECOVERY_ENTER, RECOVERY_EXIT.`,
+      );
+    }
     return null;
   }
 

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Unknown native `eventType` strings silently became false ENTER events on the JS side.** `normalizeEventType()` in `src/events.ts` mapped each recognised native string (`enter`, `EXIT`, `recovery_enter`, etc.) to a known `GeofenceEventType`, but its `?? 'enter'` fallback meant any unrecognised or empty `eventType` payload — a future native value the bridge hasn't been updated for, a malformed event, or a partial payload during a state transition — was silently delivered to JS subscribers as an `enter`. That's the worst possible default: it masks EXIT misclassifications, fabricates ENTER events that never occurred, and breaks any zone-state machine on the consumer side. **Fix:** renamed to `parseGeofenceEventType()`, now returns `null` for anything that does not normalise to one of the five known types (`ENTER`, `EXIT`, `DWELL`, `RECOVERY_ENTER`, `RECOVERY_EXIT`). `normalizeGeofenceEvent()` drops the event entirely when parsing fails (no callback dispatch) instead of fabricating an ENTER. Adds an internal `canonicalGeofenceTypeKey()` helper that trims and upper-cases the raw string so case / whitespace variants from native still match. Regression coverage in `__tests__/events.test.ts` (lowercase normalises correctly; unknown-type input is dropped, callback not invoked).
+
+## [1.0.4] - 2026-05-23
+
+### Fixed
+- **iOS background event drop after bridge teardown / app suspension:** The `LocationTracker` (and its `CLLocationManager` delegate) was owned exclusively by the `PolyfenceModule` bridge instance. When iOS suspended the app and later woke it for a significant-location change — or when the RN bridge reloaded for any reason — the previous `PolyfenceModule` was deallocated, taking the tracker with it. CLLocationManager arrived at a nil delegate, the buffered location was dropped, and the next ENTER/EXIT/DWELL never fired. Symptom: iOS RN apps caught a fraction of the events that iOS Flutter / Android RN / Android Flutter siblings caught for the same trip, with multi-hour gaps in the Events Log.
+- Fix: hold `LocationTracker` and `ZonePersistence` in process-wide static refs on `PolyfenceModule`. When a new bridge instance comes online (cold launch, RN reload, post-suspension bootstrap), `initialize()` reuses the existing tracker and just re-wires `coreDelegate` to the current bridge — so the wake-up arrives at a live delegate with full state. `dispose()` still tears everything down (including the static) because that's an explicit user opt-out.
+
+## [1.0.3] - 2026-05-23
+
+### Fixed
+- **iOS event delivery under RN 0.76+ Bridgeless / New Architecture:** Even with the explicit `addListener:` / `removeListeners:` codegen re-exports added in 1.0.2, events from native (`onLocation`, `onGeofenceEvent`, `onError`, `onPerformance`) were still being silently dropped on iOS in some bridgeless configurations. The JS-side `NativeEventEmitter` handshake doesn't reliably reach the native module under all RN 0.76+ codegen paths, leaving `RCTEventEmitter._listenerCount` at `0` and `sendEventWithName:body:` short-circuiting to `RCTLogWarn("Sending '…' with no listeners")`.
+- Fix: align iOS with Android by emitting directly through `RCTDeviceEventEmitter.emit` (via the inherited `callableJSModules.invokeModule(...)`), bypassing the `RCTEventEmitter` listener-count gate entirely. The Android bridge has always used this pattern (`PolyfenceModule.kt:597-608`). On the JS side, `src/events.ts` now subscribes through `DeviceEventEmitter` for both platforms — no more `NativeEventEmitter(NativePolyfence)` on iOS.
+- Removed the now-redundant `hasListeners` / `pendingEvents` queue, `startObserving` / `stopObserving` overrides, and `eventQueue` from `PolyfenceModule.swift`. The Swift `addListener` / `removeListeners` overrides are kept as no-ops to satisfy the New Arch codegen handshake (still exported via `RCT_EXTERN_METHOD` in `PolyfenceModule.m`).
+
+See `react-native#41394` for the underlying RN issue.
+
 ## [1.0.2] - 2026-05-22
 
 ### Fixed

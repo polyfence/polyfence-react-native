@@ -9,12 +9,29 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     private static let prefsName = "polyfence_state"
     private static let keyTrackingEnabled = "tracking_enabled"
 
+    // Process-wide singletons so the tracker + persistence outlive any
+    // single PolyfenceModule instance.
+    //
+    // RCTEventEmitter modules can be deallocated and re-created across an
+    // RN bridge reload or — more importantly here — when iOS suspends the
+    // app and later wakes it (significant-location change, background
+    // fetch) before the JS bridge boots. If the LocationTracker is owned
+    // solely by the bridge module, that wake-up arrives at a delegate
+    // that's already nil; CLLocationManager has nothing to forward to and
+    // the location is dropped. Events for the next zone the user crosses
+    // get lost.
+    //
+    // Holding the tracker statically here keeps CLLocationManager + its
+    // delegate alive for the lifetime of the app process. When a new
+    // PolyfenceModule materialises (new bridge), `initialize()` reuses
+    // the existing tracker and just re-wires `coreDelegate` to the new
+    // bridge. iOS Flutter doesn't hit this because its FlutterAppDelegate
+    // retains the plugin instance across Dart isolate restarts.
+    private static var sharedLocationTracker: LocationTracker?
+    private static var sharedZonePersistence: ZonePersistence?
+
     private var locationTracker: LocationTracker?
     private var zonePersistence: ZonePersistence?
-    private var hasListeners = false
-    private var pendingEvents: [(name: String, body: [String: Any])] = []
-    private let maxPendingEvents = 50
-    private let eventQueue = DispatchQueue(label: "io.polyfence.reactnative.events")
 
     override func supportedEvents() -> [String] {
         return ["onLocation", "onGeofenceEvent", "onError", "onPerformance"]
@@ -24,39 +41,37 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         return false
     }
 
-    override func startObserving() {
-        eventQueue.sync {
-            hasListeners = true
-            for event in pendingEvents {
-                sendEvent(withName: event.name, body: event.body)
-            }
-            pendingEvents.removeAll()
-        }
-    }
-
-    override func stopObserving() {
-        eventQueue.sync {
-            hasListeners = false
-        }
-    }
-
-    // Under RN 0.76+ Bridgeless / New Architecture, NativeEventEmitter on the JS
-    // side calls `addListener(eventName)` and `removeListeners(count)` on the
-    // native module to signal subscription lifecycle. The inherited
-    // RCTEventEmitter implementations are not visible to the New Arch
-    // codegen / TurboModuleManager unless re-declared `@objc` here AND
-    // re-exported via RCT_EXTERN_METHOD in PolyfenceModule.m. Without these,
-    // `startObserving` never fires under Bridgeless and events queue silently
-    // into `pendingEvents`.
+    // RCTEventEmitter gates `sendEventWithName:body:` on
+    // `(_observationDisabled || _listenerCount > 0) && _callableJSModules`.
+    // Under RN 0.76+ Bridgeless / New Arch the JS-side listener handshake is
+    // unreliable (react-native#41394): `_listenerCount` stays 0 and every
+    // event is silently dropped with "Sending '…' with no listeners".
     //
-    // Android already has the equivalent at PolyfenceModule.kt:583-591 — this
-    // brings iOS into parity. See react-native#41394.
+    // The Android bridge already sidesteps this by emitting directly via
+    // RCTDeviceEventEmitter.emit (PolyfenceModule.kt:597-608). We do the
+    // same here. `callableJSModules.invokeModule(...)` is the exact call
+    // RCTEventEmitter itself uses internally (RCTEventEmitter.m:65) and
+    // works in both bridge and bridgeless runtimes.
+    private func emit(_ eventName: String, body: [String: Any]) {
+        callableJSModules?.invokeModule(
+            "RCTDeviceEventEmitter",
+            method: "emit",
+            withArgs: [eventName, body]
+        )
+    }
+
+    // No-ops. NativeEventEmitter on the JS side calls these via codegen;
+    // without `@objc override` declarations + RCT_EXTERN_METHOD re-exports
+    // in PolyfenceModule.m, the New Arch codegen warns the host app at
+    // runtime. We don't need the inherited bookkeeping (we bypass the
+    // listener-count gate entirely via `emit` above), so these are stubs
+    // that exist only to satisfy the codegen handshake.
     @objc override func addListener(_ eventName: String!) {
-        super.addListener(eventName)
+        // no-op
     }
 
     @objc override func removeListeners(_ count: Double) {
-        super.removeListeners(count)
+        // no-op
     }
 
     @objc(initialize:resolver:rejecter:)
@@ -67,10 +82,27 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 PolyfenceDebugCollector.shared.setPluginVersion(version)
             }
 
-            zonePersistence = ZonePersistence()
-            locationTracker = LocationTracker()
-            locationTracker?.coreDelegate = self
-            locationTracker?.setBridgePlatform("react-native")
+            // Reuse the process-wide tracker if it exists (the previous
+            // bridge instance was deallocated but CLLocationManager and
+            // its delegate are alive on the static). Just re-wire the
+            // delegate to the current bridge instance and we're back in
+            // business — including a wired event path for whatever
+            // location updates iOS buffered while the bridge was down.
+            if let existingTracker = Self.sharedLocationTracker,
+               let existingPersistence = Self.sharedZonePersistence {
+                zonePersistence = existingPersistence
+                locationTracker = existingTracker
+                existingTracker.coreDelegate = self
+            } else {
+                let newPersistence = ZonePersistence()
+                let newTracker = LocationTracker()
+                newTracker.coreDelegate = self
+                newTracker.setBridgePlatform("react-native")
+                Self.sharedZonePersistence = newPersistence
+                Self.sharedLocationTracker = newTracker
+                zonePersistence = newPersistence
+                locationTracker = newTracker
+            }
 
             if let configDict = config?["config"] as? [String: Any],
                let disableAlerts = configDict["disableAlertNotifications"] as? Bool {
@@ -437,15 +469,16 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     @objc(dispose:rejecter:)
     func dispose(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        eventQueue.sync {
-            pendingEvents.removeAll()
-            hasListeners = false
-        }
+        // Explicit dispose() from JS *does* tear the tracker down — user
+        // is opting out. Clears the static so a later initialize() builds
+        // a fresh tracker.
         locationTracker?.stopTracking()
         setTrackingEnabled(false)
         locationTracker?.coreDelegate = nil
         locationTracker = nil
         zonePersistence = nil
+        Self.sharedLocationTracker = nil
+        Self.sharedZonePersistence = nil
         resolve(nil)
     }
 
@@ -486,35 +519,24 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     // MARK: - Private Event Sending Methods
     //
-    // Under RN 0.76+ Bridgeless / New Architecture, the `hasListeners` flag
-    // (which is supposed to be set by `startObserving` when JS subscribes) is
-    // unreliable — the JS-side listener-count handshake doesn't always reach
-    // the native module. The pendingEvents buffer then silently swallows
-    // every event until it caps at 50.
-    //
-    // Android sidesteps this entirely by emitting events unconditionally via
-    // `RCTDeviceEventEmitter.emit` with no gate (see
-    // android/.../PolyfenceModule.kt sendEvent helper).
-    //
-    // Mirror that pattern here: always call sendEvent. If no JS listener is
-    // attached yet, RCTEventEmitter logs a benign warning and drops the
-    // event — same outcome as the pendingEvents queue at capacity, but
-    // events DO flow once a listener attaches via the bridge.
+    // All four event helpers route through the `emit` shim, which calls
+    // `RCTDeviceEventEmitter.emit` directly. See the `emit` declaration
+    // above for why we bypass RCTEventEmitter.sendEventWithName:body:.
 
     private func sendLocationEvent(_ locationData: [String: Any]) {
-        sendEvent(withName: "onLocation", body: locationData)
+        emit("onLocation", body: locationData)
     }
 
     private func sendGeofenceEvent(_ eventData: [String: Any]) {
-        sendEvent(withName: "onGeofenceEvent", body: eventData)
+        emit("onGeofenceEvent", body: eventData)
     }
 
     private func sendErrorEvent(_ errorData: [String: Any]) {
-        sendEvent(withName: "onError", body: errorData)
+        emit("onError", body: errorData)
     }
 
     private func sendPerformanceEvent(_ eventData: [String: Any]) {
-        sendEvent(withName: "onPerformance", body: eventData)
+        emit("onPerformance", body: eventData)
     }
 
     private func sendStatus(trackingEnabled: Bool?) {

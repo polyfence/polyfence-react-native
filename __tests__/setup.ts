@@ -43,5 +43,15 @@ export function getMockEventEmitter(): {
   removeAllListeners: jest.Mock;
 } {
   const RN = jest.requireMock<typeof import('react-native')>('react-native');
-  return RN.DeviceEventEmitter;
+  // jest.requireMock is typed against the real `react-native` module, so
+  // `RN.DeviceEventEmitter` is `DeviceEventEmitterStatic` whose
+  // `addListener` returns `EmitterSubscription` — not the `jest.Mock` shape
+  // our jest.mock factory above actually constructs. Cast through `unknown`
+  // to tell TypeScript we know the runtime shape, without lying about either
+  // side of the boundary. (A recent Dependabot bump of @types/jest or
+  // @types/react-native tightened the inference so this is now caught.)
+  return RN.DeviceEventEmitter as unknown as {
+    addListener: jest.Mock;
+    removeAllListeners: jest.Mock;
+  };
 }

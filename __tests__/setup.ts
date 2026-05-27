@@ -1,3 +1,12 @@
+// React Native's bundler injects `__DEV__` as a build-time global. Jest's
+// node environment doesn't, so any `src/` code that references the identifier
+// directly (e.g. `if (__DEV__) console.warn(...)` in src/events.ts:89) throws
+// ReferenceError before the test even reaches its assertions. Set to `false`
+// to mirror release-build behavior — dev-only code paths stay quiet during
+// tests. Individual tests that want to verify dev-only branches can
+// `(global as any).__DEV__ = true;` locally with a beforeEach/afterEach.
+(global as unknown as { __DEV__: boolean }).__DEV__ = false;
+
 jest.mock('react-native', () => {
   const DeviceEventEmitter = {
     addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),

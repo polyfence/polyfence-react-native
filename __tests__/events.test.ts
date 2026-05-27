@@ -63,7 +63,9 @@ describe('Events', () => {
       onGeofenceEvent(callback);
 
       const calls = (mockEmitter.addListener as jest.Mock).mock.calls;
-      const geoCall = calls.find((call: any[]) => call[0] === 'onGeofenceEvent');
+      const geoCall = calls.find(
+        (call: any[]) => call[0] === 'onGeofenceEvent',
+      );
       const listener = geoCall![1];
 
       const rawEvent = {
@@ -100,7 +102,9 @@ describe('Events', () => {
       onGeofenceEvent(callback);
 
       const calls = (mockEmitter.addListener as jest.Mock).mock.calls;
-      const geoCall = calls.find((call: any[]) => call[0] === 'onGeofenceEvent');
+      const geoCall = calls.find(
+        (call: any[]) => call[0] === 'onGeofenceEvent',
+      );
       const listener = geoCall![1];
 
       listener({
@@ -116,7 +120,7 @@ describe('Events', () => {
       expect(callback).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'exit',
-        })
+        }),
       );
     });
 
@@ -226,7 +230,9 @@ describe('Events', () => {
 
     it('should call removeAllListeners exactly 4 times', () => {
       removeAllListeners();
-      expect((mockEmitter.removeAllListeners as jest.Mock).mock.calls.length).toBe(4);
+      expect(
+        (mockEmitter.removeAllListeners as jest.Mock).mock.calls.length,
+      ).toBe(4);
     });
   });
 
@@ -259,7 +265,9 @@ describe('Events', () => {
       const sub1 = onLocationUpdate(callback1);
       const sub2 = onLocationUpdate(callback2);
 
-      expect((mockEmitter.addListener as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(
+        (mockEmitter.addListener as jest.Mock).mock.calls.length,
+      ).toBeGreaterThanOrEqual(2);
       expect(sub1).toHaveProperty('remove');
       expect(sub2).toHaveProperty('remove');
     });

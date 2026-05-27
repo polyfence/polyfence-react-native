@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.6] - 2026-05-27
+## [1.0.7] - 2026-05-27
+
+### Fixed
+- **Tag-triggered publish workflow's "Validate TypeScript & Tests" job failed at `npm run lint`** with `ESLint couldn't find the config "@react-native" to extend from`. Three root causes, all pre-existing on main: (a) `@react-native/eslint-config` was missing from `devDependencies` and from `package-lock.json` — CI runs `npm ci` strictly against the lockfile so the package never installed; (b) `eslint-plugin-prettier` (transitive of `@react-native/eslint-config`) requires `prettier` as a peer dep, also not installed; (c) `.eslintrc.js` extended `@react-native` but there was no `.eslintignore`, so the linter walked into `lib/` (compiled output from `react-native-builder-bob`) and flagged transformed identifiers and mangled function bodies that aren't representative of source. **Fix:** add `@react-native/eslint-config@^0.73.0` + `prettier@^2.8.0` to devDependencies, add `.eslintignore` excluding `lib/` / `node_modules/` / `coverage/` / `example/`, add a `.prettierrc` matching the existing single-quote source style, and re-run lint with `--fix` to apply prettier's safe whitespace/quote auto-fixes across 9 source/test files.
+- **`src/DebugOverlay.tsx` violated `react-hooks/rules-of-hooks`.** The exported `PolyfenceDebugOverlay` did `if (!__DEV__) return null;` BEFORE calling `useState` / `useRef` / `useCallback` / `useEffect` — React's rules require hooks to be called in the exact same order on every render, so a conditional early return before any hook is a real violation regardless of `__DEV__` being constant per build. **Fix:** apply the canonical wrapper-component split (per [facebook/react#15792](https://github.com/facebook/react/issues/15792)). `PolyfenceDebugOverlay` becomes a tiny outer gate that does the `__DEV__` check and conditionally renders the inner `PolyfenceDebugOverlayInner` component, which owns all the hooks. Satisfies the lint rule honestly while preserving the original "zero hook setup in production" property (the inner component never mounts in release builds).
 
 ### Changed
-- **`polyfence-core` dependency bumped from `1.0.5` to `1.0.8`.** v1.0.8 adds the `timestamp` field to the Android geofence event delegate map, matching the iOS event map. This is a Flutter-facing parity fix (the polyfence-flutter bridge would otherwise emit a "Invalid timestamp type: Null" error per geofence transition); the RN bridge surface is unchanged but bumps for cross-platform version coherence. No other behavioral changes in this bridge release.
+- **`polyfence-core` dependency bumped from `1.0.5` to `1.0.8`.** Same payload v1.0.6 was supposed to ship. v1.0.8 adds the `timestamp` field to the Android geofence event delegate map for parity with iOS — Flutter-facing fix that doesn't change the RN bridge surface.
+- **CI now runs `npm run lint`.** Previously the CI workflow only ran `tsc + test`, so lint failures only surfaced at tag-triggered publish time — after PRs had already merged. Now lint runs on every PR, catching the same gate the Publish workflow enforces.
+
+## [1.0.6] - 2026-05-27 [YANKED — failed publish]
+
+> v1.0.6 was tagged on 2026-05-27 to bump the `polyfence-core` Android dep from `1.0.5` to `1.0.8`, but the Publish workflow's "Validate TypeScript & Tests" job failed at `npm run lint` due to the eslint config issues fixed in v1.0.7. **No artifact reached npm for this version.** See v1.0.7 for the actual shipped release. Tag retained in git history.
 
 ## [1.0.5] - 2026-05-23
 

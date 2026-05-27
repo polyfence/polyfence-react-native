@@ -1,10 +1,7 @@
 import { getMockEventEmitter } from './setup';
 import { Polyfence } from '../src/Polyfence';
 import { NativeModules } from 'react-native';
-import type {
-  Zone,
-  PolyfenceConfiguration,
-} from '../src/types';
+import type { Zone, PolyfenceConfiguration } from '../src/types';
 
 describe('Polyfence', () => {
   const NativePolyfence = NativeModules.Polyfence;
@@ -106,7 +103,7 @@ describe('Polyfence', () => {
         },
       ];
       (NativePolyfence.getZoneStates as jest.Mock).mockResolvedValueOnce(
-        mockStates
+        mockStates,
       );
       const result = await Polyfence.instance.getZoneStates();
       expect(result).toEqual(mockStates);
@@ -123,7 +120,7 @@ describe('Polyfence', () => {
         activeZones: 2,
       };
       (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce(
-        mockDebugInfo
+        mockDebugInfo,
       );
       const result = await Polyfence.instance.debugInfo();
       expect(result).toEqual(mockDebugInfo);
@@ -139,7 +136,7 @@ describe('Polyfence', () => {
         zoneCount: 2,
       };
       (NativePolyfence.getSessionTelemetry as jest.Mock).mockResolvedValueOnce(
-        mockTelemetry
+        mockTelemetry,
       );
       const result = await Polyfence.instance.getSessionTelemetry();
       expect(result).toEqual(mockTelemetry);
@@ -147,11 +144,10 @@ describe('Polyfence', () => {
     });
   });
 
-
   describe('requestPermissions', () => {
     it('should pass options to native and return boolean', async () => {
       (NativePolyfence.requestPermissions as jest.Mock).mockResolvedValueOnce(
-        true
+        true,
       );
       const result = await Polyfence.instance.requestPermissions({
         always: true,
@@ -164,7 +160,7 @@ describe('Polyfence', () => {
 
     it('should pass empty object when no options provided', async () => {
       (NativePolyfence.requestPermissions as jest.Mock).mockResolvedValueOnce(
-        false
+        false,
       );
       const result = await Polyfence.instance.requestPermissions();
       expect(result).toBe(false);
@@ -190,7 +186,7 @@ describe('Polyfence', () => {
         updateStrategy: 'proximityBased',
       };
       (NativePolyfence.getConfiguration as jest.Mock).mockResolvedValueOnce(
-        mockConfig
+        mockConfig,
       );
       const result = await Polyfence.instance.getConfiguration();
       expect(result).toEqual(mockConfig);
@@ -220,7 +216,7 @@ describe('Polyfence', () => {
     it('should pass profile string to native', async () => {
       await Polyfence.instance.setAccuracyProfile('balanced');
       expect(NativePolyfence.setAccuracyProfile).toHaveBeenCalledWith(
-        'balanced'
+        'balanced',
       );
     });
   });
@@ -249,7 +245,7 @@ describe('Polyfence', () => {
         await Polyfence.instance.requestBatteryOptimizationExemption();
       expect(result).toBe(true);
       expect(
-        NativePolyfence.requestBatteryOptimizationExemption
+        NativePolyfence.requestBatteryOptimizationExemption,
       ).toHaveBeenCalled();
     });
   });
@@ -263,7 +259,7 @@ describe('Polyfence', () => {
         },
       ];
       (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce(
-        mockErrors
+        mockErrors,
       );
       const result = await Polyfence.instance.errorHistory({ limit: 10 });
       expect(result[0]).toMatchObject({
@@ -293,7 +289,7 @@ describe('Polyfence', () => {
     it('should set disposed state', async () => {
       await Polyfence.instance.dispose();
       await expect(Polyfence.instance.startTracking()).rejects.toThrow(
-        'Polyfence instance has been disposed'
+        'Polyfence instance has been disposed',
       );
     });
   });
@@ -384,13 +380,13 @@ describe('Polyfence', () => {
           expect.objectContaining({
             zoneId: 'zone1',
             type: 'enter',
-          })
+          }),
         );
         expect(callback).toHaveBeenCalledWith(
           expect.objectContaining({
             zoneId: 'zone1',
             type: 'recoveryEnter',
-          })
+          }),
         );
         done();
       }, 0);
@@ -439,13 +435,13 @@ describe('Polyfence', () => {
           expect.objectContaining({
             zoneId: 'zone1',
             type: 'exit',
-          })
+          }),
         );
         expect(callback).toHaveBeenCalledWith(
           expect.objectContaining({
             zoneId: 'zone1',
             type: 'recoveryExit',
-          })
+          }),
         );
         done();
       }, 0);

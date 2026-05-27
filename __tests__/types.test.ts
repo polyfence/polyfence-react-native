@@ -377,12 +377,24 @@ describe('Types', () => {
   describe('PolyfenceError', () => {
     it('should accept all error types', () => {
       const errorTypes: PolyfenceErrorType[] = [
-        'gpsTimeout', 'gpsPermissionDenied', 'gpsServiceDisabled',
-        'gpsAccuracyPoor', 'gpsUnreliable', 'serviceStartFailed',
-        'serviceKilled', 'serviceRestartFailed', 'batteryOptimizationRequired',
-        'lowBattery', 'zoneValidationFailed', 'zoneStorageFailed',
-        'zoneLoadFailed', 'networkTimeout', 'analyticsUploadFailed',
-        'permissionRevoked', 'memoryLow', 'unknown',
+        'gpsTimeout',
+        'gpsPermissionDenied',
+        'gpsServiceDisabled',
+        'gpsAccuracyPoor',
+        'gpsUnreliable',
+        'serviceStartFailed',
+        'serviceKilled',
+        'serviceRestartFailed',
+        'batteryOptimizationRequired',
+        'lowBattery',
+        'zoneValidationFailed',
+        'zoneStorageFailed',
+        'zoneLoadFailed',
+        'networkTimeout',
+        'analyticsUploadFailed',
+        'permissionRevoked',
+        'memoryLow',
+        'unknown',
       ];
 
       errorTypes.forEach((errorType) => {

@@ -48,7 +48,10 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   memory_low: 'memoryLow',
 };
 
-function addListener<T>(eventName: string, callback: (data: T) => void): Subscription {
+function addListener<T>(
+  eventName: string,
+  callback: (data: T) => void,
+): Subscription {
   const sub = emitter.addListener(eventName, callback);
   return {
     remove: () => {
@@ -78,7 +81,9 @@ function parseGeofenceEventType(raw: string): GeofenceEventType | null {
   return mapping[key] ?? null;
 }
 
-function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent | null {
+function normalizeGeofenceEvent(
+  raw: Record<string, unknown>,
+): GeofenceEvent | null {
   const rawType = (raw.eventType as string | undefined) ?? '';
   const type = parseGeofenceEventType(rawType);
   if (type === null || rawType.trim() === '') {
@@ -87,11 +92,12 @@ function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent | n
     // for surfaces in the console rather than disappearing. Empty strings are
     // absence, not malformedness — those stay silent.
     if (__DEV__ && rawType.trim() !== '') {
-      // eslint-disable-next-line no-console
       console.warn(
-        `[Polyfence] dropped geofence event with unknown eventType=${JSON.stringify(rawType)} ` +
+        `[Polyfence] dropped geofence event with unknown eventType=${JSON.stringify(
+          rawType,
+        )} ` +
           `for zoneId=${JSON.stringify(raw.zoneId ?? null)}. ` +
-          `Expected one of: ENTER, EXIT, DWELL, RECOVERY_ENTER, RECOVERY_EXIT.`,
+          'Expected one of: ENTER, EXIT, DWELL, RECOVERY_ENTER, RECOVERY_EXIT.',
       );
     }
     return null;
@@ -117,29 +123,43 @@ function normalizeGeofenceEvent(raw: Record<string, unknown>): GeofenceEvent | n
 /**
  * Normalize native error maps (`code` / `type` from core) to {@link PolyfenceError}.
  */
-export function normalizePolyfenceError(raw: Record<string, unknown>): PolyfenceError {
+export function normalizePolyfenceError(
+  raw: Record<string, unknown>,
+): PolyfenceError {
   const message =
     typeof raw.message === 'string'
       ? raw.message
       : typeof raw.code === 'string'
-        ? raw.code
-        : 'Unknown error';
+      ? raw.code
+      : 'Unknown error';
 
   const codeStr =
     typeof raw.code === 'string'
       ? raw.code
       : typeof raw.type === 'string'
-        ? raw.type
-        : undefined;
+      ? raw.type
+      : undefined;
 
   // All 18 Flutter-aligned error types
   const ALLOWED_ERROR_TYPES: ReadonlySet<string> = new Set<PolyfenceErrorType>([
-    'gpsTimeout', 'gpsPermissionDenied', 'gpsServiceDisabled', 'gpsAccuracyPoor', 'gpsUnreliable',
-    'serviceStartFailed', 'serviceKilled', 'serviceRestartFailed',
-    'batteryOptimizationRequired', 'lowBattery',
-    'zoneValidationFailed', 'zoneStorageFailed', 'zoneLoadFailed',
-    'networkTimeout', 'analyticsUploadFailed',
-    'permissionRevoked', 'memoryLow', 'unknown',
+    'gpsTimeout',
+    'gpsPermissionDenied',
+    'gpsServiceDisabled',
+    'gpsAccuracyPoor',
+    'gpsUnreliable',
+    'serviceStartFailed',
+    'serviceKilled',
+    'serviceRestartFailed',
+    'batteryOptimizationRequired',
+    'lowBattery',
+    'zoneValidationFailed',
+    'zoneStorageFailed',
+    'zoneLoadFailed',
+    'networkTimeout',
+    'analyticsUploadFailed',
+    'permissionRevoked',
+    'memoryLow',
+    'unknown',
   ]);
 
   let type: PolyfenceErrorType = 'unknown';
@@ -167,15 +187,20 @@ export function normalizePolyfenceError(raw: Record<string, unknown>): Polyfence
     message,
     context: Object.keys(context).length > 0 ? context : undefined,
     timestamp: typeof raw.timestamp === 'number' ? raw.timestamp : Date.now(),
-    correlationId: typeof raw.correlationId === 'string' ? raw.correlationId : undefined,
+    correlationId:
+      typeof raw.correlationId === 'string' ? raw.correlationId : undefined,
   };
 }
 
-export function onLocationUpdate(callback: (location: PolyfenceLocation) => void): Subscription {
+export function onLocationUpdate(
+  callback: (location: PolyfenceLocation) => void,
+): Subscription {
   return addListener('onLocation', callback);
 }
 
-export function onGeofenceEvent(callback: (event: GeofenceEvent) => void): Subscription {
+export function onGeofenceEvent(
+  callback: (event: GeofenceEvent) => void,
+): Subscription {
   return addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
     const event = normalizeGeofenceEvent(raw);
     if (event !== null) {
@@ -184,13 +209,17 @@ export function onGeofenceEvent(callback: (event: GeofenceEvent) => void): Subsc
   });
 }
 
-export function onError(callback: (error: PolyfenceError) => void): Subscription {
+export function onError(
+  callback: (error: PolyfenceError) => void,
+): Subscription {
   return addListener('onError', (raw: Record<string, unknown>) => {
     callback(normalizePolyfenceError(raw));
   });
 }
 
-export function onPerformance(callback: (payload: PerformanceEventPayload) => void): Subscription {
+export function onPerformance(
+  callback: (payload: PerformanceEventPayload) => void,
+): Subscription {
   return addListener('onPerformance', callback);
 }
 
@@ -198,14 +227,17 @@ export function onPerformance(callback: (payload: PerformanceEventPayload) => vo
  * Subscribe to health score updates (emitted every 5 minutes by polyfence-core).
  * Filters onPerformance events for `type: "health_score"`.
  */
-export function onHealthScore(callback: (event: HealthScoreEvent) => void): Subscription {
+export function onHealthScore(
+  callback: (event: HealthScoreEvent) => void,
+): Subscription {
   return addListener('onPerformance', (raw: Record<string, unknown>) => {
     if (raw.type === 'health_score') {
       callback({
         score: (raw.score as number) ?? 0,
-        topIssue: typeof raw.topIssue === 'string' && raw.topIssue.length > 0
-          ? raw.topIssue
-          : null,
+        topIssue:
+          typeof raw.topIssue === 'string' && raw.topIssue.length > 0
+            ? raw.topIssue
+            : null,
         timestamp: (raw.timestamp as number) ?? Date.now(),
       });
     }

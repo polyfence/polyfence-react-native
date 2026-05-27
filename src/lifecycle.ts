@@ -2,7 +2,12 @@ import { AppState } from 'react-native';
 import type { NativeEventSubscription } from 'react-native';
 import { PolyfenceAnalytics } from './analytics';
 
-type AppStateStatus = 'active' | 'background' | 'inactive' | 'unknown' | 'extension';
+type AppStateStatus =
+  | 'active'
+  | 'background'
+  | 'inactive'
+  | 'unknown'
+  | 'extension';
 
 /**
  * Manages app lifecycle transitions for analytics.
@@ -34,31 +39,34 @@ export class AppLifecycleManager {
 
     this._currentState = AppState.currentState as AppStateStatus;
 
-    this._subscription = AppState.addEventListener('change', (nextState: string) => {
-      const prevState = this._currentState;
-      this._currentState = nextState as AppStateStatus;
+    this._subscription = AppState.addEventListener(
+      'change',
+      (nextState: string) => {
+        const prevState = this._currentState;
+        this._currentState = nextState as AppStateStatus;
 
-      // App moving to background — end session and upload telemetry
-      if (
-        prevState === 'active' &&
-        (nextState === 'background' || nextState === 'inactive')
-      ) {
-        // Fire-and-forget — analytics must never block the app
-        PolyfenceAnalytics.instance.endSession().catch(() => {
-          // Silently swallow — analytics errors are non-fatal
-        });
-      }
+        // App moving to background — end session and upload telemetry
+        if (
+          prevState === 'active' &&
+          (nextState === 'background' || nextState === 'inactive')
+        ) {
+          // Fire-and-forget — analytics must never block the app
+          PolyfenceAnalytics.instance.endSession().catch(() => {
+            // Silently swallow — analytics errors are non-fatal
+          });
+        }
 
-      // App returning to foreground — retry failed requests
-      if (
-        (prevState === 'background' || prevState === 'inactive') &&
-        nextState === 'active'
-      ) {
-        PolyfenceAnalytics.instance.retryFailedRequests().catch(() => {
-          // Silently swallow
-        });
-      }
-    });
+        // App returning to foreground — retry failed requests
+        if (
+          (prevState === 'background' || prevState === 'inactive') &&
+          nextState === 'active'
+        ) {
+          PolyfenceAnalytics.instance.retryFailedRequests().catch(() => {
+            // Silently swallow
+          });
+        }
+      },
+    );
 
     this._initialized = true;
   }

@@ -69,7 +69,8 @@ export class PolyfenceAnalytics {
   private _initialized = false;
   private _config: AnalyticsConfig = {};
   private _pluginVersion = '';
-  private _sessionTelemetryFetcher: (() => Promise<SessionTelemetry>) | null = null;
+  private _sessionTelemetryFetcher: (() => Promise<SessionTelemetry>) | null =
+    null;
   private _storage: StorageAdapter | null = null;
 
   // In-memory retry queue (flushed to storage if adapter provided)
@@ -99,7 +100,9 @@ export class PolyfenceAnalytics {
     storage?: StorageAdapter,
   ): void {
     if (config.apiEndpoint && !config.apiEndpoint.startsWith('https://')) {
-      console.warn('[PolyfenceAnalytics] Endpoint must be HTTPS. Analytics disabled.');
+      console.warn(
+        '[PolyfenceAnalytics] Endpoint must be HTTPS. Analytics disabled.',
+      );
       return;
     }
 
@@ -127,25 +130,29 @@ export class PolyfenceAnalytics {
       const telemetry = await this._sessionTelemetryFetcher();
 
       // Skip sessions with zero duration
-      if (!telemetry.sessionDurationMinutes || telemetry.sessionDurationMinutes <= 0) {
+      if (
+        !telemetry.sessionDurationMinutes ||
+        telemetry.sessionDurationMinutes <= 0
+      ) {
         return;
       }
 
       const payload: Record<string, unknown> = {
         ...telemetry,
-        app_identifier: telemetry.bridgePlatform === 'react-native'
-          ? (telemetry as Record<string, unknown>)['appIdentifier'] ?? 'unknown'
-          : 'unknown',
+        app_identifier:
+          telemetry.bridgePlatform === 'react-native'
+            ? (telemetry as Record<string, unknown>).appIdentifier ?? 'unknown'
+            : 'unknown',
         platform: Platform.OS,
         plugin_version: this._pluginVersion,
         bridge_platform: 'react-native',
       };
 
       if (this._config.industryCategory) {
-        payload['industry_category'] = this._config.industryCategory;
+        payload.industry_category = this._config.industryCategory;
       }
       if (this._config.useCase) {
-        payload['use_case'] = this._config.useCase;
+        payload.use_case = this._config.useCase;
       }
 
       await this._sendPayload(payload);
@@ -237,7 +244,9 @@ export class PolyfenceAnalytics {
     return headers;
   }
 
-  private async _addRetryEntry(payload: Record<string, unknown>): Promise<void> {
+  private async _addRetryEntry(
+    payload: Record<string, unknown>,
+  ): Promise<void> {
     const key = `${RETRY_KEY_PREFIX}${Date.now()}`;
     const value = JSON.stringify(payload);
 
@@ -246,10 +255,13 @@ export class PolyfenceAnalytics {
       // Prune if over limit
       const allKeys = await this._storage.getAllKeys();
       const retryKeys = allKeys
-        .filter(k => k.startsWith(RETRY_KEY_PREFIX))
+        .filter((k) => k.startsWith(RETRY_KEY_PREFIX))
         .sort();
       if (retryKeys.length > MAX_RETRY_ENTRIES) {
-        const toRemove = retryKeys.slice(0, retryKeys.length - MAX_RETRY_ENTRIES);
+        const toRemove = retryKeys.slice(
+          0,
+          retryKeys.length - MAX_RETRY_ENTRIES,
+        );
         for (const k of toRemove) {
           await this._storage.removeItem(k);
         }
@@ -270,7 +282,7 @@ export class PolyfenceAnalytics {
   private async _getRetryEntries(): Promise<[string, string][]> {
     if (this._storage) {
       const allKeys = await this._storage.getAllKeys();
-      const retryKeys = allKeys.filter(k => k.startsWith(RETRY_KEY_PREFIX));
+      const retryKeys = allKeys.filter((k) => k.startsWith(RETRY_KEY_PREFIX));
       const entries: [string, string][] = [];
       for (const key of retryKeys) {
         const value = await this._storage.getItem(key);

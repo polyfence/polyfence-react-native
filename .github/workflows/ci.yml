@@ -29,6 +29,13 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: Lint
+        # The Publish workflow's gate runs `npm run lint` and a broken lint
+        # would block a tag-triggered release after the PR has already merged
+        # (see v1.0.5 + v1.0.6 incidents). Run lint here so PR review catches
+        # the same issues before they reach a tag.
+        run: npm run lint
+
       - name: Test
         run: npm test -- --passWithNoTests
 

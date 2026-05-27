@@ -8,12 +8,17 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Polyfence } from './Polyfence';
-import type { HealthScoreEvent, PolyfenceDebugInfo, Subscription } from './types';
+import type {
+  HealthScoreEvent,
+  PolyfenceDebugInfo,
+  Subscription,
+} from './types';
 
 /**
  * Debug overlay showing real-time Polyfence health and performance metrics.
  *
- * Only renders in __DEV__ builds. In production builds, renders null.
+ * Only renders in __DEV__ builds. In production builds, renders null and
+ * mounts nothing — the hook-bearing inner component never runs.
  * Drag to reposition. Tap to toggle collapsed/expanded.
  *
  * ```tsx
@@ -24,28 +29,45 @@ import type { HealthScoreEvent, PolyfenceDebugInfo, Subscription } from './types
  * </View>
  * ```
  */
-export function PolyfenceDebugOverlay({
+export function PolyfenceDebugOverlay(
+  props: {
+    initialX?: number;
+    initialY?: number;
+  } = {},
+) {
+  // Outer gate component — no hooks here, just a __DEV__ check. Hook-bearing
+  // logic lives in the inner component below; conditionally rendering the
+  // inner component is React's canonical way to satisfy rules-of-hooks while
+  // preserving the "zero work in production" property (the inner component
+  // never mounts in release builds, so its useState/useRef/useEffect/setInterval
+  // never run there).
+  if (!__DEV__) {
+    return null;
+  }
+  return <PolyfenceDebugOverlayInner {...props} />;
+}
+
+function PolyfenceDebugOverlayInner({
   initialX = 16,
   initialY = 80,
 }: {
   initialX?: number;
   initialY?: number;
-} = {}) {
-  if (!__DEV__) return null;
-
+}) {
   const [healthScore, setHealthScore] = useState<HealthScoreEvent | null>(null);
   const [debugInfo, setDebugInfo] = useState<PolyfenceDebugInfo | null>(null);
   const [collapsed, setCollapsed] = useState(false);
 
-  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+  const pan = useRef(
+    new Animated.ValueXY({ x: initialX, y: initialY }),
+  ).current;
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false },
-      ),
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
       onPanResponderRelease: () => {
         pan.extractOffset();
       },
@@ -81,7 +103,14 @@ export function PolyfenceDebugOverlay({
   }, [fetchDebugInfo]);
 
   const score = healthScore?.score ?? 0;
-  const scoreColor = score >= 90 ? '#4CAF50' : score >= 70 ? '#8BC34A' : score >= 50 ? '#FF9800' : '#F44336';
+  const scoreColor =
+    score >= 90
+      ? '#4CAF50'
+      : score >= 70
+      ? '#8BC34A'
+      : score >= 50
+      ? '#FF9800'
+      : '#F44336';
 
   if (collapsed) {
     return (
@@ -89,9 +118,14 @@ export function PolyfenceDebugOverlay({
         style={[styles.container, { transform: pan.getTranslateTransform() }]}
         {...panResponder.panHandlers}
       >
-        <TouchableOpacity onPress={() => setCollapsed(false)} style={styles.collapsedContent}>
+        <TouchableOpacity
+          onPress={() => setCollapsed(false)}
+          style={styles.collapsedContent}
+        >
           <View style={[styles.scoreCircleSmall, { borderColor: scoreColor }]}>
-            <Text style={[styles.scoreTextSmall, { color: scoreColor }]}>{score}</Text>
+            <Text style={[styles.scoreTextSmall, { color: scoreColor }]}>
+              {score}
+            </Text>
           </View>
           <Text style={styles.collapsedLabel}>PF {score}</Text>
         </TouchableOpacity>
@@ -101,19 +135,28 @@ export function PolyfenceDebugOverlay({
 
   return (
     <Animated.View
-      style={[styles.container, styles.expanded, { transform: pan.getTranslateTransform() }]}
+      style={[
+        styles.container,
+        styles.expanded,
+        { transform: pan.getTranslateTransform() },
+      ]}
       {...panResponder.panHandlers}
     >
       <TouchableOpacity onPress={() => setCollapsed(true)} activeOpacity={0.9}>
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.scoreCircle, { borderColor: scoreColor }]}>
-            <Text style={[styles.scoreText, { color: scoreColor }]}>{score}</Text>
+            <Text style={[styles.scoreText, { color: scoreColor }]}>
+              {score}
+            </Text>
           </View>
           <View style={styles.headerText}>
             <Text style={styles.title}>Health: {score}/100</Text>
             {healthScore?.topIssue ? (
-              <Text style={[styles.issue, { color: scoreColor }]} numberOfLines={2}>
+              <Text
+                style={[styles.issue, { color: scoreColor }]}
+                numberOfLines={2}
+              >
                 {healthScore.topIssue}
               </Text>
             ) : null}
@@ -123,11 +166,23 @@ export function PolyfenceDebugOverlay({
         {debugInfo ? (
           <>
             <View style={styles.divider} />
-            <MetricRow label="Tracking" value={debugInfo.isTracking ? 'Active' : 'Stopped'} />
+            <MetricRow
+              label="Tracking"
+              value={debugInfo.isTracking ? 'Active' : 'Stopped'}
+            />
             <MetricRow label="Zones" value={String(debugInfo.activeZones)} />
-            <MetricRow label="Events" value={String(debugInfo.totalEventsGenerated)} />
-            <MetricRow label="Profile" value={debugInfo.currentAccuracyProfile} />
-            <MetricRow label="Interval" value={`${debugInfo.currentIntervalMs}ms`} />
+            <MetricRow
+              label="Events"
+              value={String(debugInfo.totalEventsGenerated)}
+            />
+            <MetricRow
+              label="Profile"
+              value={debugInfo.currentAccuracyProfile}
+            />
+            <MetricRow
+              label="Interval"
+              value={`${debugInfo.currentIntervalMs}ms`}
+            />
           </>
         ) : null}
         <Text style={styles.hint}>Tap to minimize</Text>

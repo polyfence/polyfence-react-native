@@ -1,0 +1,14 @@
+# Compiled output from react-native-builder-bob — not source. Linting
+# transformed/minified output triggers false positives (e.g. @typescript-eslint/
+# no-shadow on bundler-mangled identifiers, react-hooks/rules-of-hooks on
+# transformed function bodies) and offers no value the source-side lint
+# wouldn't already provide.
+lib/
+
+# Standard noise.
+node_modules/
+coverage/
+
+# Example app has its own ESLint setup; linting it from the bridge root
+# fights with its own config and adds nothing to bridge correctness.
+example/

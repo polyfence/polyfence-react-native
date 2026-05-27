@@ -32,7 +32,7 @@ const { Polyfence: NativePolyfence } = NativeModules;
 
 if (!NativePolyfence) {
   throw new Error(
-    'polyfence-react-native: NativeModule not found. Make sure the native module is linked correctly.'
+    'polyfence-react-native: NativeModule not found. Make sure the native module is linked correctly.',
   );
 }
 
@@ -54,7 +54,7 @@ export class Polyfence {
   private assertNotDisposed(): void {
     if (this._isDisposed) {
       throw new Error(
-        'Polyfence instance has been disposed. Create a new instance or restart the app.'
+        'Polyfence instance has been disposed. Create a new instance or restart the app.',
       );
     }
   }
@@ -145,7 +145,9 @@ export class Polyfence {
     return NativePolyfence.getSessionTelemetry();
   }
 
-  onLocationUpdate(callback: (location: PolyfenceLocation) => void): Subscription {
+  onLocationUpdate(
+    callback: (location: PolyfenceLocation) => void,
+  ): Subscription {
     return onLocationUpdate(callback);
   }
 
@@ -157,7 +159,9 @@ export class Polyfence {
     return onError(callback);
   }
 
-  onPerformance(callback: (payload: PerformanceEventPayload) => void): Subscription {
+  onPerformance(
+    callback: (payload: PerformanceEventPayload) => void,
+  ): Subscription {
     return onPerformance(callback);
   }
 
@@ -250,7 +254,7 @@ export class Polyfence {
       return [];
     }
     return raw.map((item) =>
-      normalizePolyfenceError(item as Record<string, unknown>)
+      normalizePolyfenceError(item as Record<string, unknown>),
     );
   }
 

@@ -90,6 +90,36 @@ jobs:
             puts \"  Dependencies: #{spec.dependencies.map(&:name).join(', ')}\"
           "
 
+  example:
+    name: Example App (TypeScript & Lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install bridge dependencies
+        run: npm ci
+
+      - name: Build bridge (produces lib/ that the example consumes)
+        run: npm run build
+
+      - name: Install example dependencies
+        working-directory: example
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript check
+        working-directory: example
+        run: npm run ts
+
+      - name: Lint
+        working-directory: example
+        run: npm run lint
+
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -120,5 +150,39 @@ jobs:
         run: |
           if grep -rPn '(sk_live_|sk_test_|pk_live_|pk_test_|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xoxb-|xoxp-)' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.kt" --include="*.swift" --include="*.m" --include="*.yaml" --include="*.yml" --include="*.json" . 2>/dev/null | grep -v node_modules | grep -v ".gradle"; then
             echo "::error::Potential secrets found in code"
+            exit 1
+          fi
+
+      - name: Check for absolute machine paths in tracked files
+        # Catches accidental commits of files containing developer-machine
+        # paths (e.g. ios/.xcode.env.local with /Users/<name>/.nvm/...). Lockfiles
+        # legitimately include neither — package-lock.json is excluded only as a
+        # belt-and-braces precaution against false positives on resolved-tarball lines.
+        run: |
+          MATCHES=$(git ls-files -z \
+            | grep -zv '^example/package-lock\.json$' \
+            | grep -zv '^package-lock\.json$' \
+            | xargs -0 grep -InE '(^|[^A-Za-z0-9_/.-])(/Users/|/home/)[A-Za-z0-9_./-]+' 2>/dev/null \
+            || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Absolute machine paths found in tracked files"
+            echo "$MATCHES"
+            exit 1
+          fi
+
+      - name: Check for DEVELOPMENT_TEAM in pbxproj
+        # Any DEVELOPMENT_TEAM property in a committed project.pbxproj is a
+        # problem. Populated values (quoted or bare) bind signing to one
+        # identity. Blank values still imply the project has been configured
+        # against a specific identity at some point. Delete the property line
+        # entirely — Xcode writes it dynamically when a cloner selects their
+        # team in Signing & Capabilities.
+        run: |
+          MATCHES=$(git ls-files -z \
+            | xargs -0 grep -InE 'DEVELOPMENT_TEAM\s*=' 2>/dev/null \
+            || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::DEVELOPMENT_TEAM appears in committed pbxproj — delete the property line"
+            echo "$MATCHES"
             exit 1
           fi

@@ -1,0 +1,57 @@
+def node_require(script)
+  require Pod::Executable.execute_command('node', ['-p',
+    "require.resolve(
+      '#{script}',
+      {paths: [process.argv[1]]},
+    )", __dir__]).strip
+end
+
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
+
+platform :ios, '15.1'
+prepare_react_native_project!
+
+# react-native-permissions: compile only the handlers this app uses.
+setup_permissions([
+  'LocationAlways',
+  'LocationWhenInUse',
+  'Motion',
+  'Notifications',
+])
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'PolyfenceExample' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  # polyfence-react-native is consumed from the parent repo via the
+  # "polyfence-react-native": "../" entry in package.json — RN autolinking
+  # discovers the podspec there. PolyfenceCore is the underlying native
+  # engine; pinned via git tag so the example builds without a separate
+  # local checkout of polyfence-core.
+  pod 'PolyfenceCore', :git => 'https://github.com/polyfence/polyfence-core.git', :tag => 'v1.0.9'
+
+  target 'PolyfenceExampleTests' do
+    inherit! :complete
+  end
+
+  post_install do |installer|
+    # MapLibre RN: bind MapLibre SPM to the maplibre-react-native + app targets.
+    $MLRN.post_install(installer)
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+    )
+  end
+end

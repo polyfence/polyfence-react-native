@@ -1,0 +1,54 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React Native
+.metro-health-check*
+*.tsbuildinfo
+
+# Generated build outputs
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+ios/DerivedData/
+ios/.xcworkspace/
+ios/xcuserdata/
+# .xcode.env.local is the per-developer NODE_BINARY override of the
+# versioned .xcode.env. Never commit — pins one machine's Node path.
+ios/.xcode.env.local
+ios/*.ipa
+ios/*.xcarchive/
+# Unanchored — catches the dir anywhere under android/ (e.g. android/app/build/,
+# android/app/.cxx/) so a build doesn't leave 400+ generated artifacts staged.
+.gradle/
+build/
+.cxx/
+.externalNativeBuild/
+captures/
+android/local.properties
+*.apk
+*.aab
+*.keystore
+!android/app/debug.keystore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.iml
+
+# Ruby (CocoaPods)
+.ruby-version
+
+# Logs
+*.log

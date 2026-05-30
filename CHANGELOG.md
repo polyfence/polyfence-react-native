@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Example app at `example/`.** Working iOS + Android React Native app that demonstrates the bridge end-to-end: zone fetching, location permissions, background tracking, GPS profile switching, geofence enter/exit/dwell events, MapLibre rendering. See `example/README.md` for setup.
+
 ## [1.0.8] - 2026-05-30
 
 ### Changed

@@ -1,0 +1,21 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/SpaceGrotesk-Bold.ttf",
+      "sha1": "f0de6a0f5e0fba816351e324ea74d226d2e4c6c3"
+    },
+    {
+      "path": "assets/fonts/SpaceGrotesk-Medium.ttf",
+      "sha1": "0052d46f4aa6007b113bc333a0d9fd9da265d620"
+    },
+    {
+      "path": "assets/fonts/SpaceGrotesk-Regular.ttf",
+      "sha1": "e45547c2ded32a6752bbf117d2ad8abae2094800"
+    },
+    {
+      "path": "assets/fonts/SpaceGrotesk-SemiBold.ttf",
+      "sha1": "656d42e831bf055caa5ad9f7b884d300fad5bee9"
+    }
+  ]
+}

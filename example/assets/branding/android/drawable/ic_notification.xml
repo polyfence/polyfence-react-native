@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Status-bar notification icon — Polyfence mark "THE VOID".
+  Android requires notification small-icons to be pure white with
+  transparent background (Android tints and silhouettes them).
+
+  NOTE: Wiring this as the notification icon requires plugin-side
+  support. polyfence-core currently hardcodes
+  `android.R.drawable.ic_menu_mylocation` (see
+  polyfence-core/android/.../LocationTracker.kt). A follow-up is needed
+  in that package to expose a `smallIcon` setter or default to
+  `@drawable/ic_notification` from the host app.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M6,6 H58 V58 H6 Z M6,16 L30,16 L48,42 L48,58 L40,58 L40,46 L24,24 L6,24 Z"/>
+</vector>

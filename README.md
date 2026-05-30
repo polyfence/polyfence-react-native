@@ -12,6 +12,12 @@
   <img alt="Zone Map" src="assets/screenshot-map.png" width="280" />
 </p>
 
+The screenshots above are from the [example app](example/) in this repo —
+a working iOS + Android React Native app that fetches zones from the
+Polyfence SaaS, tracks location, and renders enter / exit / dwell events.
+Sign up at [polyfence.io](https://polyfence.io) for a free API key, then
+follow [`example/README.md`](example/README.md) to run it locally.
+
 ## Who this is for
 
 You're building a React Native app that needs geofencing — delivery, logistics, fitness, healthcare, asset tracking, agritech, fleet, or consumer. You want the math on-device, the zones defined once, and the same definitions reusable on your IoT firmware or server when you grow into those surfaces.

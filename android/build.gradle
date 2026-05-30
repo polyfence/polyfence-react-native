@@ -59,7 +59,7 @@ repositories {
 
 dependencies {
     compileOnly "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '0.76.7')}"
-    implementation "io.polyfence:polyfence-core:1.0.8"
+    implementation "io.polyfence:polyfence-core:1.0.9"
     implementation "com.google.android.gms:play-services-location:21.3.0"
     implementation "androidx.core:core-ktx:1.15.0"
 }

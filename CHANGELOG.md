@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-05-30
+
+### Changed
+- **`polyfence-core` dependency bumped from `1.0.8` to `1.0.9`.** v1.0.9 adds the cold-start empty-baseline guard in `GeofenceEngine.reconcileZoneStates` — fresh-install installs with no persisted zone state no longer lock in a `0 zones, inside=0` baseline when the engine receives its first GPS fix before bridge-driven `addZone()` calls land. Android-side bug primarily (activity-recognition kicks GPS independently of `LocationTracker.startTracking()`'s `hasZones()` defer-gate); iOS doesn't reproduce in practice but ships the same guard symmetrically for platform parity. See polyfence-core CHANGELOG for the full root-cause description.
+
 ## [1.0.7] - 2026-05-27
 
 ### Fixed

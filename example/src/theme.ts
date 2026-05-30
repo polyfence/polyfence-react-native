@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-// Brand tokens — Polyfence (polyfence-brand/src/app/components/brand-tokens.ts)
+// Brand tokens — Polyfence brand system
 export const Colors = {
   primary: '#00C2FF', // CYAN
   background: '#FAFBFC', // SURFACE

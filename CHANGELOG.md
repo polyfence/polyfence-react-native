@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-05-30
+
 ### Added
 - **Example app at `example/`.** Working iOS + Android React Native app that demonstrates the bridge end-to-end: zone fetching, location permissions, background tracking, GPS profile switching, geofence enter/exit/dwell events, MapLibre rendering. See `example/README.md` for setup.
+
+### Changed
+- Scrubbed `polyfence-brand` repo path references from `example/src/theme.ts` and the two `ic_launcher_foreground.xml` adaptive-icon comment blocks. Maintainer-facing comments only; no runtime behavior change.
 
 ## [1.0.8] - 2026-05-30
 

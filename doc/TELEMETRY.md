@@ -14,7 +14,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 {
   "app_identifier": "com.example.logistics",
   "platform": "android",
-  "plugin_version": "1.0.8",
+  "plugin_version": "1.0.9",
   "core_version": "1.0.4",
 
   "industry_category": null,
@@ -81,7 +81,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 |-------|------|---------|-------------|
 | `app_identifier` | string | `"com.example.logistics"` | App package name (not a user identifier) |
 | `platform` | string | `"android"` | Operating system |
-| `plugin_version` | string | `"1.0.8"` | Package version |
+| `plugin_version` | string | `"1.0.9"` | Package version |
 | `bridge_platform` | string | `"react-native"` | Bridge layer. Set automatically. |
 | `core_version` | string | `"1.0.4"` | Native engine version from polyfence-core. Stamped automatically. |
 

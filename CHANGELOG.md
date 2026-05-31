@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-05-30
+
+### Fixed
+- **iOS podspec polyfence-core version sync.** `polyfence-react-native.podspec` pinned `PolyfenceCore` at `~> 1.0.5` while Android (`android/build.gradle`) had moved to `1.0.9`. The CocoaPods `~>` operator would still have resolved to 1.0.9 at install time, but the declared versions disagreed across platforms. Both now pin `~> 1.0.9` / `1.0.9`.
+
+### Added
+- **Anti-drift consistency check (`polyfence-core-version-sync`).** New subprocess check in `consistency-checks.yaml` that fails if the Android and iOS polyfence-core versions diverge. Catches the class of drift fixed in this release before it can land on `main` again — runs in pre-push hook and CI.
+- **CI runs `bash scripts/consistency-check.sh`.** The pre-push hook already invoked the check suite; CI did not. Now PR builds fail on any consistency-check regression rather than relying on the pre-push hook running locally.
+
 ## [1.0.9] - 2026-05-30
 
 ### Added

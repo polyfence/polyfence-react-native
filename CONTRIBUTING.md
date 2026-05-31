@@ -191,7 +191,7 @@ Update documentation when you:
 ## Questions?
 
 - Check existing [issues](https://github.com/polyfence/polyfence-react-native/issues)
-- Read the [API documentation](./docs/API.md)
+- Read the API documentation in the `README.md` "API Reference" section + the JSDoc on each method in `src/`
 - Open a GitHub Discussion
 
 Thank you for contributing!

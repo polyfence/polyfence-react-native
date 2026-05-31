@@ -7,7 +7,7 @@ checks:
     fix: Remove tracked bootstrap paths via git rm --cached — keep them local-only.
 
   - id: package-readme-version-sync
-    description: package.json semver appears in README, doc/API_SURFACE.md, SECURITY train marker, and doc/TELEMETRY sentinel
+    description: package.json semver appears in README, SECURITY train marker, and doc/TELEMETRY sentinel
     type: subprocess
     runs: bash scripts/consistency-package-readme-version.sh
     fix: Update README / doc/API_SURFACE.md / SECURITY / doc/TELEMETRY.md sentinels whenever package.json version changes.

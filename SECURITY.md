@@ -39,7 +39,7 @@ This React Native bridge makes no network calls itself. All security properties 
 
 ### Dependencies
 
-- **polyfence-core 1.0.5+** — Geofencing engine (Kotlin + Swift)
+- **polyfence-core** — Geofencing engine (Kotlin + Swift). See `android/build.gradle` and `polyfence-react-native.podspec` for the currently pinned version.
 - **React Native 0.73+** — Mobile framework
 - **Play Services Location 21.3.0** (Android) — System location provider
 - **CoreLocation** (iOS) — System location provider

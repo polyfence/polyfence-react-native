@@ -11,7 +11,7 @@ bash scripts/consistency-check.sh --local-only
 | id | intent |
 | --- | --- |
 | bootstrap-files-not-tracked | Guardrail paths remain untracked |
-| package-readme-version-sync | package semver echoed across README / doc/API_SURFACE.md / SECURITY / doc/TELEMETRY.md |
+| package-readme-version-sync | package semver echoed across README / SECURITY / doc/TELEMETRY.md |
 | tsc-clean | TypeScript compile hygiene |
 | ios-podspec-version-declared | Podspec declares `s.version` for CocoaPods releases |
 | privacy-md-zero-pii-headline | `PRIVACY.md` keeps the template zero-PII headline |
@@ -20,6 +20,6 @@ bash scripts/consistency-check.sh --local-only
 
 ## Phase 3
 
-`package-readme-version-sync` now also requires the semver in `doc/API_SURFACE.md` (API doc title alignment). Privacy + SPDX + upstream links close README drift classes the version script does not cover.
+Privacy + SPDX + upstream links close README drift classes the version script does not cover.
 
 Install hook via `cp scripts/pre-push-checks.sh .git/hooks/pre-push`.

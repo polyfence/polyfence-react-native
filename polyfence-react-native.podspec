@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
   s.dependency "React-Core"
-  s.dependency "PolyfenceCore", "~> 1.0.5"
+  s.dependency "PolyfenceCore", "~> 1.0.9"
 
   s.frameworks = "CoreLocation", "CoreMotion"
 

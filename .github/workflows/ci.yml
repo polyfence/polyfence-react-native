@@ -39,6 +39,9 @@ jobs:
       - name: Test
         run: npm test -- --passWithNoTests
 
+      - name: Consistency checks
+        run: bash scripts/consistency-check.sh --local-only
+
   android:
     name: Android Build
     runs-on: ubuntu-latest

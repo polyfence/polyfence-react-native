@@ -454,11 +454,16 @@ Track only during specific time windows:
 ```typescript
 await Polyfence.instance.updateConfiguration({
   scheduleSettings: {
-    startHour: 9,
-    startMinute: 0,
-    endHour: 17,
-    endMinute: 0,
-    daysOfWeek: [1, 2, 3, 4, 5], // Monday-Friday
+    enabled: true,
+    timeWindows: [
+      {
+        startHour: 9,
+        startMinute: 0,
+        endHour: 17,
+        endMinute: 0,
+        daysOfWeek: [1, 2, 3, 4, 5], // Monday-Friday
+      },
+    ],
   },
 });
 ```

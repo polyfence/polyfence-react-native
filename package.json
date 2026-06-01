@@ -1,6 +1,6 @@
 {
   "name": "polyfence-react-native",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Polyfence React Native bridge — privacy-first geofencing, same zones across mobile/IoT/server. Bridge over polyfence-core.",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",

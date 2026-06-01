@@ -590,7 +590,7 @@ android {
 
 ## Known Differences from Flutter
 
-The following Flutter APIs are intentionally deferred from v1.0.10 of this package:
+The following Flutter APIs are intentionally deferred from v1.0.11 of this package:
 
 - `enableIntelligentOptimization()`, `enableProximityOptimization()`, `enableMovementOptimization()` — ML-powered optimization APIs. These will be added when the intelligence layer is integrated (planned for v0.2.0).
 - `zones` getter — Use `getZoneStates()` to query current zone state.

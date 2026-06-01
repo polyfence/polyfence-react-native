@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-06-01
+
+### Changed
+- README screenshots now use repo-relative paths; `assets/` included in the npm tarball (via `files` in `package.json`) so screenshots render on npm.js.
+- "Polyfence API" reference in the README links to `https://polyfence.io/api/docs`.
+- `doc/ARCHITECTURE.md` "Related Repositories" table updated to the current public surface.
+
+### Fixed
+- README method tables and snippets aligned with the current public API: `clearAllZones`, `debugInfo`, `errorHistory`, `onLocationUpdate`. Error type strings updated to the granular camelCase forms (`gpsPermissionDenied`, `gpsServiceDisabled`, `recoveryEnter`, `recoveryExit`).
+- Scheduled tracking snippet nests hour / minute / daysOfWeek fields inside `scheduleSettings.timeWindows[]`, matching the `TimeWindow` shape.
+- Telemetry opt-out snippet in README and `doc/TELEMETRY.md` calls `initialize(undefined, { disableTelemetry: true })`, matching the analytics config positional argument.
+
 ## [1.0.10] - 2026-05-30
 
 ### Fixed

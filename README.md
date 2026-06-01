@@ -8,8 +8,8 @@
 ![Platform: Android & iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)
 
 <p>
-  <img alt="Dashboard" src="assets/screenshot-dashboard.png" width="280" />
-  <img alt="Zone Map" src="assets/screenshot-map.png" width="280" />
+  <img alt="Map view" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/map-view.jpg" width="280" />
+  <img alt="Zones with live state" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/zones.jpg" width="280" />
 </p>
 
 The screenshots above are from the [example app](example/) in this repo —
@@ -22,7 +22,7 @@ follow [`example/README.md`](example/README.md) to run it locally.
 
 You're building a React Native app that needs geofencing — delivery, logistics, fitness, healthcare, asset tracking, agritech, fleet, or consumer. You want the math on-device, the zones defined once, and the same definitions reusable on your IoT firmware or server when you grow into those surfaces.
 
-This package is the React Native bridge. The same engine runs on iOS/Android via [polyfence-core](https://github.com/polyfence/polyfence-core), on embedded MCUs via [polyfence-embedded](https://github.com/polyfence/polyfence-embedded), and server-side via the Polyfence API.
+This package is the React Native bridge. The same engine runs on iOS/Android via [polyfence-core](https://github.com/polyfence/polyfence-core), on embedded MCUs via [polyfence-embedded](https://github.com/polyfence/polyfence-embedded), and server-side via the [Polyfence API](https://polyfence.io/api/docs).
 
 ## Why Polyfence?
 
@@ -232,6 +232,17 @@ const subscription = Polyfence.instance.onGeofenceEvent((event) => {
 subscription.remove();
 ```
 
+<p align="center">
+  <img alt="ENTER, EXIT and DWELL events as your device moves" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/events.png" width="280" />
+</p>
+
+Events fire whether your app is foregrounded, backgrounded, or the screen is locked. Here's what users see on each platform when zones fire in the background:
+
+<p align="center">
+  <img alt="Background events on iOS lock screen" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/notifications-ios.jpg" width="280" />
+  <img alt="Background events on Android notification shade" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/notifications-android.jpg" width="280" />
+</p>
+
 ### Step 5: Start Tracking
 
 ```typescript
@@ -407,6 +418,10 @@ await Polyfence.instance.setAccuracyProfile('adaptive');
 | **balanced** | 10 seconds | Medium | Most location-aware apps (DEFAULT) |
 | **batteryOptimal** | 30 seconds | Low | Background monitoring, casual use |
 | **adaptive** | Dynamic | Variable | Apps with varying accuracy needs |
+
+<p align="center">
+  <img alt="GPS profile selector — Max, Balanced, Battery, Smart" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/dashboard.png" width="280" />
+</p>
 
 ### Dwell Detection
 

@@ -207,6 +207,6 @@ cd polyfence-core/ios && pod lib lint
 | Repository | Purpose |
 |---|---|
 | [polyfence-core](https://github.com/polyfence/polyfence-core) | Shared native engine (Kotlin + Swift) |
-| [polyfence-flutter](https://github.com/polyfence/polyfence-flutter) | Flutter plugin |
-| [polyfence](https://github.com/polyfence/polyfence) | SaaS platform (Next.js + Supabase) |
-| [polyfence-intelligence](https://github.com/polyfence/polyfence-intelligence) | ML training pipeline |
+| [polyfence-flutter](https://github.com/polyfence/polyfence-flutter) | Flutter SDK |
+| [polyfence-embedded](https://github.com/polyfence/polyfence-embedded) | C11 library for IoT / MCU |
+| [Polyfence SaaS](https://polyfence.io) | Hosted dashboard + REST API |

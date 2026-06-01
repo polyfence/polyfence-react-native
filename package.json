@@ -11,6 +11,7 @@
     "lib",
     "android",
     "ios",
+    "assets",
     "polyfence-react-native.podspec",
     "!android/build",
     "!android/.gradle",

@@ -8,8 +8,8 @@
 ![Platform: Android & iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)
 
 <p>
-  <img alt="Map view" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/map-view.jpg" width="280" />
-  <img alt="Zones with live state" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/zones.jpg" width="280" />
+  <img alt="Map view" src="assets/screenshots/map-view.jpg" width="280" />
+  <img alt="Zones with live state" src="assets/screenshots/zones.jpg" width="280" />
 </p>
 
 The screenshots above are from the [example app](example/) in this repo —
@@ -233,14 +233,14 @@ subscription.remove();
 ```
 
 <p align="center">
-  <img alt="ENTER, EXIT and DWELL events as your device moves" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/events.png" width="280" />
+  <img alt="ENTER, EXIT and DWELL events as your device moves" src="assets/screenshots/events.png" width="280" />
 </p>
 
 Events fire whether your app is foregrounded, backgrounded, or the screen is locked. Here's what users see on each platform when zones fire in the background:
 
 <p align="center">
-  <img alt="Background events on iOS lock screen" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/notifications-ios.jpg" width="280" />
-  <img alt="Background events on Android notification shade" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/notifications-android.jpg" width="280" />
+  <img alt="Background events on iOS lock screen" src="assets/screenshots/notifications-ios.jpg" width="280" />
+  <img alt="Background events on Android notification shade" src="assets/screenshots/notifications-android.jpg" width="280" />
 </p>
 
 ### Step 5: Start Tracking
@@ -420,7 +420,7 @@ await Polyfence.instance.setAccuracyProfile('adaptive');
 | **adaptive** | Dynamic | Variable | Apps with varying accuracy needs |
 
 <p align="center">
-  <img alt="GPS profile selector — Max, Balanced, Battery, Smart" src="https://raw.githubusercontent.com/polyfence/polyfence-react-native/main/assets/screenshots/dashboard.png" width="280" />
+  <img alt="GPS profile selector — Max, Balanced, Battery, Smart" src="assets/screenshots/dashboard.png" width="280" />
 </p>
 
 ### Dwell Detection

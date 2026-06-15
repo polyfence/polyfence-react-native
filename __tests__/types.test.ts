@@ -321,12 +321,10 @@ describe('Types', () => {
       expect(config.saasBaseUrl).toBe('https://api.example.com');
     });
 
-    it('should support analytics and industry category', () => {
+    it('should support industry category', () => {
       const config: PolyfenceConfiguration = {
-        analyticsEnabled: true,
         industryCategory: 'retail',
       };
-      expect(config.analyticsEnabled).toBe(true);
       expect(config.industryCategory).toBe('retail');
     });
   });

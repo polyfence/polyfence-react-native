@@ -148,7 +148,6 @@ export interface PolyfenceConfiguration {
   activityRecognitionIntervalMs?: number;
   saasApiKey?: string;
   saasBaseUrl?: string;
-  analyticsEnabled?: boolean;
   industryCategory?: string;
 }
 

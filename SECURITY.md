@@ -28,11 +28,11 @@ We will:
 
 ## Security Architecture
 
-This React Native bridge makes no network calls itself. All security properties inherit from polyfence-core:
+This React Native bridge inherits its on-device geofencing security properties from polyfence-core. The bridge itself makes one category of network call: anonymous, opt-out platform telemetry (aggregates only — never coordinates, never PII), described under [Network Security](#network-security) below.
 
 ### Location Data
 
-- **Processed on-device only** — Location data never leaves the device
+- **Processed on-device only** — Geofencing runs locally; raw coordinates never leave the device (only anonymous aggregates are sent when telemetry is enabled — see Network Security)
 - **Not persisted** — Coordinates are not stored to disk
 - **Developer opt-in** — Location processing only occurs if the developer explicitly initializes the plugin
 - **Platform permissions** — Respects system location permissions; no location data without user consent
@@ -48,16 +48,17 @@ All dependencies are regularly audited for vulnerabilities.
 
 ### Network Security
 
-This bridge does not make any network calls. Optionally, you may configure telemetry reporting via your backend, but:
+This bridge sends anonymous platform telemetry by default (opt-out). Aside from that, it makes no network calls — all geofencing runs on-device via polyfence-core.
 
-- You control all network calls
-- No location coordinates are transmitted
-- Only aggregated telemetry (session counts, error types) leaves the device
-- See [polyfence-core security policy](https://github.com/polyfence/polyfence-core/blob/main/SECURITY.md) for details
+- **Telemetry is opt-out** — enabled by default; disable with `initialize(undefined, { disableTelemetry: true })`
+- **No location coordinates are transmitted** — only anonymous aggregates (session counts, accuracy averages, error-class tallies)
+- **No API key required** for the telemetry pipeline
+- **HTTPS only**
+- See [PRIVACY.md](PRIVACY.md) and [`doc/TELEMETRY.md`](doc/TELEMETRY.md) for the field-by-field contract, and the [polyfence-core security policy](https://github.com/polyfence/polyfence-core/blob/main/SECURITY.md) for the engine's on-device guarantees
 
 ## Privacy Principles
 
-1. **Privacy by default** — No tracking without explicit developer configuration
+1. **Privacy by default** — Anonymous aggregate telemetry only (opt-out); no end-user tracking, identifiers, or coordinates
 2. **On-device processing** — All geofencing decisions happen locally
 3. **No PII leakage** — No user identifiers are collected or transmitted
 4. **Transparent APIs** — Developers know what data flows where

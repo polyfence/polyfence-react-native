@@ -53,7 +53,7 @@ Same plugin API in all cases. The Polyfence platform layer (SDK + dashboard + AP
 
 | Requirement | Version |
 |-------------|---------|
-| **React Native** | 0.71+ |
+| **React Native** | 0.73+ |
 | **Node.js** | 18.0+ |
 | **Android** | API 24+ (Android 7.0), tested up to API 35 (Android 15) |
 | **iOS** | 14.0+ |

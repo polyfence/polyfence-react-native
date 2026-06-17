@@ -146,9 +146,6 @@ export interface PolyfenceConfiguration {
   falseEventProtectionEnabled?: boolean;
   activityRecognitionEnabled?: boolean;
   activityRecognitionIntervalMs?: number;
-  saasApiKey?: string;
-  saasBaseUrl?: string;
-  industryCategory?: string;
 }
 
 // Runtime status

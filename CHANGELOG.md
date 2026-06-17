@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - **Dead `analyticsEnabled` field** from `PolyfenceConfiguration`. It was never read by the bridge or the native engine — telemetry is controlled solely by `AnalyticsConfig.disableTelemetry` (the second `initialize` argument). Setting it had no effect.
+- **Inert `industryCategory`, `saasApiKey`, `saasBaseUrl` fields** from `PolyfenceConfiguration`. None were read by the native engine or the JS bridge when set on the geofencing config (the first `initialize` argument). Their working equivalents live on `AnalyticsConfig` (the second argument): `industryCategory`, `apiKey`, `apiEndpoint` respectively — matching the polyfence-flutter config split.
 
 ### Fixed
 - **Telemetry opt-out documentation.** `PRIVACY.md` instructed `initialize({ analyticsEnabled: false })`, which did nothing — users following it stayed opted in. Corrected to `initialize(undefined, { disableTelemetry: true })`, matching README and `doc/TELEMETRY.md`.

@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - 2026-06-20
+
+### ⚠ BREAKING CHANGES
+
+- Removed four inert fields from `PolyfenceConfiguration` (the first `initialize` argument): `analyticsEnabled`, `industryCategory`, `saasApiKey`, `saasBaseUrl`. They were never read by the bridge or native engine, so removing them changes no runtime behavior — but TypeScript that set them will no longer compile. **Migration:** move analytics settings onto `AnalyticsConfig` (the second `initialize` argument): `industryCategory` → `industryCategory`, `saasApiKey` → `apiKey`, `saasBaseUrl` → `apiEndpoint`. Telemetry is controlled by `disableTelemetry`.
 
 ### Removed
 - **Dead `analyticsEnabled` field** from `PolyfenceConfiguration`. It was never read by the bridge or the native engine — telemetry is controlled solely by `AnalyticsConfig.disableTelemetry` (the second `initialize` argument). Setting it had no effect.

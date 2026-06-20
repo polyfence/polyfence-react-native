@@ -311,24 +311,6 @@ describe('Types', () => {
       expect(config.activityRecognitionEnabled).toBe(true);
       expect(config.activityRecognitionIntervalMs).toBe(10000);
     });
-
-    it('should support SaaS configuration', () => {
-      const config: PolyfenceConfiguration = {
-        saasApiKey: 'test-key',
-        saasBaseUrl: 'https://api.example.com',
-      };
-      expect(config.saasApiKey).toBe('test-key');
-      expect(config.saasBaseUrl).toBe('https://api.example.com');
-    });
-
-    it('should support analytics and industry category', () => {
-      const config: PolyfenceConfiguration = {
-        analyticsEnabled: true,
-        industryCategory: 'retail',
-      };
-      expect(config.analyticsEnabled).toBe(true);
-      expect(config.industryCategory).toBe('retail');
-    });
   });
 
   describe('RuntimeStatus', () => {

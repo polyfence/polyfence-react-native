@@ -11,8 +11,9 @@ export {
 export { PolyfenceAnalytics } from './analytics';
 export type { AnalyticsConfig, StorageAdapter } from './analytics';
 // DebugOverlay is not re-exported from main index to avoid StyleSheet
-// initialization in non-RN test environments. Import directly:
-// import { PolyfenceDebugOverlay } from 'polyfence-react-native/src/DebugOverlay';
+// initialization in non-RN test environments. It is a dev/source-only helper
+// and is NOT part of the published npm package (the `src/` tree is excluded
+// from the tarball), so it cannot be imported by npm consumers.
 export type {
   Zone,
   ZoneType,

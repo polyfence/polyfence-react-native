@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Dead `analyticsEnabled` field** from `PolyfenceConfiguration`. It was never read by the bridge or the native engine — telemetry is controlled solely by `AnalyticsConfig.disableTelemetry` (the second `initialize` argument). Setting it had no effect.
+- **Inert `industryCategory`, `saasApiKey`, `saasBaseUrl` fields** from `PolyfenceConfiguration`. None were read by the native engine or the JS bridge when set on the geofencing config (the first `initialize` argument). Their working equivalents live on `AnalyticsConfig` (the second argument): `industryCategory`, `apiKey`, `apiEndpoint` respectively — matching the polyfence-flutter config split.
+
+### Fixed
+- **Telemetry opt-out documentation.** `PRIVACY.md` instructed `initialize({ analyticsEnabled: false })`, which did nothing — users following it stayed opted in. Corrected to `initialize(undefined, { disableTelemetry: true })`, matching README and `doc/TELEMETRY.md`.
+- **`SECURITY.md` network claims.** Removed the inaccurate "this bridge makes no network calls" statements; the bridge sends anonymous, opt-out platform telemetry (aggregates only — never coordinates or PII) over HTTPS.
+
+### Changed
+- **`PRIVACY.md` regulatory coverage.** Added Data storage & retention, Legal compliance (GDPR / CCPA / other jurisdictions), Children's privacy, Developer responsibility, and Changes sections, aligning the policy with the polyfence-flutter privacy posture.
+- **README minimum React Native** raised from 0.71+ to 0.73+ to match the build/test target (`package.json` `react-native@^0.73.0`) and `SECURITY.md`.
+
 ## [1.0.11] - 2026-06-01
 
 ### Changed
@@ -109,7 +121,7 @@ See `react-native#41394` for upstream context on `RCTEventEmitter` listener-expo
 
 ### Added
 - **Bridge version constant** — `src/version.ts` exports `POLYFENCE_PLUGIN_VERSION` instead of hardcoded string
-- **Core version in telemetry types** — `SessionTelemetry.coreVersion` typed in `types.ts` (D043)
+- **Core version in telemetry types** — `SessionTelemetry.coreVersion` typed in `types.ts`
 - **Structured configuration types** — `ProximitySettings`, `MovementSettings`, `BatterySettings`, `DwellSettings`, `ClusterSettings`, `ScheduleSettings`, `TimeWindow`, `ActivitySettings`
 - **Android Bridgeless mode support** — Events use `DeviceEventEmitter` on Android
 - **Event type normalization** — Case-insensitive mapping with fallback for geofence and error events

@@ -126,7 +126,7 @@ Four separate native event types:
 
 | Channel | JavaScript Event | Purpose |
 |---------|------------------|---------|
-| `onLocation` | `Polyfence.instance.onLocation()` | GPS location updates |
+| `onLocation` | `Polyfence.instance.onLocationUpdate()` | GPS location updates |
 | `onGeofenceEvent` | `Polyfence.instance.onGeofenceEvent()` | Zone enter/exit/dwell events |
 | `onError` | `Polyfence.instance.onError()` | Error notifications |
 | `onPerformance` | `Polyfence.instance.onPerformance()` | Runtime status/performance metrics |

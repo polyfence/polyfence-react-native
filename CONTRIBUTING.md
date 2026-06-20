@@ -156,9 +156,9 @@ chore: update dependencies
 This is a thin bridge to polyfence-core. Keep these principles in mind:
 
 - **No geofencing logic in this repo** — Detection algorithms live in polyfence-core only
-- **Minimal bridge logic** — Transform types between Dart/Kotlin/Swift and TypeScript/Kotlin/Swift
+- **Minimal bridge logic** — Transform types between native (Kotlin/Swift) and TypeScript
 - **Event streaming** — Use native event emitters (RCTEventEmitter on iOS, EventEmitter on Android)
-- **Error handling** — Map platform-specific exceptions to typed Dart exceptions
+- **Error handling** — Map platform-specific exceptions to typed TypeScript errors (`PolyfenceError`)
 
 ## Testing
 

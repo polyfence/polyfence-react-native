@@ -53,7 +53,7 @@ Same plugin API in all cases. The Polyfence platform layer (SDK + dashboard + AP
 
 | Requirement | Version |
 |-------------|---------|
-| **React Native** | 0.71+ |
+| **React Native** | 0.73+ |
 | **Node.js** | 18.0+ |
 | **Android** | API 24+ (Android 7.0), tested up to API 35 (Android 15) |
 | **iOS** | 14.0+ |
@@ -278,6 +278,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `startTracking()` | `Promise<void>` | Start background GPS tracking |
 | `stopTracking()` | `Promise<void>` | Stop GPS tracking |
 | `dispose()` | `Promise<void>` | Clean up resources and stop tracking |
+| `removeAllListeners()` | `void` | Remove all event listeners without disposing the engine |
 
 ### Zone Management
 
@@ -321,7 +322,8 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `onLocationUpdate(callback)` | `(location: PolyfenceLocation) => void` | Raw GPS location updates |
 | `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter/exit/dwell events |
 | `onError(callback)` | `(error: PolyfenceError) => void` | Error events |
-| `onPerformance(callback)` | `(status: RuntimeStatus) => void` | Performance status updates |
+| `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates (untyped payload) |
+| `onHealthScore(callback)` | `(event: HealthScoreEvent) => void` | Periodic health score (0-100) with top issue |
 | `onZoneEnter(callback)` | `(event: GeofenceEvent) => void` | Zone enter events only |
 | `onZoneExit(callback)` | `(event: GeofenceEvent) => void` | Zone exit events only |
 
@@ -370,22 +372,25 @@ Polyfence.instance.onError((error) => {
   console.log({
     type: error.type, // 'gpsPermissionDenied' | 'gpsServiceDisabled' | ...
     message: error.message,
-    code: error.code,
-    details: error.details,
+    context: error.context,
+    correlationId: error.correlationId,
+    timestamp: error.timestamp,
   });
 });
 ```
 
 ### Performance Events
 
+The performance payload is untyped (`PerformanceEventPayload = Record<string, unknown>`) — the fields below are illustrative and must be narrowed at runtime before use.
+
 ```typescript
-Polyfence.instance.onPerformance((status) => {
+Polyfence.instance.onPerformance((payload) => {
   console.log({
-    isTracking: status.isTracking,
-    activeZoneCount: status.activeZoneCount,
-    currentAccuracyProfile: status.currentAccuracyProfile,
-    currentIntervalMs: status.currentIntervalMs,
-    batteryLevel: status.batteryLevel,
+    isTracking: payload.isTracking,
+    activeZoneCount: payload.activeZoneCount,
+    currentAccuracyProfile: payload.currentAccuracyProfile,
+    currentIntervalMs: payload.currentIntervalMs,
+    batteryLevel: payload.batteryLevel,
   });
 });
 ```
@@ -561,7 +566,7 @@ Some Android manufacturers aggressively kill background services. If tracking st
 
 If you see "NativeModule not found" error:
 
-1. Ensure native modules are linked: `npx react-native link polyfence-react-native`
+1. Rebuild the app so autolinking picks up the module (RN 0.60+ autolinks — `react-native link` is obsolete); on iOS run `cd ios && pod install` then rebuild
 2. For Expo: Use `expo-dev-client` (not Expo Go)
 3. Clear build caches: `rm -rf node_modules && npm install && cd ios && rm -rf Pods && pod install`
 
@@ -592,7 +597,7 @@ android {
 
 The following Flutter APIs are intentionally deferred from v1.0.11 of this package:
 
-- `enableIntelligentOptimization()`, `enableProximityOptimization()`, `enableMovementOptimization()` — ML-powered optimization APIs. These will be added when the intelligence layer is integrated (planned for v0.2.0).
+- `enableIntelligentOptimization()`, `enableProximityOptimization()`, `enableMovementOptimization()` — ML-powered optimization APIs. These will be added when the intelligence layer is integrated (planned for a future release).
 - `zones` getter — Use `getZoneStates()` to query current zone state.
 - `currentConfiguration` getter — Use `getConfiguration()` instead.
 - `statusStream` — Use `onPerformance()` event listener for runtime status updates.
@@ -622,7 +627,7 @@ LocationTracker GeofenceEngine Polyfence
 
 ```typescript
 const debug = await Polyfence.instance.debugInfo();
-console.log('GPS accuracy:', debug.lastLocationTimestamp);
+console.log('Last fix:', debug.lastLocationTimestamp);
 console.log('Active zones:', debug.activeZones);
 console.log('Tracking:', debug.isTracking);
 ```

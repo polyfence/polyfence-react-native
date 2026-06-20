@@ -55,3 +55,9 @@ checks:
       - README.md
     pattern: "github\\.com/polyfence/polyfence-core"
     fix: Link README native dependency explanation to the public polyfence-core repo URL.
+
+  - id: no-internal-decision-ids
+    description: internal decision-IDs (Dxxx) / job-codes (Jxx) must not appear in public docs or source
+    type: subprocess
+    runs: bash scripts/check-no-internal-ids.sh
+    fix: strip the (Dxxx)/(Jxx) tokens from the offending public file — keep the reasoning. Internal IDs live only in polyfence-internal (DECISION_LOG / job tracker). See L213.

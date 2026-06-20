@@ -192,7 +192,7 @@ Sessions are managed automatically by polyfence-core. No manual session manageme
 
 ## Opt-Out
 
-Telemetry is **opt-out** (enabled by default per D008). Disable it at initialize:
+Telemetry is **opt-out** (enabled by default). Disable it at initialize:
 
 ```typescript
 await Polyfence.instance.initialize(undefined, { disableTelemetry: true });
@@ -229,10 +229,10 @@ All telemetry aggregation happens in polyfence-core's `TelemetryAggregator`. The
 ## Changelog
 
 ### 2026-04-03
-- Added `core_version` field — native engine version from polyfence-core, stamped automatically by TelemetryAggregator (D043)
+- Added `core_version` field — native engine version from polyfence-core, stamped automatically by TelemetryAggregator
 
 ### 2026-03-27 (initial release)
 - Initial release
 - Added `bridge_platform` field — identifies which bridge layer produced the session. Set to `"react-native"` automatically.
-- Session telemetry aggregation delegated to polyfence-core (D016)
+- Session telemetry aggregation delegated to polyfence-core
 - All privacy protections from polyfence-core telemetry apply

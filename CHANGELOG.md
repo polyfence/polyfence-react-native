@@ -121,7 +121,7 @@ See `react-native#41394` for upstream context on `RCTEventEmitter` listener-expo
 
 ### Added
 - **Bridge version constant** — `src/version.ts` exports `POLYFENCE_PLUGIN_VERSION` instead of hardcoded string
-- **Core version in telemetry types** — `SessionTelemetry.coreVersion` typed in `types.ts` (D043)
+- **Core version in telemetry types** — `SessionTelemetry.coreVersion` typed in `types.ts`
 - **Structured configuration types** — `ProximitySettings`, `MovementSettings`, `BatterySettings`, `DwellSettings`, `ClusterSettings`, `ScheduleSettings`, `TimeWindow`, `ActivitySettings`
 - **Android Bridgeless mode support** — Events use `DeviceEventEmitter` on Android
 - **Event type normalization** — Case-insensitive mapping with fallback for geofence and error events

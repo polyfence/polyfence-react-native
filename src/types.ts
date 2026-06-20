@@ -226,7 +226,7 @@ export interface ZoneState {
   distanceToBoundaryM?: number;
 }
 
-// Session telemetry (D016 — aggregated in core)
+// Session telemetry (aggregated in core)
 export interface SessionTelemetry {
   sessionDurationMinutes: number;
   gpsUpdateCount: number;
@@ -248,7 +248,7 @@ export interface SessionTelemetry {
   [key: string]: unknown; // future-proof for new fields
 }
 
-// Health score (J19 — emitted by polyfence-core every 5 minutes via onPerformanceEvent)
+// Health score (emitted by polyfence-core every 5 minutes via onPerformanceEvent)
 export interface HealthScoreEvent {
   score: number;
   topIssue: string | null;

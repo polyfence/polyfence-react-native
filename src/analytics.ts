@@ -3,7 +3,7 @@ import type { SessionTelemetry } from './types';
 
 /**
  * Configuration for Polyfence analytics telemetry.
- * Telemetry is opt-out by default (D008).
+ * Telemetry is opt-out by default.
  */
 export interface AnalyticsConfig {
   /** Disable telemetry entirely. Defaults to false (telemetry ON). */
@@ -57,7 +57,7 @@ function generateIdempotencyKey(): string {
  * Collects session telemetry from the native engine and uploads it.
  *
  * Port of Flutter's PolyfenceAnalytics — same endpoint, same payload shape,
- * same opt-out behavior (D008), same retry queue (capped at 50).
+ * same opt-out behavior, same retry queue (capped at 50).
  *
  * Posture: opt-OUT with one-line disable for anonymous aggregates.
  * Never coordinates, never identifiers, never PII.

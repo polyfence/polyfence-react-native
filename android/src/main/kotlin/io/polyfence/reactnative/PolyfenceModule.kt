@@ -67,6 +67,19 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 sendErrorEvent(errorMap)
             }
 
+            // BUG-001 upgrade-path hygiene. The `tracking_enabled` SharedPref
+            // persists across app launches and only flips false on explicit
+            // stopTracking()/dispose(). A consumer who hit BUG-001 on an
+            // earlier release left that flag stuck at true; without this
+            // reset, the first addZone() in the new session still routes
+            // through the Intent/service path before startTracking() is
+            // ever called again. iOS doesn't have this persistence (the
+            // tracker is process-scoped), so resetting here matches iOS.
+            // startTracking() re-arms the flag immediately, so this is a
+            // no-op for callers who follow the documented init → start
+            // sequence.
+            setTrackingEnabled(context, false)
+
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Initialization failed: ${e.message}")

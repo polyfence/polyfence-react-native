@@ -11,11 +11,10 @@ describe('Polyfence', () => {
   };
 
   beforeEach(async () => {
-    resetSingleton();
-    jest.clearAllMocks();
     // Default: every test starts with an initialized singleton, matching the
     // contract every consumer must follow. Tests that need to assert pre-init
     // behaviour override this in their own beforeEach.
+    resetSingleton();
     await Polyfence.instance.initialize();
     jest.clearAllMocks();
   });
@@ -68,7 +67,11 @@ describe('Polyfence', () => {
       expect(NativePolyfence.startTracking).not.toHaveBeenCalled();
     });
 
-    it('addZone() rejects before initialize() — no Android service path leak', async () => {
+    // The Android-side silent path leak (addZone routing through the
+    // Intent/service branch when tracking_enabled is true) is what this
+    // guard prevents in production. The test mocks the native module on
+    // both platforms, so it exercises the JS-bridge rejection only.
+    it('addZone() rejects before initialize()', async () => {
       const zone: Zone = {
         id: 'z1',
         name: 'Polygon',

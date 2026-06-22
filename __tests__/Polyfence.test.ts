@@ -6,7 +6,17 @@ import type { Zone, PolyfenceConfiguration } from '../src/types';
 describe('Polyfence', () => {
   const NativePolyfence = NativeModules.Polyfence;
 
-  beforeEach(() => {
+  const resetSingleton = () => {
+    (Polyfence as unknown as { _instance: Polyfence | null })._instance = null;
+  };
+
+  beforeEach(async () => {
+    resetSingleton();
+    jest.clearAllMocks();
+    // Default: every test starts with an initialized singleton, matching the
+    // contract every consumer must follow. Tests that need to assert pre-init
+    // behaviour override this in their own beforeEach.
+    await Polyfence.instance.initialize();
     jest.clearAllMocks();
   });
 
@@ -19,6 +29,13 @@ describe('Polyfence', () => {
   });
 
   describe('initialize', () => {
+    beforeEach(() => {
+      // Override: tests in this block call initialize() themselves and want a
+      // clean mock + fresh singleton to assert against.
+      resetSingleton();
+      jest.clearAllMocks();
+    });
+
     it('should call native initialize with config', async () => {
       const config: PolyfenceConfiguration = {
         accuracyProfile: 'balanced',
@@ -31,6 +48,61 @@ describe('Polyfence', () => {
     it('should pass empty object when no config provided', async () => {
       await Polyfence.instance.initialize();
       expect(NativePolyfence.initialize).toHaveBeenCalledWith({});
+    });
+  });
+
+  describe('precondition: initialize() required (BUG-001)', () => {
+    beforeEach(() => {
+      // Override: fresh singleton with _isInitialized = false so we can
+      // exercise the pre-init guard.
+      resetSingleton();
+      jest.clearAllMocks();
+    });
+
+    const errorPattern = /call initialize\(\) before any other method/;
+
+    it('startTracking() rejects before initialize()', async () => {
+      await expect(Polyfence.instance.startTracking()).rejects.toThrow(
+        errorPattern,
+      );
+      expect(NativePolyfence.startTracking).not.toHaveBeenCalled();
+    });
+
+    it('addZone() rejects before initialize() — no Android service path leak', async () => {
+      const zone: Zone = {
+        id: 'z1',
+        name: 'Polygon',
+        type: 'polygon',
+        polygon: [
+          { latitude: 0, longitude: 0 },
+          { latitude: 0, longitude: 1 },
+          { latitude: 1, longitude: 1 },
+        ],
+      };
+      await expect(Polyfence.instance.addZone(zone)).rejects.toThrow(
+        errorPattern,
+      );
+      expect(NativePolyfence.addZone).not.toHaveBeenCalled();
+    });
+
+    it('stopTracking() rejects before initialize()', async () => {
+      await expect(Polyfence.instance.stopTracking()).rejects.toThrow(
+        errorPattern,
+      );
+      expect(NativePolyfence.stopTracking).not.toHaveBeenCalled();
+    });
+
+    it('getZoneStates() rejects before initialize()', async () => {
+      await expect(Polyfence.instance.getZoneStates()).rejects.toThrow(
+        errorPattern,
+      );
+      expect(NativePolyfence.getZoneStates).not.toHaveBeenCalled();
+    });
+
+    it('once initialize() resolves, guarded methods succeed', async () => {
+      await Polyfence.instance.initialize();
+      await Polyfence.instance.startTracking();
+      expect(NativePolyfence.startTracking).toHaveBeenCalled();
     });
   });
 

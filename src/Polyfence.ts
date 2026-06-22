@@ -39,6 +39,7 @@ if (!NativePolyfence) {
 export class Polyfence {
   private static _instance: Polyfence | null = null;
   private _isDisposed = false;
+  private _isInitialized = false;
   private _analyticsAvailable = false;
   private _lifecycleManagerAvailable = false;
 
@@ -59,6 +60,18 @@ export class Polyfence {
     }
   }
 
+  // The Android native module silently accepts calls made before initialize(),
+  // routing them through a service path that requires the core delegate +
+  // PolyfenceErrorManager wired by initialize() — both are no-ops until then,
+  // so events and per-zone failures are lost. iOS already rejects every
+  // pre-init call via `guard let tracker = locationTracker`. This mirrors
+  // that guard at the bridge layer so both platforms reject loudly. (BUG-001)
+  private assertInitialized(): void {
+    if (!this._isInitialized) {
+      throw new Error('Polyfence: call initialize() before any other method.');
+    }
+  }
+
   /**
    * Initialize the geofencing engine and optionally analytics.
    *
@@ -73,6 +86,7 @@ export class Polyfence {
   ): Promise<void> {
     this.assertNotDisposed();
     await NativePolyfence.initialize(config ? { config } : {});
+    this._isInitialized = true;
 
     // Initialize analytics (failure-isolated — never blocks geofencing)
     try {
@@ -104,26 +118,31 @@ export class Polyfence {
 
   async startTracking(): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.startTracking();
   }
 
   async stopTracking(): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.stopTracking();
   }
 
   async addZone(zone: Zone): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.addZone(zone);
   }
 
   async removeZone(zoneId: string): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.removeZone(zoneId);
   }
 
   async clearAllZones(): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.removeAllZones();
   }
 
@@ -132,6 +151,7 @@ export class Polyfence {
    */
   async getZoneStates(): Promise<ZoneState[]> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.getZoneStates();
   }
 
@@ -142,6 +162,7 @@ export class Polyfence {
 
   async getSessionTelemetry(): Promise<SessionTelemetry> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.getSessionTelemetry();
   }
 
@@ -205,6 +226,7 @@ export class Polyfence {
    */
   async requestPermissions(options?: { always?: boolean }): Promise<boolean> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.requestPermissions(options ?? {});
   }
 
@@ -215,21 +237,25 @@ export class Polyfence {
 
   async getConfiguration(): Promise<PolyfenceConfiguration> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.getConfiguration();
   }
 
   async updateConfiguration(config: PolyfenceConfiguration): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.updateConfiguration(config);
   }
 
   async resetConfiguration(): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.resetConfiguration();
   }
 
   async setAccuracyProfile(profile: AccuracyProfile): Promise<void> {
     this.assertNotDisposed();
+    this.assertInitialized();
     return NativePolyfence.setAccuracyProfile(profile);
   }
 
@@ -279,6 +305,7 @@ export class Polyfence {
     }
 
     this._isDisposed = true;
+    this._isInitialized = false;
     removeAllEventListeners();
     return NativePolyfence.dispose();
   }

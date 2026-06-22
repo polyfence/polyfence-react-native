@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-06-22
+
+### Fixed
+- **BUG-001 — `startTracking()` / `addZone()` no longer silently no-op when called before `initialize()` on Android.** The JS bridge now rejects every pre-init call with `"Polyfence: call initialize() before any other method."`, matching the existing iOS `guard let tracker = locationTracker` rejection. Previously on Android, calling `startTracking()` before `initialize()` set the persistent `tracking_enabled` SharedPref to `true` (surviving app restarts) before `PolyfenceErrorManager` and the core delegate were wired by `initialize()`; subsequent `addZone()` calls for polygon zones then routed through the foreground-service Intent path where coordinate-array deserialization failed silently inside polyfence-core's `LocationTracker` ("Skipping invalid zone …" log entries with no `onError` to JS). The bridge-layer guard makes that ordering impossible. Note: the native-side "Skipping invalid zone" path inside polyfence-core does not route through `PolyfenceErrorManager` — surfacing per-zone deserialization failures via `onError` is tracked as a follow-up against polyfence-core, not this bridge.
+
 ## [2.0.0] - 2026-06-20
 
 ### ⚠ BREAKING CHANGES

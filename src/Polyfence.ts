@@ -54,7 +54,9 @@ export class Polyfence {
   private assertNotDisposed(): void {
     if (this._isDisposed) {
       throw new Error(
-        'Polyfence instance has been disposed. Create a new instance or restart the app.',
+        'This Polyfence instance was disposed. Access Polyfence.instance to ' +
+          'get a fresh instance (e.g. on re-login) — you do not need to ' +
+          'restart the app.',
       );
     }
   }
@@ -280,7 +282,17 @@ export class Polyfence {
 
     this._isDisposed = true;
     removeAllEventListeners();
-    return NativePolyfence.dispose();
+    // Drop the cached singleton so the next `Polyfence.instance` access lazily
+    // builds a fresh, usable instance — this is what makes the documented
+    // logout -> login pattern (initialize -> dispose -> initialize) work
+    // instead of permanently bricking the SDK. Native dispose() is
+    // non-terminal (it only stops tracking and clears the delegate) and
+    // initialize() re-runs setup idempotently, so re-initialization is fully
+    // supported. Retired before awaiting native teardown so a rejecting
+    // dispose() can never leave the SDK permanently unusable. This disposed
+    // instance stays disposed, so a stale captured reference still throws.
+    Polyfence._instance = null;
+    await NativePolyfence.dispose();
   }
 
   removeAllListeners(): void {

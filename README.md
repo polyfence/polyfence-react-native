@@ -277,7 +277,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `initialize(config?)` | `Promise<void>` | Initialize the geofencing engine |
 | `startTracking()` | `Promise<void>` | Start background GPS tracking |
 | `stopTracking()` | `Promise<void>` | Stop GPS tracking |
-| `dispose()` | `Promise<void>` | Clean up resources and stop tracking |
+| `dispose()` | `Promise<void>` | Clean up resources and stop tracking. Safe to re-`initialize()` afterwards (e.g. logout → login) — re-acquire via `Polyfence.instance`. |
 | `removeAllListeners()` | `void` | Remove all event listeners without disposing the engine |
 
 ### Zone Management

@@ -286,10 +286,31 @@ describe('Polyfence', () => {
       expect(NativePolyfence.dispose).toHaveBeenCalled();
     });
 
-    it('should set disposed state', async () => {
-      await Polyfence.instance.dispose();
-      await expect(Polyfence.instance.startTracking()).rejects.toThrow(
-        'Polyfence instance has been disposed',
+    // BUG-002: dispose() must NOT permanently brick the SDK. It retires the
+    // cached singleton so the documented logout -> login pattern works again.
+    it('supports re-initialize after dispose (logout -> login)', async () => {
+      const first = Polyfence.instance;
+      // Telemetry off so dispose() teardown stays on the native path only.
+      await first.initialize(undefined, { disableTelemetry: true });
+      await first.dispose();
+
+      // Re-acquire per the documented pattern — a fresh, usable instance.
+      const second = Polyfence.instance;
+      expect(second).not.toBe(first);
+      await second.initialize(undefined, { disableTelemetry: true });
+      await second.startTracking();
+      expect(NativePolyfence.startTracking).toHaveBeenCalled();
+    });
+
+    it('throws a clear, non-misleading error when a stale disposed reference is reused', async () => {
+      const stale = Polyfence.instance;
+      await stale.initialize(undefined, { disableTelemetry: true });
+      await stale.dispose();
+
+      // The retired reference stays disposed; the message must point to
+      // Polyfence.instance, not the impossible "create a new instance".
+      await expect(stale.startTracking()).rejects.toThrow(
+        /disposed.*Polyfence\.instance/s,
       );
     });
   });

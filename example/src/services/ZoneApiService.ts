@@ -82,23 +82,16 @@ function convertApiZone(data: ApiZone): Zone | null {
   return null;
 }
 
-export async function fetchActiveZones(): Promise<Zone[]> {
+// The list endpoint caps each page at 100; we follow the pagination token
+// until the server reports no more results. 50-page safety cap = 5,000 zones.
+const PAGE_SIZE = 100;
+const MAX_PAGES = 50;
+
+// Fetch one page with its own 30s timeout.
+async function fetchZonePage(url: string): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
-
   try {
-    // The Polyfence list endpoint paginates with a default page size of 50.
-    // Without `limit=`, accounts with > 50 zones silently lose everything past
-    // page 1 — including zones that are active and that the user has just
-    // verified in the dashboard. `limit=200` covers the QA-app's foreseeable
-    // zone count; revisit with proper pagination if accounts ever exceed that.
-    if (API_KEY.length === 0) {
-      throw new Error(
-        'POLYFENCE_API_KEY is not set. Copy example/.env.example to example/.env, paste your key, and rebuild. Get a free key at https://polyfence.io.',
-      );
-    }
-
-    const url = `${BASE_URL}${BASE_URL.includes('?') ? '&' : '?'}limit=200`;
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -106,24 +99,83 @@ export async function fetchActiveZones(): Promise<Zone[]> {
       },
       signal: controller.signal,
     });
-
     if (!response.ok) {
       const body = await response.text();
       throw new Error(
         `Failed to load zones. Status: ${response.status}. ${body}`,
       );
     }
+    return (await response.json()) as unknown;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
-    const responseBody = await response.json();
+// Page through EVERY zone, following pagination.nextCursor until hasMore=false.
+// A single capped GET only returns the first page (max 100), so accounts with
+// more zones silently lose the rest — the cause of "dashboard shows 177 but
+// only 100 reach the device". Do this in your own app too, not just here.
+async function fetchAllZonePages(): Promise<ApiZone[]> {
+  const all: ApiZone[] = [];
+  let cursor: string | null = null;
+  let reachedEnd = false;
 
-    let zonesJson: ApiZone[];
-    if (Array.isArray(responseBody)) {
-      zonesJson = responseBody;
-    } else if (responseBody?.data && Array.isArray(responseBody.data)) {
-      zonesJson = responseBody.data;
-    } else {
-      throw new Error('Unexpected API response format');
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const sep = BASE_URL.includes('?') ? '&' : '?';
+    const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const url = `${BASE_URL}${sep}limit=${PAGE_SIZE}${cursorParam}`;
+
+    const body = await fetchZonePage(url);
+
+    // Two shapes: a bare array (legacy/unpaginated) or
+    // { data: [...], pagination: { hasMore, nextCursor } }.
+    if (Array.isArray(body)) {
+      all.push(...(body as ApiZone[]));
+      reachedEnd = true;
+      break;
     }
+    if (
+      body &&
+      typeof body === 'object' &&
+      Array.isArray((body as { data?: unknown }).data)
+    ) {
+      const wrapped = body as {
+        data: ApiZone[];
+        pagination?: { hasMore?: boolean; nextCursor?: string | null };
+      };
+      all.push(...wrapped.data);
+      const pagination = wrapped.pagination;
+      if (pagination?.hasMore === true && pagination.nextCursor != null) {
+        cursor = String(pagination.nextCursor);
+        continue;
+      }
+      reachedEnd = true;
+      break;
+    }
+    throw new Error('Unexpected API response format');
+  }
+
+  if (!reachedEnd) {
+    // Hit the safety cap with more pages still available. Raise MAX_PAGES
+    // (or switch to incremental sync) for accounts above ~5,000 zones.
+    console.warn(
+      `ZoneApiService: stopped at the ${MAX_PAGES}-page safety cap ` +
+        `(${all.length} zones loaded); the account may have more.`,
+    );
+  }
+
+  return all;
+}
+
+export async function fetchActiveZones(): Promise<Zone[]> {
+  if (API_KEY.length === 0) {
+    throw new Error(
+      'POLYFENCE_API_KEY is not set. Copy example/.env.example to example/.env, paste your key, and rebuild. Get a free key at https://polyfence.io.',
+    );
+  }
+
+  try {
+    const zonesJson = await fetchAllZonePages();
 
     const zones: Zone[] = [];
     for (const apiZone of zonesJson) {
@@ -138,7 +190,5 @@ export async function fetchActiveZones(): Promise<Zone[]> {
       throw new Error('Request timed out. The server may be slow or unreachable.');
     }
     throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 }

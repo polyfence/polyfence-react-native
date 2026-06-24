@@ -289,6 +289,8 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `clearAllZones()` | `Promise<void>` | Remove all zones |
 | `getZoneStates()` | `Promise<ZoneState[]>` | Get current INSIDE/OUTSIDE state for all zones |
 
+> **`getZoneStates()` returns `[]` until you call `startTracking()`.** Zone state (inside/outside) is computed by the running location service, so it has nothing to report before tracking starts — adding zones alone is not enough. Order: `initialize()` → `addZone()` → `startTracking()` → `getZoneStates()`. (To learn about zones before tracking, track the membership yourself from `onZoneEnter` / `onZoneExit` events once tracking is running.)
+
 ### Configuration
 
 | Method | Returns | Description |

@@ -118,6 +118,7 @@ async function fetchZonePage(url: string): Promise<unknown> {
 async function fetchAllZonePages(): Promise<ApiZone[]> {
   const all: ApiZone[] = [];
   let cursor: string | null = null;
+  let reachedEnd = false;
 
   for (let page = 0; page < MAX_PAGES; page++) {
     const sep = BASE_URL.includes('?') ? '&' : '?';
@@ -130,6 +131,7 @@ async function fetchAllZonePages(): Promise<ApiZone[]> {
     // { data: [...], pagination: { hasMore, nextCursor } }.
     if (Array.isArray(body)) {
       all.push(...(body as ApiZone[]));
+      reachedEnd = true;
       break;
     }
     if (
@@ -147,9 +149,19 @@ async function fetchAllZonePages(): Promise<ApiZone[]> {
         cursor = String(pagination.nextCursor);
         continue;
       }
+      reachedEnd = true;
       break;
     }
     throw new Error('Unexpected API response format');
+  }
+
+  if (!reachedEnd) {
+    // Hit the safety cap with more pages still available. Raise MAX_PAGES
+    // (or switch to incremental sync) for accounts above ~5,000 zones.
+    console.warn(
+      `ZoneApiService: stopped at the ${MAX_PAGES}-page safety cap ` +
+        `(${all.length} zones loaded); the account may have more.`,
+    );
   }
 
   return all;

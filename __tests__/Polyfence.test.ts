@@ -103,18 +103,66 @@ describe('Polyfence', () => {
     };
 
     const guardedCalls: GuardedCall[] = [
-      { method: 'startTracking', nativeName: 'startTracking', call: (p) => p.startTracking() },
-      { method: 'stopTracking', nativeName: 'stopTracking', call: (p) => p.stopTracking() },
-      { method: 'addZone', nativeName: 'addZone', call: (p) => p.addZone(sampleZone) },
-      { method: 'removeZone', nativeName: 'removeZone', call: (p) => p.removeZone('z1') },
-      { method: 'clearAllZones', nativeName: 'removeAllZones', call: (p) => p.clearAllZones() },
-      { method: 'getZoneStates', nativeName: 'getZoneStates', call: (p) => p.getZoneStates() },
-      { method: 'getSessionTelemetry', nativeName: 'getSessionTelemetry', call: (p) => p.getSessionTelemetry() },
-      { method: 'requestPermissions', nativeName: 'requestPermissions', call: (p) => p.requestPermissions() },
-      { method: 'getConfiguration', nativeName: 'getConfiguration', call: (p) => p.getConfiguration() },
-      { method: 'updateConfiguration', nativeName: 'updateConfiguration', call: (p) => p.updateConfiguration(sampleConfig) },
-      { method: 'resetConfiguration', nativeName: 'resetConfiguration', call: (p) => p.resetConfiguration() },
-      { method: 'setAccuracyProfile', nativeName: 'setAccuracyProfile', call: (p) => p.setAccuracyProfile('balanced') },
+      {
+        method: 'startTracking',
+        nativeName: 'startTracking',
+        call: (p) => p.startTracking(),
+      },
+      {
+        method: 'stopTracking',
+        nativeName: 'stopTracking',
+        call: (p) => p.stopTracking(),
+      },
+      {
+        method: 'addZone',
+        nativeName: 'addZone',
+        call: (p) => p.addZone(sampleZone),
+      },
+      {
+        method: 'removeZone',
+        nativeName: 'removeZone',
+        call: (p) => p.removeZone('z1'),
+      },
+      {
+        method: 'clearAllZones',
+        nativeName: 'removeAllZones',
+        call: (p) => p.clearAllZones(),
+      },
+      {
+        method: 'getZoneStates',
+        nativeName: 'getZoneStates',
+        call: (p) => p.getZoneStates(),
+      },
+      {
+        method: 'getSessionTelemetry',
+        nativeName: 'getSessionTelemetry',
+        call: (p) => p.getSessionTelemetry(),
+      },
+      {
+        method: 'requestPermissions',
+        nativeName: 'requestPermissions',
+        call: (p) => p.requestPermissions(),
+      },
+      {
+        method: 'getConfiguration',
+        nativeName: 'getConfiguration',
+        call: (p) => p.getConfiguration(),
+      },
+      {
+        method: 'updateConfiguration',
+        nativeName: 'updateConfiguration',
+        call: (p) => p.updateConfiguration(sampleConfig),
+      },
+      {
+        method: 'resetConfiguration',
+        nativeName: 'resetConfiguration',
+        call: (p) => p.resetConfiguration(),
+      },
+      {
+        method: 'setAccuracyProfile',
+        nativeName: 'setAccuracyProfile',
+        call: (p) => p.setAccuracyProfile('balanced'),
+      },
     ];
 
     it.each(guardedCalls)(

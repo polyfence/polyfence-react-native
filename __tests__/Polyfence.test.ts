@@ -60,18 +60,12 @@ describe('Polyfence', () => {
 
     const errorPattern = /call initialize\(\) before any other method/;
 
-    it('startTracking() rejects before initialize()', async () => {
-      await expect(Polyfence.instance.startTracking()).rejects.toThrow(
-        errorPattern,
-      );
-      expect(NativePolyfence.startTracking).not.toHaveBeenCalled();
-    });
-
     // The Android-side silent path leak (addZone routing through the
-    // Intent/service branch when tracking_enabled is true) is what this
-    // guard prevents in production. The test mocks the native module on
-    // both platforms, so it exercises the JS-bridge rejection only.
-    it('addZone() rejects before initialize()', async () => {
+    // Intent/service branch when tracking_enabled is true) is the
+    // motivating symptom for BUG-001. Kept as its own narrative test
+    // because the polygon shape and Android context matter for the bug
+    // trail; the every-guarded-method coverage lives in the table below.
+    it('addZone() rejects before initialize() with a polygon zone (BUG-001 repro shape)', async () => {
       const zone: Zone = {
         id: 'z1',
         name: 'Polygon',
@@ -88,19 +82,50 @@ describe('Polyfence', () => {
       expect(NativePolyfence.addZone).not.toHaveBeenCalled();
     });
 
-    it('stopTracking() rejects before initialize()', async () => {
-      await expect(Polyfence.instance.stopTracking()).rejects.toThrow(
-        errorPattern,
-      );
-      expect(NativePolyfence.stopTracking).not.toHaveBeenCalled();
-    });
+    // Every guarded JS method must reject pre-init. Data-driven so a
+    // future refactor that drops assertInitialized() from any one of
+    // these still fails the suite.
+    type GuardedCall = {
+      method: string;
+      nativeName: string;
+      call: (p: Polyfence) => Promise<unknown>;
+    };
 
-    it('getZoneStates() rejects before initialize()', async () => {
-      await expect(Polyfence.instance.getZoneStates()).rejects.toThrow(
-        errorPattern,
-      );
-      expect(NativePolyfence.getZoneStates).not.toHaveBeenCalled();
-    });
+    const sampleZone: Zone = {
+      id: 'z1',
+      name: 'Home',
+      type: 'circle',
+      center: { latitude: 0, longitude: 0 },
+      radius: 100,
+    };
+    const sampleConfig: PolyfenceConfiguration = {
+      accuracyProfile: 'balanced',
+    };
+
+    const guardedCalls: GuardedCall[] = [
+      { method: 'startTracking', nativeName: 'startTracking', call: (p) => p.startTracking() },
+      { method: 'stopTracking', nativeName: 'stopTracking', call: (p) => p.stopTracking() },
+      { method: 'addZone', nativeName: 'addZone', call: (p) => p.addZone(sampleZone) },
+      { method: 'removeZone', nativeName: 'removeZone', call: (p) => p.removeZone('z1') },
+      { method: 'clearAllZones', nativeName: 'removeAllZones', call: (p) => p.clearAllZones() },
+      { method: 'getZoneStates', nativeName: 'getZoneStates', call: (p) => p.getZoneStates() },
+      { method: 'getSessionTelemetry', nativeName: 'getSessionTelemetry', call: (p) => p.getSessionTelemetry() },
+      { method: 'requestPermissions', nativeName: 'requestPermissions', call: (p) => p.requestPermissions() },
+      { method: 'getConfiguration', nativeName: 'getConfiguration', call: (p) => p.getConfiguration() },
+      { method: 'updateConfiguration', nativeName: 'updateConfiguration', call: (p) => p.updateConfiguration(sampleConfig) },
+      { method: 'resetConfiguration', nativeName: 'resetConfiguration', call: (p) => p.resetConfiguration() },
+      { method: 'setAccuracyProfile', nativeName: 'setAccuracyProfile', call: (p) => p.setAccuracyProfile('balanced') },
+    ];
+
+    it.each(guardedCalls)(
+      '$method() rejects before initialize() and never reaches the native module',
+      async ({ call, nativeName }) => {
+        await expect(call(Polyfence.instance)).rejects.toThrow(errorPattern);
+        expect(
+          (NativePolyfence as Record<string, jest.Mock>)[nativeName],
+        ).not.toHaveBeenCalled();
+      },
+    );
 
     it('once initialize() resolves, guarded methods succeed', async () => {
       await Polyfence.instance.initialize();

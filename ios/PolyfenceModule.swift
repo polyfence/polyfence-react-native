@@ -254,6 +254,12 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
             telemetry["deviceCategory"] = Self.getDeviceCategory()
             telemetry["osVersionMajor"] = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
             telemetry["chargingDuringSession"] = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+            // Stamp the host app's bundle id so telemetry is attributed. core leaves
+            // appIdentifier nil; the Flutter SDK resolves this itself. Without this,
+            // every React Native session lands as app_identifier 'unknown'.
+            if let bundleId = Bundle.main.bundleIdentifier {
+                telemetry["app_identifier"] = bundleId
+            }
             resolve(telemetry)
         } catch {
             NSLog("PolyfenceModule: Get session telemetry failed: %@", error.localizedDescription)

@@ -1,4 +1,4 @@
-import { PolyfenceAnalytics } from '../src/analytics';
+import { PolyfenceAnalytics, resolveAnalyticsConfig } from '../src/analytics';
 import type { SessionTelemetry } from '../src/types';
 
 /**
@@ -81,5 +81,79 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
     );
     await PolyfenceAnalytics.instance.endSession();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Parity coverage for #61: the Flutter SDK auto-attributes telemetry by
+ * reading POLYFENCE_API_KEY from the build env, so an app that just calls
+ * initialize() (no analytics config) still lands sessions under the
+ * developer's account. The RN SDK had no equivalent, so identical apps
+ * produced anonymous (profile_user_id NULL) telemetry that never showed on
+ * the developer's dashboard. resolveAnalyticsConfig closes that gap.
+ */
+describe('resolveAnalyticsConfig — env fallback parity with Flutter (#61)', () => {
+  it('uses POLYFENCE_API_KEY when the config has no apiKey', () => {
+    const r = resolveAnalyticsConfig(undefined, {
+      POLYFENCE_API_KEY: 'pk_env',
+    });
+    expect(r.apiKey).toBe('pk_env');
+  });
+
+  it('explicit config.apiKey always wins over env', () => {
+    const r = resolveAnalyticsConfig(
+      { apiKey: 'pk_explicit' },
+      { POLYFENCE_API_KEY: 'pk_env' },
+    );
+    expect(r.apiKey).toBe('pk_explicit');
+  });
+
+  it('uses POLYFENCE_API_ENDPOINT when the config has none', () => {
+    const r = resolveAnalyticsConfig(undefined, {
+      POLYFENCE_API_ENDPOINT: 'https://example.test/v1/telemetry/session',
+    });
+    expect(r.apiEndpoint).toBe('https://example.test/v1/telemetry/session');
+  });
+
+  it('explicit config.apiEndpoint always wins over env', () => {
+    const r = resolveAnalyticsConfig(
+      { apiEndpoint: 'https://explicit.test/v1/telemetry/session' },
+      { POLYFENCE_API_ENDPOINT: 'https://env.test/v1/telemetry/session' },
+    );
+    expect(r.apiEndpoint).toBe('https://explicit.test/v1/telemetry/session');
+  });
+
+  it('POLYFENCE_ANALYTICS_ENABLED=false disables telemetry', () => {
+    const r = resolveAnalyticsConfig(undefined, {
+      POLYFENCE_ANALYTICS_ENABLED: 'false',
+    });
+    expect(r.disableTelemetry).toBe(true);
+  });
+
+  it('POLYFENCE_ANALYTICS_ENABLED=true re-enables even if config disabled it', () => {
+    const r = resolveAnalyticsConfig(
+      { disableTelemetry: true },
+      { POLYFENCE_ANALYTICS_ENABLED: 'true' },
+    );
+    expect(r.disableTelemetry).toBe(false);
+  });
+
+  it('no env is a no-op — explicit config is preserved', () => {
+    const r = resolveAnalyticsConfig(
+      { apiKey: 'k', industryCategory: 'logistics', disableTelemetry: false },
+      {},
+    );
+    expect(r.apiKey).toBe('k');
+    expect(r.industryCategory).toBe('logistics');
+    expect(r.disableTelemetry).toBe(false);
+  });
+
+  it('blank/whitespace env values are ignored (no empty x-api-key)', () => {
+    const r = resolveAnalyticsConfig(undefined, {
+      POLYFENCE_API_KEY: '   ',
+      POLYFENCE_API_ENDPOINT: '',
+    });
+    expect(r.apiKey).toBeUndefined();
+    expect(r.apiEndpoint).toBeUndefined();
   });
 });

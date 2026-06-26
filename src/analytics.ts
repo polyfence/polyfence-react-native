@@ -19,6 +19,46 @@ export interface AnalyticsConfig {
 }
 
 /**
+ * Layer environment-provided defaults *under* an explicit AnalyticsConfig.
+ *
+ * Parity with the Flutter SDK, which reads `POLYFENCE_API_KEY` /
+ * `POLYFENCE_API_ENDPOINT` / `POLYFENCE_ANALYTICS_ENABLED` via
+ * `String.fromEnvironment` (polyfence-flutter `polyfence_service.dart`) so a
+ * developer who builds with the env set gets telemetry attributed to their
+ * account WITHOUT passing an analytics config. React Native has no
+ * compile-time env, so these come from `process.env`, which a consuming app's
+ * bundler (react-native-config, inline-dotenv, Metro inlining) can populate at
+ * build time. When nothing is inlined this is a harmless no-op.
+ *
+ * Precedence: explicit `config` values ALWAYS win; env only fills gaps.
+ * `POLYFENCE_ANALYTICS_ENABLED`, when set, overrides `disableTelemetry`
+ * (value !== 'true' ⇒ disabled), matching Flutter's env override.
+ *
+ * Pure (env injected) so the precedence logic is unit-testable without a
+ * bundler.
+ */
+export function resolveAnalyticsConfig(
+  config: AnalyticsConfig | undefined,
+  env: Record<string, string | undefined> = {},
+): AnalyticsConfig {
+  const apiKeyEnv = env.POLYFENCE_API_KEY?.trim();
+  const apiEndpointEnv = env.POLYFENCE_API_ENDPOINT?.trim();
+  const enabledEnv = env.POLYFENCE_ANALYTICS_ENABLED?.trim();
+
+  const disableTelemetry =
+    enabledEnv != null && enabledEnv !== ''
+      ? enabledEnv.toLowerCase() !== 'true'
+      : config?.disableTelemetry ?? false;
+
+  return {
+    ...config,
+    disableTelemetry,
+    apiKey: config?.apiKey ?? (apiKeyEnv || undefined),
+    apiEndpoint: config?.apiEndpoint ?? (apiEndpointEnv || undefined),
+  };
+}
+
+/**
  * Optional storage adapter for persisting the retry queue across app restarts.
  * Matches the @react-native-async-storage/async-storage interface.
  * If not provided, retry queue is in-memory only.

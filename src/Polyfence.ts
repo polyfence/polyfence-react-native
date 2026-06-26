@@ -23,7 +23,7 @@ import {
   normalizePolyfenceError,
   removeAllListeners as removeAllEventListeners,
 } from './events';
-import { PolyfenceAnalytics } from './analytics';
+import { PolyfenceAnalytics, resolveAnalyticsConfig } from './analytics';
 import type { AnalyticsConfig, StorageAdapter } from './analytics';
 import { AppLifecycleManager } from './lifecycle';
 import { POLYFENCE_PLUGIN_VERSION } from './version';
@@ -92,7 +92,13 @@ export class Polyfence {
 
     // Initialize analytics (failure-isolated — never blocks geofencing)
     try {
-      const resolvedConfig: AnalyticsConfig = analyticsConfig ?? {};
+      // Layer build-time env (POLYFENCE_API_KEY etc.) under the explicit
+      // config so RN telemetry auto-attributes to the developer's account,
+      // matching the Flutter SDK. `process` may be absent in some JS engines,
+      // so guard before reading. Explicit analyticsConfig values still win.
+      const env =
+        typeof process !== 'undefined' && process.env ? process.env : {};
+      const resolvedConfig = resolveAnalyticsConfig(analyticsConfig, env);
       if (!resolvedConfig.disableTelemetry) {
         PolyfenceAnalytics.instance.initialize(
           resolvedConfig,

@@ -60,7 +60,9 @@ function generateIdempotencyKey(): string {
  * same opt-out behavior, same retry queue (capped at 50).
  *
  * Posture: opt-OUT with one-line disable for anonymous aggregates.
- * Never coordinates, never identifiers, never PII.
+ * Never coordinates, never end-user identifiers, never PII. The one app-side
+ * field, app_identifier, is the host app's package/bundle id — your app's
+ * identifier, not your users' (see doc/TELEMETRY.md).
  * See PRIVACY.md for the SDK privacy stance.
  */
 export class PolyfenceAnalytics {

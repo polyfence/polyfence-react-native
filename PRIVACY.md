@@ -14,7 +14,7 @@ Polyfence collects **zero PII and zero identifiable data about your end users.**
 | Data class | What we collect | When |
 |---|---|---|
 | **Zone events** | Zone references only (`zone_id`, `device_id`, timestamp). No PII. No coordinates. | Always — this is the product value. |
-| **Anonymous platform telemetry** | Aggregates only — accuracy averages, event frequencies, error counts. No identifiers, no coordinates, no PII. | Opt-out (one-line disable). |
+| **Anonymous platform telemetry** | Aggregates only — accuracy averages, event frequencies, error counts. No end-user identifiers, no coordinates, no PII. (Carries your app's package id, `app_identifier` — that identifies _your app_, not your users.) | Opt-out (one-line disable). |
 | **Raw positions** | Not collected by default. Opt-in retention only. When opted in: positions only — never names / phones / emails / health / etc. | Opt-in only. |
 
 > **Zero PII. Zero identifiable data about end users.**
@@ -34,7 +34,7 @@ Polyfence collects **zero PII and zero identifiable data about your end users.**
 | Data class | Default | Why |
 |---|---|---|
 | **Raw positions** | **Opt-IN** | We don't have your customers' location data unless you explicitly turn retention on. |
-| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never identifiers, never PII. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
+| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never end-user identifiers, never PII — the one app-side field, `app_identifier`, is your app's package name, not a user identifier. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
 | **Zone events** | **Always** | They're the value we deliver — collecting them isn't surveillance, it's the product. |
 
 Different defaults for different data — control on every axis, no privacy theatre.

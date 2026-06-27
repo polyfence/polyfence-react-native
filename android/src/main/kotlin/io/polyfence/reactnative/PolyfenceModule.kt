@@ -240,6 +240,10 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             }
             sessionData["deviceCategory"] = getDeviceCategory()
             sessionData["osVersionMajor"] = Build.VERSION.SDK_INT
+            // Stamp the host app's package id so telemetry is attributed. core leaves
+            // appIdentifier null; the Flutter SDK resolves this itself (via PackageInfo).
+            // Without this, every React Native session lands as app_identifier 'unknown'.
+            sessionData["app_identifier"] = context.packageName
             promise.resolve(mapToWritableMap(sessionData))
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to get session telemetry: ${e.message}")

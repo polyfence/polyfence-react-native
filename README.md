@@ -172,6 +172,14 @@ import { Polyfence } from 'polyfence-react-native';
 await Polyfence.instance.initialize();
 ```
 
+> **Want your sessions on _your_ dashboard?** Telemetry is anonymous by default — anonymous sessions feed only aggregate stats, not your account's analytics. To attribute them to your Polyfence account, pass your API key (the same one you use for the zone API) to `initialize`:
+>
+> ```typescript
+> await Polyfence.instance.initialize(undefined, { apiKey: YOUR_POLYFENCE_API_KEY });
+> ```
+>
+> It's sent as `x-api-key` with each telemetry upload. React Native has no compile-time env, so supply the key however your app manages config (e.g. `react-native-config`, an env file, or a constant). To turn telemetry off entirely: `initialize(undefined, { disableTelemetry: true })`.
+
 ### Step 2: Request Permissions
 
 ```typescript

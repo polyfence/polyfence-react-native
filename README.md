@@ -321,7 +321,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `debugInfo()` | `Promise<PolyfenceDebugInfo>` | Get debug information (version, status, error history) |
+| `debugInfo()` | `Promise<PolyfenceDebugInfo>` | Get operational diagnostics in 5 groups: `systemStatus`, `performance`, `battery`, `zones`, `recentErrors`. For current configuration use `getConfiguration()`; for current zone membership use `getZoneStates()` |
 | `getSessionTelemetry()` | `Promise<SessionTelemetry>` | Get session metrics (GPS updates, zone events, battery impact) |
 | `errorHistory(options?)` | `Promise<PolyfenceError[]>` | Get recent errors |
 
@@ -637,10 +637,24 @@ LocationTracker GeofenceEngine Polyfence
 
 ```typescript
 const debug = await Polyfence.instance.debugInfo();
-console.log('Last fix:', debug.lastLocationTimestamp);
-console.log('Active zones:', debug.activeZones);
-console.log('Tracking:', debug.isTracking);
+
+// systemStatus — permissions, GPS, last fix
+console.log('Last fix:', debug.systemStatus.lastLocationUpdate); // ms since epoch, 0 if no fix yet
+console.log('GPS enabled:', debug.systemStatus.isGpsEnabled);
+console.log('Permission granted:', debug.systemStatus.isLocationPermissionGranted);
+
+// zones — counts (use getZoneStates() for inside/outside membership)
+console.log('Active zones:', debug.zones.activeZones);
+
+// performance / battery
+console.log('Detections:', debug.performance.totalZoneDetections);
+console.log('Battery:', debug.battery.batteryLevel, debug.battery.isCharging ? '⚡' : '');
+
+// recent errors (already normalized to PolyfenceError shape)
+debug.recentErrors.forEach((err) => console.log(err.type, err.message));
 ```
+
+> Note: `debugInfo()` is for operational diagnostics. For the *current configuration* (accuracy profile, update strategy, intervals) call `getConfiguration()`. For the *current zone membership* (which zones the user is inside right now) call `getZoneStates()` or subscribe to `onZoneEnter` / `onZoneExit`.
 
 ### Reporting Issues
 

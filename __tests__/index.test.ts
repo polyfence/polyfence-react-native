@@ -163,17 +163,44 @@ describe('index exports', () => {
 
     it('should allow PolyfenceDebugInfo type usage', () => {
       const debugInfo: PolyfenceDebugInfo = {
-        engineVersion: '1.0.0',
-        bridgePlatform: 'react-native',
-        isTracking: true,
-        activeZones: 5,
-        totalEventsGenerated: 100,
-        currentAccuracyProfile: 'balanced',
-        currentUpdateStrategy: 'proximityBased',
-        currentIntervalMs: 5000,
-        errorHistory: [],
+        systemStatus: {
+          isLocationPermissionGranted: true,
+          isBackgroundLocationEnabled: true,
+          isBatteryOptimizationDisabled: false,
+          isGpsEnabled: true,
+          isWakeLockAcquired: false,
+          lastKnownAccuracy: -1,
+          lastLocationUpdate: 0,
+          platformVersion: '15',
+          pluginVersion: '2.0.1',
+        },
+        performance: {
+          restartCount: 0,
+          cpuUsagePercent: 0,
+          totalLocationUpdates: 0,
+          averageDetectionLatency: 0,
+          memoryUsageMB: 10,
+          totalZoneDetections: 0,
+          uptime: 1000,
+        },
+        battery: {
+          totalActiveTime: 0,
+          gpsActiveTimePercent: 0,
+          batteryLevel: 100,
+          estimatedHourlyDrain: 0,
+          isCharging: true,
+          wakeUpCount: 0,
+        },
+        zones: {
+          zoneEventCounts: {},
+          polygonZones: 0,
+          circleZones: 0,
+          activeZones: 5,
+          lastZoneUpdate: 0,
+        },
+        recentErrors: [],
       };
-      expect(debugInfo.engineVersion).toBe('1.0.0');
+      expect(debugInfo.zones.activeZones).toBe(5);
     });
 
     it('should allow ZoneState type usage', () => {

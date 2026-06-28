@@ -167,21 +167,32 @@ function PolyfenceDebugOverlayInner({
           <>
             <View style={styles.divider} />
             <MetricRow
-              label="Tracking"
-              value={debugInfo.isTracking ? 'Active' : 'Stopped'}
-            />
-            <MetricRow label="Zones" value={String(debugInfo.activeZones)} />
-            <MetricRow
-              label="Events"
-              value={String(debugInfo.totalEventsGenerated)}
+              label="Zones"
+              value={String(debugInfo.zones.activeZones)}
             />
             <MetricRow
-              label="Profile"
-              value={debugInfo.currentAccuracyProfile}
+              label="Detections"
+              value={String(debugInfo.performance.totalZoneDetections)}
             />
             <MetricRow
-              label="Interval"
-              value={`${debugInfo.currentIntervalMs}ms`}
+              label="Battery"
+              value={`${debugInfo.battery.batteryLevel}%${
+                debugInfo.battery.isCharging ? ' ⚡' : ''
+              }`}
+            />
+            <MetricRow
+              label="GPS"
+              value={
+                debugInfo.systemStatus.isGpsEnabled ? 'Enabled' : 'Disabled'
+              }
+            />
+            <MetricRow
+              label="Permission"
+              value={
+                debugInfo.systemStatus.isLocationPermissionGranted
+                  ? 'Granted'
+                  : 'Denied'
+              }
             />
           </>
         ) : null}

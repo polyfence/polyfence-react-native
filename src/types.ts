@@ -201,18 +201,76 @@ export interface PolyfenceError {
   correlationId?: string;
 }
 
-// Debug info
+/**
+ * Snapshot returned by {@link Polyfence.debugInfo}. Five flat metric groups —
+ * the bridge passes the native engine's `PolyfenceDebugCollector.collectDebugInfo()`
+ * response through unchanged on both platforms.
+ *
+ * For functional state (current tracking on/off, current configuration, zone
+ * membership), prefer the focused getters: `getConfiguration()`, `getZoneStates()`,
+ * and the `onPerformance` event stream. `debugInfo()` is for operational
+ * diagnostics — battery, CPU, system permissions, error history.
+ */
 export interface PolyfenceDebugInfo {
-  engineVersion: string;
-  bridgePlatform: string;
-  isTracking: boolean;
+  systemStatus: PolyfenceSystemStatus;
+  performance: PolyfencePerformanceMetrics;
+  battery: PolyfenceBatteryMetrics;
+  zones: PolyfenceZoneStatus;
+  recentErrors: PolyfenceError[];
+}
+
+export interface PolyfenceSystemStatus {
+  isLocationPermissionGranted: boolean;
+  isBackgroundLocationEnabled: boolean;
+  /** Android only — `true` on iOS (no equivalent system setting). */
+  isBatteryOptimizationDisabled: boolean;
+  isGpsEnabled: boolean;
+  /** Android only — `false` on iOS (no wake locks). */
+  isWakeLockAcquired: boolean;
+  /** GPS accuracy of the last fix in metres. `-1` if no fix yet. */
+  lastKnownAccuracy: number;
+  /** Milliseconds since epoch; `0` if no fix yet. */
+  lastLocationUpdate: number;
+  /** OS version (e.g. Android `"15"`, iOS `"17.4"`). */
+  platformVersion: string;
+  /** Bridge/plugin version reported via `initialize({ pluginVersion })`. `"unknown"` if not set. */
+  pluginVersion: string;
+}
+
+export interface PolyfencePerformanceMetrics {
+  restartCount: number;
+  cpuUsagePercent: number;
+  totalLocationUpdates: number;
+  /** Milliseconds. */
+  averageDetectionLatency: number;
+  memoryUsageMB: number;
+  totalZoneDetections: number;
+  /** Milliseconds since session start. */
+  uptime: number;
+}
+
+export interface PolyfenceBatteryMetrics {
+  /** Milliseconds the tracker has been actively listening this session. */
+  totalActiveTime: number;
+  gpsActiveTimePercent: number;
+  /** `0–100`. */
+  batteryLevel: number;
+  /** Estimated battery drain attributable to tracking, percent per hour. */
+  estimatedHourlyDrain: number;
+  isCharging: boolean;
+  /** Android only — counts CPU wake events; always `0` on iOS. */
+  wakeUpCount: number;
+}
+
+export interface PolyfenceZoneStatus {
+  /** Per-zone-id event counts (enter/exit/dwell aggregated). */
+  zoneEventCounts: Record<string, number>;
+  polygonZones: number;
+  circleZones: number;
+  /** Number of zones currently in the active set (clustering-aware). */
   activeZones: number;
-  totalEventsGenerated: number;
-  currentAccuracyProfile: string;
-  currentUpdateStrategy: string;
-  currentIntervalMs: number;
-  lastLocationTimestamp?: number;
-  errorHistory: PolyfenceError[];
+  /** Milliseconds since epoch of the most recent zone add/remove/state change. */
+  lastZoneUpdate: number;
 }
 
 // Zone state

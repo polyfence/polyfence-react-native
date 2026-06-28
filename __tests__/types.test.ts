@@ -540,38 +540,64 @@ describe('Types', () => {
   });
 
   describe('PolyfenceDebugInfo', () => {
-    it('should have required fields', () => {
-      const debugInfo: PolyfenceDebugInfo = {
-        engineVersion: '1.0.0',
-        bridgePlatform: 'react-native',
-        isTracking: true,
+    const fullDebugInfo = (): PolyfenceDebugInfo => ({
+      systemStatus: {
+        isLocationPermissionGranted: true,
+        isBackgroundLocationEnabled: true,
+        isBatteryOptimizationDisabled: false,
+        isGpsEnabled: true,
+        isWakeLockAcquired: false,
+        lastKnownAccuracy: -1,
+        lastLocationUpdate: 0,
+        platformVersion: '15',
+        pluginVersion: '2.0.1',
+      },
+      performance: {
+        restartCount: 0,
+        cpuUsagePercent: 0,
+        totalLocationUpdates: 0,
+        averageDetectionLatency: 0,
+        memoryUsageMB: 10,
+        totalZoneDetections: 100,
+        uptime: 1000,
+      },
+      battery: {
+        totalActiveTime: 0,
+        gpsActiveTimePercent: 0,
+        batteryLevel: 100,
+        estimatedHourlyDrain: 0,
+        isCharging: true,
+        wakeUpCount: 0,
+      },
+      zones: {
+        zoneEventCounts: {},
+        polygonZones: 0,
+        circleZones: 0,
         activeZones: 5,
-        totalEventsGenerated: 100,
-        currentAccuracyProfile: 'balanced',
-        currentUpdateStrategy: 'proximityBased',
-        currentIntervalMs: 5000,
-        errorHistory: [],
-      };
-      expect(debugInfo.engineVersion).toBe('1.0.0');
-      expect(debugInfo.bridgePlatform).toBe('react-native');
-      expect(debugInfo.isTracking).toBe(true);
-      expect(debugInfo.activeZones).toBe(5);
+        lastZoneUpdate: 0,
+      },
+      recentErrors: [],
     });
 
-    it('should support optional lastLocationTimestamp', () => {
-      const debugInfo: PolyfenceDebugInfo = {
-        engineVersion: '1.0.0',
-        bridgePlatform: 'react-native',
-        isTracking: true,
-        activeZones: 5,
-        totalEventsGenerated: 100,
-        currentAccuracyProfile: 'balanced',
-        currentUpdateStrategy: 'proximityBased',
-        currentIntervalMs: 5000,
-        lastLocationTimestamp: Date.now(),
-        errorHistory: [],
-      };
-      expect(debugInfo.lastLocationTimestamp).toBeDefined();
+    it('should have all five top-level metric groups', () => {
+      const debugInfo = fullDebugInfo();
+      expect(debugInfo.systemStatus).toBeDefined();
+      expect(debugInfo.performance).toBeDefined();
+      expect(debugInfo.battery).toBeDefined();
+      expect(debugInfo.zones).toBeDefined();
+      expect(debugInfo.recentErrors).toBeDefined();
+    });
+
+    it('should expose nested zone and performance metrics', () => {
+      const debugInfo = fullDebugInfo();
+      expect(debugInfo.zones.activeZones).toBe(5);
+      expect(debugInfo.performance.totalZoneDetections).toBe(100);
+      expect(debugInfo.systemStatus.platformVersion).toBe('15');
+    });
+
+    it('should allow a 0 lastLocationUpdate to encode "no fix yet"', () => {
+      const debugInfo = fullDebugInfo();
+      expect(debugInfo.systemStatus.lastLocationUpdate).toBe(0);
     });
   });
 });

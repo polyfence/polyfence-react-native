@@ -261,11 +261,45 @@ describe('Polyfence', () => {
 
   describe('debugInfo', () => {
     it('should return native result', async () => {
+      // Matches the nested shape returned by polyfence-core
+      // PolyfenceDebugCollector.collectDebugInfo() on both platforms (BUG-008).
       const mockDebugInfo = {
-        engineVersion: '1.0.0',
-        bridgePlatform: 'react-native',
-        isTracking: true,
-        activeZones: 2,
+        systemStatus: {
+          isLocationPermissionGranted: true,
+          isBackgroundLocationEnabled: true,
+          isBatteryOptimizationDisabled: false,
+          isGpsEnabled: true,
+          isWakeLockAcquired: false,
+          lastKnownAccuracy: -1,
+          lastLocationUpdate: 0,
+          platformVersion: '15',
+          pluginVersion: '2.0.1',
+        },
+        performance: {
+          restartCount: 0,
+          cpuUsagePercent: 0,
+          totalLocationUpdates: 0,
+          averageDetectionLatency: 0,
+          memoryUsageMB: 10,
+          totalZoneDetections: 0,
+          uptime: 1000,
+        },
+        battery: {
+          totalActiveTime: 0,
+          gpsActiveTimePercent: 0,
+          batteryLevel: 100,
+          estimatedHourlyDrain: 0,
+          isCharging: true,
+          wakeUpCount: 0,
+        },
+        zones: {
+          zoneEventCounts: {},
+          polygonZones: 0,
+          circleZones: 0,
+          activeZones: 2,
+          lastZoneUpdate: 0,
+        },
+        recentErrors: [],
       };
       (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce(
         mockDebugInfo,

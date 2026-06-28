@@ -28,6 +28,11 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   activity_recognition_unavailable: 'unknown',
   configuration_error: 'unknown',
   zone_error: 'zoneValidationFailed',
+  // polyfence-core LocationTracker.addZone surfaces zone validation
+  // failures via PolyfenceErrorManager.reportError("zone_validation_failed",
+  // ...) on both platforms. Without this mapping the onError event still
+  // fires but JS consumers receive type: 'unknown'. BUG-006 (RN companion).
+  zone_validation_failed: 'zoneValidationFailed',
   tracking_error: 'serviceStartFailed',
   network_error: 'networkTimeout',
   gps_permission_denied: 'gpsPermissionDenied',

@@ -5,6 +5,7 @@ import {
   onError,
   onPerformance,
   removeAllListeners,
+  normalizePolyfenceError,
 } from '../src/events';
 
 describe('Events', () => {
@@ -183,6 +184,50 @@ describe('Events', () => {
       const subscription = onError(callback);
       expect(subscription).toHaveProperty('remove');
       expect(typeof subscription.remove).toBe('function');
+    });
+  });
+
+  describe('normalizePolyfenceError NATIVE_CODE_TO_TYPE', () => {
+    // Each entry: (native code as emitted by polyfence-core, expected
+    // public PolyfenceErrorType after normalization).
+    it.each([
+      // BUG-006: LocationTracker.addZone reports zone validation failures
+      // through PolyfenceErrorManager with this exact native code string.
+      ['zone_validation_failed', 'zoneValidationFailed'],
+      // Pre-existing mappings, asserted here so a future map-shrink can't
+      // silently break them.
+      ['zone_error', 'zoneValidationFailed'],
+      ['zone_storage_failed', 'zoneStorageFailed'],
+      ['zone_load_failed', 'zoneLoadFailed'],
+      ['permission_revoked', 'permissionRevoked'],
+      ['gps_timeout', 'gpsTimeout'],
+      ['low_battery', 'lowBattery'],
+    ])('maps native code "%s" to PolyfenceErrorType "%s"', (code, expected) => {
+      const normalized = normalizePolyfenceError({
+        code,
+        message: 'test',
+      });
+      expect(normalized.type).toBe(expected);
+    });
+
+    it('falls back to "unknown" for an unmapped native code', () => {
+      const normalized = normalizePolyfenceError({
+        code: 'some_brand_new_code_not_in_the_map',
+        message: 'test',
+      });
+      expect(normalized.type).toBe('unknown');
+    });
+
+    // Mirror the actual native wire shape — polyfence-core's
+    // PolyfenceErrorManager.reportError emits the snake_case identifier
+    // under the `type` key (not `code`). The mapping should resolve the
+    // same way whichever key the raw map uses.
+    it('resolves the mapping from raw.type when no raw.code is present', () => {
+      const normalized = normalizePolyfenceError({
+        type: 'zone_validation_failed',
+        message: 'Zone z1 was rejected: invalid polygon',
+      });
+      expect(normalized.type).toBe('zoneValidationFailed');
     });
   });
 

@@ -340,6 +340,32 @@ describe('Polyfence', () => {
       expect(result).toEqual(mockConfig);
       expect(NativePolyfence.getConfiguration).toHaveBeenCalled();
     });
+
+    // BUG-007: native engine emits enum string values in UPPERCASE_SNAKE_CASE
+    // on both platforms (Kotlin enum.name; Swift `case balanced = "BALANCED"`
+    // raw values). The JS bridge normalizes them to lowerCamelCase before
+    // returning so they match the TS AccuracyProfile / UpdateStrategy unions.
+    it('normalizes UPPERCASE_SNAKE enum values to lowerCamelCase (BUG-007)', async () => {
+      (NativePolyfence.getConfiguration as jest.Mock).mockResolvedValueOnce({
+        accuracyProfile: 'BALANCED',
+        updateStrategy: 'PROXIMITY_BASED',
+        enableDebugLogging: false,
+      });
+      const result = await Polyfence.instance.getConfiguration();
+      expect(result.accuracyProfile).toBe('balanced');
+      expect(result.updateStrategy).toBe('proximityBased');
+      expect(result.enableDebugLogging).toBe(false);
+    });
+
+    it('is idempotent on already-normalized native responses', async () => {
+      (NativePolyfence.getConfiguration as jest.Mock).mockResolvedValueOnce({
+        accuracyProfile: 'balanced',
+        updateStrategy: 'proximityBased',
+      });
+      const result = await Polyfence.instance.getConfiguration();
+      expect(result.accuracyProfile).toBe('balanced');
+      expect(result.updateStrategy).toBe('proximityBased');
+    });
   });
 
   describe('updateConfiguration', () => {

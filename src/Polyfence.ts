@@ -23,6 +23,7 @@ import {
   normalizePolyfenceError,
   removeAllListeners as removeAllEventListeners,
 } from './events';
+import { normalizeConfigEnums } from './configNormalize';
 import { PolyfenceAnalytics } from './analytics';
 import type { AnalyticsConfig, StorageAdapter } from './analytics';
 import { AppLifecycleManager } from './lifecycle';
@@ -240,7 +241,15 @@ export class Polyfence {
   async getConfiguration(): Promise<PolyfenceConfiguration> {
     this.assertNotDisposed();
     this.assertInitialized();
-    return NativePolyfence.getConfiguration();
+    // Native engine emits enum string values in UPPERCASE_SNAKE_CASE on both
+    // platforms (Kotlin enum.name; Swift `case balanced = "BALANCED"` raw
+    // values). Normalize to lowerCamelCase here to match the TypeScript
+    // AccuracyProfile / UpdateStrategy unions in `./types`. BUG-007.
+    const raw = (await NativePolyfence.getConfiguration()) as Record<
+      string,
+      unknown
+    >;
+    return normalizeConfigEnums(raw) as unknown as PolyfenceConfiguration;
   }
 
   async updateConfiguration(config: PolyfenceConfiguration): Promise<void> {

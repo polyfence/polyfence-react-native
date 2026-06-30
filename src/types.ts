@@ -32,9 +32,25 @@ export interface GeofenceEvent {
   type: GeofenceEventType;
   location: PolyfenceLocation;
   timestamp: number;
-  confidence?: number;
+  /**
+   * Milliseconds the GeofenceEngine took to detect the transition.
+   * Populated by polyfence-core on every event.
+   */
+  detectionTimeMs?: number;
+  /**
+   * Distance in metres from the event location to the zone boundary.
+   * Useful for filtering edge-of-boundary jitter. Populated by polyfence-core
+   * on every event.
+   */
+  distanceToBoundaryM?: number;
+  /**
+   * Milliseconds the device has been inside the zone at the moment of the
+   * event. Populated only on DWELL events (BUG-009 — pre-2.0.2 was always
+   * undefined because polyfence-core computed the value but did not include
+   * it in the event payload). For ENTER/EXIT/RECOVERY_* events the field is
+   * absent — those events don't carry a meaningful dwell duration.
+   */
   dwellDurationMs?: number;
-  zone?: Zone;
 }
 
 // Location

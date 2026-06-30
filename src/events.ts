@@ -117,10 +117,21 @@ function normalizeGeofenceEvent(
       longitude: (raw.longitude as number) ?? 0,
       accuracy: (raw.gpsAccuracy as number) ?? 0,
       speed: raw.speedMps as number | undefined,
+      // polyfence-core sends activity recognition state under "activityAtEvent"
+      // (string: "still" | "walking" | "running" | "in_vehicle" | "on_bicycle" |
+      // "unknown" — matches the activity types in TelemetryAggregator). Map to
+      // PolyfenceLocation.activity for consumers. BUG-009 — pre-2.0.2 this was
+      // always undefined because the bridge didn't read the native field.
+      activity: raw.activityAtEvent as string | undefined,
       timestamp: (raw.timestamp as number) ?? Date.now(),
     },
     timestamp: (raw.timestamp as number) ?? Date.now(),
-    confidence: raw.confidence as number | undefined,
+    // detectionTimeMs and distanceToBoundaryM are sent by polyfence-core
+    // on every event; pre-2.0.2 the bridge dropped them. BUG-009.
+    detectionTimeMs: raw.detectionTimeMs as number | undefined,
+    distanceToBoundaryM: raw.distanceToBoundaryM as number | undefined,
+    // dwellDurationMs is populated only for DWELL events (polyfence-core
+    // sends the key only in that case; otherwise absent → undefined here).
     dwellDurationMs: raw.dwellDurationMs as number | undefined,
   };
 }

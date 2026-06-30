@@ -175,7 +175,10 @@ describe('Types', () => {
       expect(event.type).toBe('recoveryExit');
     });
 
-    it('should support optional confidence', () => {
+    it('should support optional detection metrics from polyfence-core', () => {
+      // BUG-009: GeofenceEvent now exposes detectionTimeMs and
+      // distanceToBoundaryM (sent by both polyfence-core platforms on
+      // every event). Pre-2.0.2 the bridge silently dropped these.
       const event: GeofenceEvent = {
         zoneId: 'zone1',
         zoneName: 'Home',
@@ -187,9 +190,11 @@ describe('Types', () => {
           timestamp: Date.now(),
         },
         timestamp: Date.now(),
-        confidence: 0.95,
+        detectionTimeMs: 125,
+        distanceToBoundaryM: 8.4,
       };
-      expect(event.confidence).toBe(0.95);
+      expect(event.detectionTimeMs).toBe(125);
+      expect(event.distanceToBoundaryM).toBeCloseTo(8.4);
     });
 
     it('should support optional dwellDurationMs', () => {

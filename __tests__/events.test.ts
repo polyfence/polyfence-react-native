@@ -83,6 +83,9 @@ describe('Events', () => {
 
       listener(rawEvent);
 
+      // Bridge now forwards detectionTimeMs (BUG-009). activityAtEvent,
+      // distanceToBoundaryM, dwellDurationMs absent from this rawEvent
+      // so they normalize to undefined.
       expect(callback).toHaveBeenCalledWith({
         zoneId: 'zone1',
         zoneName: 'Office',
@@ -92,9 +95,62 @@ describe('Events', () => {
           longitude: -0.1278,
           accuracy: 8.5,
           speed: 1.2,
+          activity: undefined,
           timestamp: 1000,
         },
         timestamp: 1000,
+        detectionTimeMs: 150.0,
+        distanceToBoundaryM: undefined,
+        dwellDurationMs: undefined,
+      });
+    });
+
+    // BUG-009: pre-fix bridge dropped activityAtEvent, detectionTimeMs,
+    // and distanceToBoundaryM that polyfence-core sends on every event.
+    // dwellDurationMs is sent only for DWELL events (post-BUG-009-core
+    // fix). Exercise the full happy-path shape so a future regression
+    // that drops any one of these fields fails the suite.
+    it('forwards all polyfence-core event fields including activity and dwell duration (BUG-009)', () => {
+      const callback = jest.fn();
+      onGeofenceEvent(callback);
+      const geoCall = (mockEmitter.addListener as jest.Mock).mock.calls.find(
+        (call: any[]) => call[0] === 'onGeofenceEvent',
+      );
+      const listener = geoCall![1];
+
+      const rawDwellEvent = {
+        zoneId: 'zone1',
+        zoneName: 'Office',
+        eventType: 'DWELL',
+        latitude: 51.5074,
+        longitude: -0.1278,
+        detectionTimeMs: 92.3,
+        gpsAccuracy: 8.5,
+        speedMps: 0.0,
+        activityAtEvent: 'still',
+        distanceToBoundaryM: 14.7,
+        dwellDurationMs: 305000, // 5 min + 5 sec, just past threshold
+        timestamp: 1000,
+      };
+
+      listener(rawDwellEvent);
+
+      expect(callback).toHaveBeenCalledWith({
+        zoneId: 'zone1',
+        zoneName: 'Office',
+        type: 'dwell',
+        location: {
+          latitude: 51.5074,
+          longitude: -0.1278,
+          accuracy: 8.5,
+          speed: 0.0,
+          activity: 'still',
+          timestamp: 1000,
+        },
+        timestamp: 1000,
+        detectionTimeMs: 92.3,
+        distanceToBoundaryM: 14.7,
+        dwellDurationMs: 305000,
       });
     });
 

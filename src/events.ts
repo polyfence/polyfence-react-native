@@ -214,6 +214,20 @@ export function onGeofenceEvent(
   });
 }
 
+/**
+ * Subscribe to all SDK errors — GPS failures, permission revocations,
+ * service issues, battery warnings, zone validation errors, etc.
+ *
+ * **This is the SDK's central error channel.** Several methods —
+ * including `batteryOptimizationStatus()`, `addZone()`, and
+ * `requestPermissions()` — can emit errors as a side effect of being
+ * called. If no listener is attached at the time, the error is silently
+ * dropped (no retry, no replay, no warning in the method's return
+ * value). Subscribe to `onError` **before** calling any other SDK method.
+ *
+ * Mirrors the JSDoc on `Polyfence.instance.onError` — both surfaces
+ * resolve to this same handler.
+ */
 export function onError(
   callback: (error: PolyfenceError) => void,
 ): Subscription {

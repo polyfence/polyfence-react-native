@@ -532,7 +532,7 @@ describe('Types', () => {
         timestamp: Date.now(),
         interval: 5000,
         isFallback: false,
-        activity: 'WALKING',
+        activity: 'walking',
       };
       expect(location.accuracy).toBe(10);
       expect(location.altitude).toBe(50);

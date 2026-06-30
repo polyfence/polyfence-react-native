@@ -53,6 +53,28 @@ export interface GeofenceEvent {
   dwellDurationMs?: number;
 }
 
+/**
+ * Activity detected by polyfence-core's activity-recognition layer at the
+ * moment a location / geofence event was produced. Matches the
+ * `ActivityType` enum on both native platforms — see
+ * `polyfence-core/android/.../configuration/SmartGpsConfig.kt` and
+ * `polyfence-core/ios/Classes/Configuration/SmartGpsConfig.swift`. Native
+ * emits the enum name lowercased; this union is the closed set of values
+ * the bridge will ever receive.
+ *
+ * Note: these are the polyfence-core ActivityType names — not Google
+ * Play Service's underlying detection labels (`in_vehicle`, `on_bicycle`).
+ * polyfence-core maps GMS detections to these canonical names before
+ * emitting.
+ */
+export type ActivityAtEvent =
+  | 'still'
+  | 'walking'
+  | 'running'
+  | 'cycling'
+  | 'driving'
+  | 'unknown';
+
 // Location
 export interface PolyfenceLocation {
   latitude: number;
@@ -64,7 +86,7 @@ export interface PolyfenceLocation {
   timestamp?: number;
   interval?: number;
   isFallback?: boolean;
-  activity?: string;
+  activity?: ActivityAtEvent;
 }
 
 // Configuration

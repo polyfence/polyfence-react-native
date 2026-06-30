@@ -391,19 +391,42 @@ Polyfence.instance.onError((error) => {
 
 ### Performance Events
 
-The performance payload is untyped (`PerformanceEventPayload = Record<string, unknown>`) — the fields below are illustrative and must be narrowed at runtime before use.
+The performance channel multiplexes several payload shapes. The payload is typed as `PerformanceEventPayload = Record<string, unknown>`; discriminate on `payload.type` (or the presence of a key like `data`) before reading fields.
 
 ```typescript
 Polyfence.instance.onPerformance((payload) => {
-  console.log({
-    isTracking: payload.isTracking,
-    activeZoneCount: payload.activeZoneCount,
-    currentAccuracyProfile: payload.currentAccuracyProfile,
-    currentIntervalMs: payload.currentIntervalMs,
-    batteryLevel: payload.batteryLevel,
-  });
+  // Lightweight status snapshot — emitted on start/stop/zone changes.
+  // Shape: { type: 'status', trackingEnabled, zonesCount, profile,
+  //          lastAccuracy, timestamp }
+  if (payload.type === 'status') {
+    console.log({
+      trackingEnabled: payload.trackingEnabled,
+      zonesCount: payload.zonesCount,
+      profile: payload.profile,         // 'BALANCED' | 'MAX_ACCURACY' | ...
+      lastAccuracy: payload.lastAccuracy, // metres; null until first GPS fix
+    });
+    return;
+  }
+
+  // Engine runtime status — emitted periodically (and on change) by
+  // polyfence-core LocationTracker. Shape: { type: 'runtime_status',
+  // data: { strategy, intervalMs, accuracyProfile, nearestZoneDistanceM,
+  //         isStationary, batteryMode, gpsAccuracy, currentGpsAccuracy,
+  //         secondsSinceLastGpsFix, gpsAvailabilityDrops5Min, timestamp } }
+  if (payload.type === 'runtime_status') {
+    const data = payload.data as Record<string, unknown>;
+    console.log({
+      strategy: data.strategy,                 // 'CONTINUOUS' | 'INTELLIGENT' | ...
+      intervalMs: data.intervalMs,
+      gpsAccuracy: data.gpsAccuracy,           // metres (current fix)
+      currentGpsAccuracy: data.currentGpsAccuracy, // metres (last health-tracked fix; null until first fix)
+      nearestZoneDistanceM: data.nearestZoneDistanceM,
+    });
+  }
 });
 ```
+
+Other event types (`system_health`, etc.) flow through the same channel — narrow before reading.
 
 ---
 

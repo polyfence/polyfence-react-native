@@ -172,6 +172,8 @@ import { Polyfence } from 'polyfence-react-native';
 await Polyfence.instance.initialize();
 ```
 
+> **Wire `onError` before the calls below.** Several SDK methods (including some used in steps 3 and 5) can emit errors as a side effect of being called. If `onError` isn't subscribed at the time, those errors are dropped silently — no replay, no warning in the return value. Skip ahead to [Step 6](#step-6-handle-errors-recommended), wire `onError` once, then come back here. The remaining steps assume you've done that.
+
 > **Want your sessions on _your_ dashboard?** Telemetry is anonymous by default — anonymous sessions feed only aggregate stats, not your account's analytics. To attribute them to your Polyfence account, pass your API key (the same one you use for the zone API) to `initialize`:
 >
 > ```typescript
@@ -333,7 +335,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 |--------|----------|-------------|
 | `onLocationUpdate(callback)` | `(location: PolyfenceLocation) => void` | Raw GPS location updates |
 | `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter/exit/dwell events |
-| `onError(callback)` | `(error: PolyfenceError) => void` | Error events |
+| `onError(callback)` | `(error: PolyfenceError) => void` | **Central error channel — subscribe before any other SDK call.** GPS / permission / service / battery / zone-validation errors all route here; errors fired without a listener are dropped silently |
 | `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates (untyped payload) |
 | `onHealthScore(callback)` | `(event: HealthScoreEvent) => void` | Periodic health score (0-100) with top issue |
 | `onZoneEnter(callback)` | `(event: GeofenceEvent) => void` | Zone enter events only |

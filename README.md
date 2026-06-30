@@ -257,7 +257,9 @@ Events fire whether your app is foregrounded, backgrounded, or the screen is loc
 await Polyfence.instance.startTracking();
 ```
 
-### Step 6: Handle Errors (Optional)
+### Step 6: Handle Errors (Recommended)
+
+> **Subscribe to `onError` before calling any other SDK method.** `onError` is the SDK's **central error channel** — GPS failures, permission revocations, service issues, battery warnings, zone validation errors, and any other runtime error all route through this one subscription. Methods such as `batteryOptimizationStatus()`, `addZone()`, and `requestPermissions()` can emit errors as a side effect of being called; if no listener is attached at the time, that error is silently dropped — no retry, no replay, no warning in the return value.
 
 ```typescript
 const errorSubscription = Polyfence.instance.onError((error) => {

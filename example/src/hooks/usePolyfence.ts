@@ -267,12 +267,25 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
 
     async function init() {
       try {
+        // Subscribe to errors FIRST — onError is the SDK's central error
+        // channel. Several methods called below (initialize,
+        // updateConfiguration, addZone via refreshZones) can emit errors
+        // as a side effect; if no listener is attached at the time, those
+        // errors are silently dropped (BUG-011). Subscribing here so the
+        // listener is live before any SDK method that may emit.
+        const errSub = polyfence.current.onError((error) => {
+          if (!mounted) return;
+          addError(error.message);
+        });
+
         // Request permissions before initialize
         const perms = await requestTrackingPermissions();
         if (!perms.location) {
           addError(
             'Location permission denied — tracking cannot start. Grant location access in Settings, then reopen the app.',
           );
+          // Don't leak the error subscription if we bail.
+          errSub.remove();
           return;
         }
 
@@ -361,11 +374,8 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
           },
         );
 
-        // Subscribe to errors
-        const errSub = polyfence.current.onError((error) => {
-          if (!mounted) return;
-          addError(error.message);
-        });
+        // errSub is already subscribed at the top of init — see the
+        // BUG-011 comment there for the reasoning.
 
         // Subscribe to performance (health score, runtime status)
         const perfSub = polyfence.current.onPerformance((_payload) => {

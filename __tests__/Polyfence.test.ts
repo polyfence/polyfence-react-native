@@ -406,7 +406,7 @@ describe('Polyfence', () => {
     it('should pass configuration to native', async () => {
       const config: PolyfenceConfiguration = {
         accuracyProfile: 'maxAccuracy',
-        desiredIntervalMs: 1000,
+        proximitySettings: { nearZoneUpdateIntervalMs: 1000 },
       };
       await Polyfence.instance.updateConfiguration(config);
       expect(NativePolyfence.updateConfiguration).toHaveBeenCalledWith(config);

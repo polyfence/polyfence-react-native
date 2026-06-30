@@ -351,10 +351,11 @@ Polyfence.instance.onGeofenceEvent((event) => {
     zoneId: event.zoneId,
     zoneName: event.zoneName,
     type: event.type, // 'enter' | 'exit' | 'dwell' | 'recoveryEnter' | 'recoveryExit'
-    location: event.location,
+    location: event.location, // includes location.activity ('still' | 'walking' | 'in_vehicle' | ...)
     timestamp: event.timestamp,
-    confidence: event.confidence, // 0-1
-    dwellDurationMs: event.dwellDurationMs,
+    detectionTimeMs: event.detectionTimeMs, // ms the engine took to detect the transition
+    distanceToBoundaryM: event.distanceToBoundaryM, // metres from event location to zone boundary
+    dwellDurationMs: event.dwellDurationMs, // only set on DWELL events
   });
 });
 ```

@@ -540,7 +540,7 @@ describe('Types', () => {
       expect(location.bearing).toBe(90);
       expect(location.interval).toBe(5000);
       expect(location.isFallback).toBe(false);
-      expect(location.activity).toBe('WALKING');
+      expect(location.activity).toBe('walking');
     });
   });
 

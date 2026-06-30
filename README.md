@@ -351,7 +351,7 @@ Polyfence.instance.onGeofenceEvent((event) => {
     zoneId: event.zoneId,
     zoneName: event.zoneName,
     type: event.type, // 'enter' | 'exit' | 'dwell' | 'recoveryEnter' | 'recoveryExit'
-    location: event.location, // includes location.activity ('still' | 'walking' | 'in_vehicle' | ...)
+    location: event.location, // includes location.activity ('still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown')
     timestamp: event.timestamp,
     detectionTimeMs: event.detectionTimeMs, // ms the engine took to detect the transition
     distanceToBoundaryM: event.distanceToBoundaryM, // metres from event location to zone boundary

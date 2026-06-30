@@ -275,7 +275,34 @@ export class Polyfence {
     return NativePolyfence.batteryOptimizationStatus();
   }
 
-  async requestBatteryOptimizationExemption(): Promise<boolean> {
+  /**
+   * Launch the Android system dialog asking the user to exempt your app
+   * from battery optimisation. **Fire-and-forget** — the Promise resolves
+   * as soon as the dialog is launched, BEFORE the user has accepted or
+   * denied it. The Android system has no synchronous mechanism to report
+   * the user's response back to us.
+   *
+   * To observe the outcome: re-poll {@link batteryOptimizationStatus} after
+   * the user has responded (e.g. on `AppState` → `active` once your app
+   * returns to the foreground).
+   *
+   * ```typescript
+   * await Polyfence.instance.requestBatteryOptimizationExemption();
+   * // ...user is shown the dialog and responds...
+   * const status = await Polyfence.instance.batteryOptimizationStatus();
+   * if (status.isIgnoringOptimizations) {
+   *   // user accepted
+   * }
+   * ```
+   *
+   * On iOS this is a no-op kept for cross-platform API parity (iOS has
+   * no equivalent battery-optimisation exemption surface).
+   *
+   * Pre-2.0.2 this returned `Promise<boolean>` that resolved `true`
+   * regardless of the user's choice — actively misleading. Now returns
+   * `Promise<void>`. (BUG-012)
+   */
+  async requestBatteryOptimizationExemption(): Promise<void> {
     this.assertNotDisposed();
     return NativePolyfence.requestBatteryOptimizationExemption();
   }

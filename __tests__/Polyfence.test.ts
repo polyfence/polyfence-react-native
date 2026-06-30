@@ -445,13 +445,17 @@ describe('Polyfence', () => {
   });
 
   describe('requestBatteryOptimizationExemption', () => {
-    it('should return boolean from native', async () => {
+    // BUG-012: the method is fire-and-forget (startActivity is launched,
+    // the user response is async and not observable from the bridge).
+    // Pre-2.0.2 this resolved `true` regardless of outcome, which was
+    // actively misleading. The contract is now `Promise<void>`.
+    it('resolves void after launching the system dialog', async () => {
       (
         NativePolyfence.requestBatteryOptimizationExemption as jest.Mock
-      ).mockResolvedValueOnce(true);
+      ).mockResolvedValueOnce(undefined);
       const result =
         await Polyfence.instance.requestBatteryOptimizationExemption();
-      expect(result).toBe(true);
+      expect(result).toBeUndefined();
       expect(
         NativePolyfence.requestBatteryOptimizationExemption,
       ).toHaveBeenCalled();

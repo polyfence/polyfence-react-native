@@ -272,49 +272,52 @@ describe('Types', () => {
       expect(config.updateStrategy).toBe('intelligent');
     });
 
-    it('should support all interval options', () => {
+    it('should support interval options via nested ProximitySettings + MovementSettings', () => {
       const config: PolyfenceConfiguration = {
-        desiredIntervalMs: 5000,
-        fastestIntervalMs: 1000,
-        smallestDisplacementM: 10,
+        proximitySettings: {
+          nearZoneUpdateIntervalMs: 1000,
+          farZoneUpdateIntervalMs: 5000,
+        },
+        movementSettings: {
+          movingUpdateIntervalMs: 1000,
+          stationaryUpdateIntervalMs: 5000,
+          movementThresholdMeters: 10,
+        },
       };
-      expect(config.desiredIntervalMs).toBe(5000);
-      expect(config.fastestIntervalMs).toBe(1000);
-      expect(config.smallestDisplacementM).toBe(10);
+      expect(config.proximitySettings?.nearZoneUpdateIntervalMs).toBe(1000);
+      expect(config.movementSettings?.movementThresholdMeters).toBe(10);
     });
 
-    it('should support dwell detection options', () => {
+    it('should support dwell detection via nested DwellSettings', () => {
       const config: PolyfenceConfiguration = {
-        dwellDetectionEnabled: true,
-        dwellDefaultThresholdMs: 300000,
+        dwellSettings: { enabled: true, dwellThresholdMs: 300000 },
       };
-      expect(config.dwellDetectionEnabled).toBe(true);
-      expect(config.dwellDefaultThresholdMs).toBe(300000);
+      expect(config.dwellSettings?.enabled).toBe(true);
+      expect(config.dwellSettings?.dwellThresholdMs).toBe(300000);
     });
 
-    it('should support clustering options', () => {
+    it('should support clustering via nested ClusterSettings', () => {
       const config: PolyfenceConfiguration = {
-        clusteringEnabled: true,
-        clusterRadiusM: 5000,
+        clusterSettings: { enabled: true, activeRadiusMeters: 5000 },
       };
-      expect(config.clusteringEnabled).toBe(true);
-      expect(config.clusterRadiusM).toBe(5000);
+      expect(config.clusterSettings?.enabled).toBe(true);
+      expect(config.clusterSettings?.activeRadiusMeters).toBe(5000);
     });
 
-    it('should support false event protection', () => {
-      const config: PolyfenceConfiguration = {
-        falseEventProtectionEnabled: true,
-      };
-      expect(config.falseEventProtectionEnabled).toBe(true);
-    });
+    // False-event protection has no toggle now — it's always on. The
+    // pre-2.x falseEventProtectionEnabled property was a no-op even when
+    // accepted, so it was removed alongside the other dead flat props.
 
-    it('should support activity recognition options', () => {
+    it('should support activity recognition via nested ActivitySettings', () => {
       const config: PolyfenceConfiguration = {
-        activityRecognitionEnabled: true,
-        activityRecognitionIntervalMs: 10000,
+        activitySettings: {
+          enabled: true,
+          stillIntervalMs: 120000,
+          walkingIntervalMs: 15000,
+        },
       };
-      expect(config.activityRecognitionEnabled).toBe(true);
-      expect(config.activityRecognitionIntervalMs).toBe(10000);
+      expect(config.activitySettings?.enabled).toBe(true);
+      expect(config.activitySettings?.stillIntervalMs).toBe(120000);
     });
   });
 

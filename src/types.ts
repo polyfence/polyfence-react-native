@@ -161,7 +161,7 @@ export interface PolyfenceConfiguration {
   updateStrategy?: UpdateStrategy;
   gpsAccuracyThreshold?: number;
   enableDebugLogging?: boolean;
-  // Nested settings (Flutter parity)
+  // Nested settings
   proximitySettings?: ProximitySettings;
   movementSettings?: MovementSettings;
   batterySettings?: BatterySettings;
@@ -169,17 +169,6 @@ export interface PolyfenceConfiguration {
   clusterSettings?: ClusterSettings;
   scheduleSettings?: ScheduleSettings;
   activitySettings?: ActivitySettings;
-  // Legacy flat properties (kept for backward compatibility during migration)
-  desiredIntervalMs?: number;
-  fastestIntervalMs?: number;
-  smallestDisplacementM?: number;
-  dwellDetectionEnabled?: boolean;
-  dwellDefaultThresholdMs?: number;
-  clusteringEnabled?: boolean;
-  clusterRadiusM?: number;
-  falseEventProtectionEnabled?: boolean;
-  activityRecognitionEnabled?: boolean;
-  activityRecognitionIntervalMs?: number;
 }
 
 // Runtime status

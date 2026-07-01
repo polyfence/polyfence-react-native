@@ -406,7 +406,7 @@ describe('Polyfence', () => {
     it('should pass configuration to native', async () => {
       const config: PolyfenceConfiguration = {
         accuracyProfile: 'maxAccuracy',
-        desiredIntervalMs: 1000,
+        proximitySettings: { nearZoneUpdateIntervalMs: 1000 },
       };
       await Polyfence.instance.updateConfiguration(config);
       expect(NativePolyfence.updateConfiguration).toHaveBeenCalledWith(config);
@@ -674,6 +674,52 @@ describe('Polyfence', () => {
         );
         done();
       }, 0);
+    });
+  });
+
+  describe('updateConfiguration: unknown-key rejection (BUG-014a)', () => {
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      await Polyfence.instance.initialize();
+    });
+
+    it('rejects a removed pre-2.x flat property with a migration hint', async () => {
+      await expect(
+        Polyfence.instance.updateConfiguration({
+          // @ts-expect-error — removed in this release; type system catches it
+          // at compile time and the runtime guard catches it for untyped JS
+          // callers / `as any` escape hatches.
+          desiredIntervalMs: 5000,
+        }),
+      ).rejects.toThrow(/desiredIntervalMs \(removed\)/);
+      expect(NativeModules.Polyfence.updateConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('rejects a never-recognised key with the "unknown" suffix', async () => {
+      await expect(
+        Polyfence.instance.updateConfiguration({
+          // @ts-expect-error — fictional key.
+          definitelyNotAConfigKey: true,
+        }),
+      ).rejects.toThrow(/definitelyNotAConfigKey \(unknown\)/);
+      expect(NativeModules.Polyfence.updateConfiguration).not.toHaveBeenCalled();
+    });
+
+    it('accepts every documented top-level key', async () => {
+      await Polyfence.instance.updateConfiguration({
+        accuracyProfile: 'balanced',
+        updateStrategy: 'intelligent',
+        gpsAccuracyThreshold: 50,
+        enableDebugLogging: false,
+        proximitySettings: {},
+        movementSettings: {},
+        batterySettings: {},
+        dwellSettings: {},
+        clusterSettings: {},
+        scheduleSettings: {},
+        activitySettings: {},
+      });
+      expect(NativeModules.Polyfence.updateConfiguration).toHaveBeenCalledTimes(1);
     });
   });
 });

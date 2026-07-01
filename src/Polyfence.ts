@@ -37,6 +37,64 @@ if (!NativePolyfence) {
   );
 }
 
+// Keys accepted by updateConfiguration. Kept in lock-step with the
+// PolyfenceConfiguration interface in ./types so a future field added
+// to one needs to be added to the other. BUG-014a.
+const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
+  'accuracyProfile',
+  'updateStrategy',
+  'gpsAccuracyThreshold',
+  'enableDebugLogging',
+  'proximitySettings',
+  'movementSettings',
+  'batterySettings',
+  'dwellSettings',
+  'clusterSettings',
+  'scheduleSettings',
+  'activitySettings',
+]);
+
+// Pre-2.x flat properties → migration hint. Removed in this release;
+// surfacing the rename keeps the upgrade path clear for anyone whose
+// code still uses the old names.
+const LEGACY_KEY_HINTS: Record<string, string> = {
+  desiredIntervalMs: 'use proximitySettings.farZoneUpdateIntervalMs / movementSettings.stationaryUpdateIntervalMs',
+  fastestIntervalMs: 'use proximitySettings.nearZoneUpdateIntervalMs / movementSettings.movingUpdateIntervalMs',
+  smallestDisplacementM: 'use movementSettings.movementThresholdMeters',
+  dwellDetectionEnabled: 'use dwellSettings: { enabled: true }',
+  dwellDefaultThresholdMs: 'use dwellSettings: { dwellThresholdMs: ... }',
+  clusteringEnabled: 'use clusterSettings: { enabled: true }',
+  clusterRadiusM: 'use clusterSettings.activeRadiusMeters',
+  falseEventProtectionEnabled: 'no replacement — false-event protection is always on',
+  activityRecognitionEnabled: 'use activitySettings: { enabled: true }',
+  activityRecognitionIntervalMs: 'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
+};
+
+function assertKnownConfigKeys(
+  config: PolyfenceConfiguration,
+  caller: 'initialize' | 'updateConfiguration',
+): void {
+  const unknown = Object.keys(config).filter(
+    (k) => !ALLOWED_CONFIG_KEYS.has(k),
+  );
+  if (unknown.length === 0) return;
+
+  const hints = unknown
+    .map((k) =>
+      LEGACY_KEY_HINTS[k] !== undefined
+        ? `  - ${k} (removed): ${LEGACY_KEY_HINTS[k]}`
+        : `  - ${k} (unknown)`,
+    )
+    .join('\n');
+
+  throw new Error(
+    `Polyfence.${caller}: rejecting ${unknown.length} unknown ` +
+      `key${unknown.length === 1 ? '' : 's'} that pre-fix were silently ignored ` +
+      `by the native side:\n${hints}\n` +
+      `Valid keys: ${[...ALLOWED_CONFIG_KEYS].join(', ')}.`,
+  );
+}
+
 export class Polyfence {
   private static _instance: Polyfence | null = null;
   private _isDisposed = false;
@@ -88,6 +146,7 @@ export class Polyfence {
     storage?: StorageAdapter,
   ): Promise<void> {
     this.assertNotDisposed();
+    if (config) assertKnownConfigKeys(config, 'initialize');
     await NativePolyfence.initialize(config ? { config } : {});
     this._isInitialized = true;
 
@@ -255,6 +314,7 @@ export class Polyfence {
   async updateConfiguration(config: PolyfenceConfiguration): Promise<void> {
     this.assertNotDisposed();
     this.assertInitialized();
+    assertKnownConfigKeys(config, 'updateConfiguration');
     return NativePolyfence.updateConfiguration(config);
   }
 

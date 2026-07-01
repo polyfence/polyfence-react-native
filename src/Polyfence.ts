@@ -70,7 +70,10 @@ const LEGACY_KEY_HINTS: Record<string, string> = {
   activityRecognitionIntervalMs: 'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
 };
 
-function assertKnownConfigKeys(config: PolyfenceConfiguration): void {
+function assertKnownConfigKeys(
+  config: PolyfenceConfiguration,
+  caller: 'initialize' | 'updateConfiguration',
+): void {
   const unknown = Object.keys(config).filter(
     (k) => !ALLOWED_CONFIG_KEYS.has(k),
   );
@@ -85,7 +88,7 @@ function assertKnownConfigKeys(config: PolyfenceConfiguration): void {
     .join('\n');
 
   throw new Error(
-    `Polyfence.updateConfiguration: rejecting ${unknown.length} unknown ` +
+    `Polyfence.${caller}: rejecting ${unknown.length} unknown ` +
       `key${unknown.length === 1 ? '' : 's'} that pre-fix were silently ignored ` +
       `by the native side:\n${hints}\n` +
       `Valid keys: ${[...ALLOWED_CONFIG_KEYS].join(', ')}.`,
@@ -143,7 +146,7 @@ export class Polyfence {
     storage?: StorageAdapter,
   ): Promise<void> {
     this.assertNotDisposed();
-    if (config) assertKnownConfigKeys(config);
+    if (config) assertKnownConfigKeys(config, 'initialize');
     await NativePolyfence.initialize(config ? { config } : {});
     this._isInitialized = true;
 
@@ -311,7 +314,7 @@ export class Polyfence {
   async updateConfiguration(config: PolyfenceConfiguration): Promise<void> {
     this.assertNotDisposed();
     this.assertInitialized();
-    assertKnownConfigKeys(config);
+    assertKnownConfigKeys(config, 'updateConfiguration');
     return NativePolyfence.updateConfiguration(config);
   }
 

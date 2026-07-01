@@ -470,7 +470,11 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     @objc(requestBatteryOptimizationExemption:rejecter:)
     func requestBatteryOptimizationExemption(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        resolve(true)
+        // iOS has no equivalent to Android's battery-optimisation exemption
+        // — this method is here for cross-platform API parity. Resolves
+        // void to match the Android shape (BUG-012); previously resolved
+        // `true` which was meaningless on both platforms.
+        resolve(nil)
     }
 
     @objc(dispose:rejecter:)

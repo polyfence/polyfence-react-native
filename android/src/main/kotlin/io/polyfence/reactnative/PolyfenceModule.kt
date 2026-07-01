@@ -437,6 +437,15 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
     @ReactMethod
     fun requestBatteryOptimizationExemption(promise: Promise) {
+        // Fire-and-forget: startActivity returns immediately, BEFORE the
+        // user has even seen the system dialog, let alone accepted or
+        // denied it. The system has no synchronous mechanism to report the
+        // user's response back to us — observing the outcome requires
+        // re-polling batteryOptimizationStatus() AFTER the user has
+        // responded. Previously this method resolved `true` regardless of
+        // outcome (BUG-012), which was actively misleading. Now resolves
+        // void on successful launch and rejects only when startActivity
+        // itself fails.
         try {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:${context.packageName}")
@@ -444,7 +453,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             }
 
             context.startActivity(intent)
-            promise.resolve(true)
+            promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to request battery optimization exemption: ${e.message}")
             promise.reject("BATTERY_REQUEST_FAILED", e.message)

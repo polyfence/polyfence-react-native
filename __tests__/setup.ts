@@ -36,7 +36,9 @@ jest.mock('react-native', () => {
           isIgnoringOptimizations: true,
           manufacturer: 'test',
         }),
-        requestBatteryOptimizationExemption: jest.fn().mockResolvedValue(true),
+        requestBatteryOptimizationExemption: jest
+          .fn()
+          .mockResolvedValue(undefined),
         getErrorHistory: jest.fn().mockResolvedValue([]),
         dispose: jest.fn().mockResolvedValue(null),
       },

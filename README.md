@@ -351,10 +351,11 @@ Polyfence.instance.onGeofenceEvent((event) => {
     zoneId: event.zoneId,
     zoneName: event.zoneName,
     type: event.type, // 'enter' | 'exit' | 'dwell' | 'recoveryEnter' | 'recoveryExit'
-    location: event.location,
+    location: event.location, // includes location.activity ('still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown')
     timestamp: event.timestamp,
-    confidence: event.confidence, // 0-1
-    dwellDurationMs: event.dwellDurationMs,
+    detectionTimeMs: event.detectionTimeMs, // ms the engine took to detect the transition
+    distanceToBoundaryM: event.distanceToBoundaryM, // metres from event location to zone boundary
+    dwellDurationMs: event.dwellDurationMs, // only set on DWELL events
   });
 });
 ```
@@ -366,10 +367,9 @@ Polyfence.instance.onLocationUpdate((location) => {
   console.log({
     latitude: location.latitude,
     longitude: location.longitude,
-    accuracy: location.accuracy, // meters
-    altitude: location.altitude,
-    speed: location.speed, // m/s
-    bearing: location.bearing,
+    accuracy: location.accuracy, // metres, undefined until the first GPS fix
+    speed: location.speed,       // m/s
+    activity: location.activity, // 'still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown'
     timestamp: location.timestamp,
   });
 });

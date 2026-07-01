@@ -1,5 +1,6 @@
 import { DeviceEventEmitter } from 'react-native';
 import type {
+  ActivityAtEvent,
   GeofenceEvent,
   GeofenceEventType,
   HealthScoreEvent,
@@ -117,10 +118,24 @@ function normalizeGeofenceEvent(
       longitude: (raw.longitude as number) ?? 0,
       accuracy: (raw.gpsAccuracy as number) ?? 0,
       speed: raw.speedMps as number | undefined,
+      // polyfence-core sends activity recognition state under
+      // "activityAtEvent" — the lowercased ActivityType enum name (one of
+      // 'still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown').
+      // Map to PolyfenceLocation.activity for consumers. BUG-009 — pre-2.0.2
+      // this was always undefined because the bridge didn't read the native
+      // field. Cast is best-effort: a future polyfence-core release adding a
+      // new ActivityType would arrive here as a value outside the union, so
+      // consumers should still defensively narrow before branching.
+      activity: raw.activityAtEvent as ActivityAtEvent | undefined,
       timestamp: (raw.timestamp as number) ?? Date.now(),
     },
     timestamp: (raw.timestamp as number) ?? Date.now(),
-    confidence: raw.confidence as number | undefined,
+    // detectionTimeMs and distanceToBoundaryM are sent by polyfence-core
+    // on every event; pre-2.0.2 the bridge dropped them. BUG-009.
+    detectionTimeMs: raw.detectionTimeMs as number | undefined,
+    distanceToBoundaryM: raw.distanceToBoundaryM as number | undefined,
+    // dwellDurationMs is populated only for DWELL events (polyfence-core
+    // sends the key only in that case; otherwise absent → undefined here).
     dwellDurationMs: raw.dwellDurationMs as number | undefined,
   };
 }

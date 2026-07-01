@@ -32,23 +32,57 @@ export interface GeofenceEvent {
   type: GeofenceEventType;
   location: PolyfenceLocation;
   timestamp: number;
-  confidence?: number;
+  /**
+   * Milliseconds the GeofenceEngine took to detect the transition.
+   * Populated by polyfence-core on every event.
+   */
+  detectionTimeMs?: number;
+  /**
+   * Distance in metres from the event location to the zone boundary.
+   * Useful for filtering edge-of-boundary jitter. Populated by polyfence-core
+   * on every event.
+   */
+  distanceToBoundaryM?: number;
+  /**
+   * Milliseconds the device has been inside the zone at the moment of the
+   * event. Populated only on DWELL events (BUG-009 — pre-2.0.2 was always
+   * undefined because polyfence-core computed the value but did not include
+   * it in the event payload). For ENTER/EXIT/RECOVERY_* events the field is
+   * absent — those events don't carry a meaningful dwell duration.
+   */
   dwellDurationMs?: number;
-  zone?: Zone;
 }
+
+/**
+ * Activity detected by polyfence-core's activity-recognition layer at the
+ * moment a location / geofence event was produced. Matches the
+ * `ActivityType` enum on both native platforms — see
+ * `polyfence-core/android/.../configuration/SmartGpsConfig.kt` and
+ * `polyfence-core/ios/Classes/Configuration/SmartGpsConfig.swift`. Native
+ * emits the enum name lowercased; this union is the closed set of values
+ * the bridge will ever receive.
+ *
+ * Note: these are the polyfence-core ActivityType names — not Google
+ * Play Service's underlying detection labels (`in_vehicle`, `on_bicycle`).
+ * polyfence-core maps GMS detections to these canonical names before
+ * emitting.
+ */
+export type ActivityAtEvent =
+  | 'still'
+  | 'walking'
+  | 'running'
+  | 'cycling'
+  | 'driving'
+  | 'unknown';
 
 // Location
 export interface PolyfenceLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
-  altitude?: number;
   speed?: number;
-  bearing?: number;
   timestamp?: number;
-  interval?: number;
-  isFallback?: boolean;
-  activity?: string;
+  activity?: ActivityAtEvent;
 }
 
 // Configuration

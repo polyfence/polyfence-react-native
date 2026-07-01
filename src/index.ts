@@ -23,6 +23,7 @@ export type {
   PolyfenceLocation,
   PolyfenceConfiguration,
   AccuracyProfile,
+  ActivityAtEvent,
   UpdateStrategy,
   RuntimeStatus,
   PerformanceEventPayload,

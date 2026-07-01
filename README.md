@@ -440,8 +440,10 @@ await Polyfence.instance.setAccuracyProfile('adaptive');
 
 ```typescript
 await Polyfence.instance.updateConfiguration({
-  dwellDetectionEnabled: true,
-  dwellDefaultThresholdMs: 5 * 60 * 1000, // 5 minutes
+  dwellSettings: {
+    enabled: true,
+    dwellThresholdMs: 5 * 60 * 1000, // 5 minutes
+  },
 });
 
 Polyfence.instance.onGeofenceEvent((event) => {
@@ -457,8 +459,10 @@ For apps with 100+ zones, clustering improves performance:
 
 ```typescript
 await Polyfence.instance.updateConfiguration({
-  clusteringEnabled: true,
-  clusterRadiusM: 5000, // Check zones within 5km
+  clusterSettings: {
+    enabled: true,
+    activeRadiusMeters: 5000, // Check zones within 5km
+  },
 });
 ```
 
@@ -489,8 +493,16 @@ Automatically detect activity and optimize GPS:
 
 ```typescript
 await Polyfence.instance.updateConfiguration({
-  activityRecognitionEnabled: true,
-  activityRecognitionIntervalMs: 10000, // 10 second detection interval
+  activitySettings: {
+    enabled: true,
+    // Per-activity update intervals in milliseconds. Defaults are
+    // sensible; override only the ones you want to tune.
+    stillIntervalMs: 120000,   // 2 min when stationary
+    walkingIntervalMs: 15000,  // 15s when walking
+    runningIntervalMs: 10000,
+    cyclingIntervalMs: 8000,
+    drivingIntervalMs: 5000,
+  },
 });
 ```
 

@@ -634,12 +634,25 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             persistence.getZoneCount()
         } catch (e: Exception) { 0 }
 
+        // BUG-013a: pull profile + lastAccuracy from polyfence-core
+        // instead of hardcoding null. Pre-fix the two fields were dead
+        // values that suggested data was available when it wasn't —
+        // consumers reading status.profile / status.lastAccuracy always
+        // got null regardless of runtime state.
+        val profile = LocationTracker.getCurrentSmartConfiguration().accuracyProfile.name
+        val lastAccuracy = LocationTracker.getLastKnownAccuracy()
+
         val statusMap = Arguments.createMap().apply {
             putString("type", "status")
             putBoolean("trackingEnabled", tracking)
             putInt("zonesCount", zonesCount)
-            putNull("profile")
-            putNull("lastAccuracy")
+            putString("profile", profile)
+            // null until the first GPS fix lands.
+            if (lastAccuracy != null) {
+                putDouble("lastAccuracy", lastAccuracy.toDouble())
+            } else {
+                putNull("lastAccuracy")
+            }
             putDouble("timestamp", System.currentTimeMillis().toDouble())
         }
         sendEvent("onPerformance", statusMap)

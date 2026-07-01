@@ -550,15 +550,22 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         // Query actual tracking state if not explicitly passed.
         // LocationTracker.isTracking() returns true if tracking is actively running.
         let tracking = trackingEnabled ?? (locationTracker?.isTracking() ?? false)
-        let payload: [String: Any?] = [
+        // BUG-013a: pull profile + lastAccuracy from polyfence-core
+        // instead of hardcoding nil. Pre-fix the two fields were dead
+        // values that suggested data was available when it wasn't —
+        // consumers reading status.profile / status.lastAccuracy
+        // always got null regardless of runtime state.
+        let profile = locationTracker?.getCurrentSmartConfiguration().accuracyProfile.rawValue
+        let lastAccuracy: Any = locationTracker?.getLastKnownAccuracy() ?? NSNull()
+        let payload: [String: Any] = [
             "type": "status",
             "trackingEnabled": tracking,
             "zonesCount": zonesCount,
-            "profile": nil,
-            "lastAccuracy": nil,
+            "profile": profile ?? NSNull(),
+            "lastAccuracy": lastAccuracy,
             "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
-        sendPerformanceEvent(payload as [String: Any])
+        sendPerformanceEvent(payload)
     }
 
     // MARK: - Device Category Detection

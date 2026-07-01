@@ -356,8 +356,12 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 throw NSError(domain: "PolyfenceModule", code: 16, userInfo: [NSLocalizedDescriptionKey: "Location tracker not initialized"])
             }
 
-            let smartConfig = SmartGpsConfigFactory.fromMap(configDict)
-            tracker.updateSmartConfiguration(smartConfig)
+            // BUG-015: route through the merge-aware core method so
+            // partial updates preserve unspecified fields instead of
+            // resetting them to SmartGpsConfig data-class defaults.
+            // Android's map handler already merges internally; this is
+            // the iOS-side companion.
+            tracker.updateSmartConfigurationFromMap(configDict)
 
             if let gpsAccuracyThreshold = configDict["gpsAccuracyThreshold"] as? Double {
                 tracker.setGpsAccuracyThreshold(gpsAccuracyThreshold)

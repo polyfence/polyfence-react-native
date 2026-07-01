@@ -332,7 +332,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `onLocationUpdate(callback)` | `(location: PolyfenceLocation) => void` | Raw GPS location updates |
 | `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter/exit/dwell events |
 | `onError(callback)` | `(error: PolyfenceError) => void` | Error events |
-| `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates (untyped payload) |
+| `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates. Multiplexed channel — discriminate on `payload.type` (`'status'`, `'runtime_status'`, …); see [Performance Events](#performance-events) |
 | `onHealthScore(callback)` | `(event: HealthScoreEvent) => void` | Periodic health score (0-100) with top issue |
 | `onZoneEnter(callback)` | `(event: GeofenceEvent) => void` | Zone enter events only |
 | `onZoneExit(callback)` | `(event: GeofenceEvent) => void` | Zone exit events only |

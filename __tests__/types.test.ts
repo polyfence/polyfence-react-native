@@ -314,34 +314,49 @@ describe('Types', () => {
   });
 
   describe('RuntimeStatus', () => {
-    it('should have required fields', () => {
+    // RuntimeStatus is the `data` sub-object shape of a
+    // `runtime_status` event on the performance channel. Fields
+    // mirror what polyfence-core's LocationTracker emits. `strategy`
+    // and `accuracyProfile` arrive as the native UPPERCASE enum
+    // names, not the lowerCamelCase config unions — see the type
+    // TSDoc.
+
+    it('has the fields the runtime_status data object emits', () => {
       const status: RuntimeStatus = {
-        isTracking: true,
-        activeZoneCount: 5,
-        currentAccuracyProfile: 'balanced',
-        currentUpdateStrategy: 'proximityBased',
-        currentIntervalMs: 5000,
-        batteryLevel: 75,
+        strategy: 'INTELLIGENT',
+        intervalMs: 5000,
+        accuracyProfile: 'BALANCED',
+        nearestZoneDistanceM: 42.5,
+        isStationary: false,
+        batteryMode: 'normal',
+        gpsAccuracy: 8.0,
+        timestamp: Date.now(),
+        secondsSinceLastGpsFix: 12,
+        gpsAvailabilityDrops5Min: 0,
+        currentGpsAccuracy: 8.0,
       };
-      expect(status.isTracking).toBe(true);
-      expect(status.activeZoneCount).toBe(5);
-      expect(status.currentAccuracyProfile).toBe('balanced');
-      expect(status.currentUpdateStrategy).toBe('proximityBased');
-      expect(status.currentIntervalMs).toBe(5000);
-      expect(status.batteryLevel).toBe(75);
+      expect(status.strategy).toBe('INTELLIGENT');
+      expect(status.accuracyProfile).toBe('BALANCED');
+      expect(status.currentGpsAccuracy).toBe(8.0);
     });
 
-    it('should support optional lastLocationTimestamp', () => {
+    it('accepts null currentGpsAccuracy pre-first-fix', () => {
+      // BUG-013b stable-key contract: the field is present but null
+      // until the first GPS fix lands.
       const status: RuntimeStatus = {
-        isTracking: true,
-        activeZoneCount: 5,
-        currentAccuracyProfile: 'balanced',
-        currentUpdateStrategy: 'proximityBased',
-        currentIntervalMs: 5000,
-        batteryLevel: 75,
-        lastLocationTimestamp: Date.now(),
+        strategy: 'CONTINUOUS',
+        intervalMs: 10000,
+        accuracyProfile: 'BALANCED',
+        nearestZoneDistanceM: 0,
+        isStationary: true,
+        batteryMode: 'normal',
+        gpsAccuracy: 0,
+        timestamp: Date.now(),
+        secondsSinceLastGpsFix: 0,
+        gpsAvailabilityDrops5Min: 0,
+        currentGpsAccuracy: null,
       };
-      expect(status.lastLocationTimestamp).toBeDefined();
+      expect(status.currentGpsAccuracy).toBeNull();
     });
   });
 

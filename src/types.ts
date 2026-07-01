@@ -148,21 +148,44 @@ export interface PolyfenceConfiguration {
   activityRecognitionIntervalMs?: number;
 }
 
-// Runtime status
+/**
+ * Shape of the `data` sub-object on a `runtime_status` event delivered
+ * through `onPerformance`. Emitted periodically (and on change) by
+ * polyfence-core's LocationTracker.
+ *
+ * `strategy` and `accuracyProfile` arrive as the native
+ * UPPERCASE_SNAKE_CASE enum names (`'CONTINUOUS'`, `'BALANCED'`, …)
+ * rather than the lowerCamelCase `UpdateStrategy` / `AccuracyProfile`
+ * unions the config API uses. Normalize with the same helper the SDK
+ * uses internally if you want to match those unions:
+ *
+ * ```ts
+ * import { normalizeConfigEnums } from 'polyfence-react-native/dist/configNormalize';
+ * ```
+ *
+ * `currentGpsAccuracy` is null until the first GPS fix lands
+ * (stable-key contract from polyfence-core BUG-013b).
+ */
 export interface RuntimeStatus {
-  isTracking: boolean;
-  activeZoneCount: number;
-  currentAccuracyProfile: AccuracyProfile;
-  currentUpdateStrategy: UpdateStrategy;
-  currentIntervalMs: number;
-  batteryLevel: number;
-  lastLocationTimestamp?: number;
+  strategy: string;
+  intervalMs: number;
+  accuracyProfile: string;
+  nearestZoneDistanceM: number;
+  isStationary: boolean;
+  batteryMode: string;
+  gpsAccuracy: number;
+  timestamp: number;
+  secondsSinceLastGpsFix: number;
+  gpsAvailabilityDrops5Min: number;
+  currentGpsAccuracy: number | null;
 }
 
 /**
- * Payloads on the performance channel vary: full {@link RuntimeStatus}-like maps,
- * `type: "status"` snapshots (`trackingEnabled`, `zonesCount`, …), `system_health`, etc.
- * Narrow at runtime (e.g. `if ('trackingEnabled' in payload)`) as needed.
+ * Payloads on the performance channel vary — see {@link RuntimeStatus}
+ * for `type: 'runtime_status'` events (nested under `payload.data`),
+ * plus `type: 'status'` snapshots (`trackingEnabled`, `zonesCount`,
+ * `profile`, `lastAccuracy`, …), `system_health`, and others.
+ * Discriminate on `payload.type` before reading fields.
  */
 export type PerformanceEventPayload = Record<string, unknown>;
 

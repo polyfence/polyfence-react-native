@@ -138,14 +138,19 @@ describe('index exports', () => {
 
     it('should allow RuntimeStatus type usage', () => {
       const status: RuntimeStatus = {
-        isTracking: true,
-        activeZoneCount: 5,
-        currentAccuracyProfile: 'balanced',
-        currentUpdateStrategy: 'proximityBased',
-        currentIntervalMs: 5000,
-        batteryLevel: 75,
+        strategy: 'CONTINUOUS',
+        intervalMs: 5000,
+        accuracyProfile: 'BALANCED',
+        nearestZoneDistanceM: 0,
+        isStationary: false,
+        batteryMode: 'normal',
+        gpsAccuracy: 8,
+        timestamp: Date.now(),
+        secondsSinceLastGpsFix: 0,
+        gpsAvailabilityDrops5Min: 0,
+        currentGpsAccuracy: null,
       };
-      expect(status.isTracking).toBe(true);
+      expect(status.strategy).toBe('CONTINUOUS');
     });
 
     it('should allow PolyfenceError type usage', () => {

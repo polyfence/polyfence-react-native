@@ -367,10 +367,9 @@ Polyfence.instance.onLocationUpdate((location) => {
   console.log({
     latitude: location.latitude,
     longitude: location.longitude,
-    accuracy: location.accuracy, // meters
-    altitude: location.altitude,
-    speed: location.speed, // m/s
-    bearing: location.bearing,
+    accuracy: location.accuracy, // metres, undefined until the first GPS fix
+    speed: location.speed,       // m/s
+    activity: location.activity, // 'still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown'
     timestamp: location.timestamp,
   });
 });

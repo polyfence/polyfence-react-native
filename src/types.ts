@@ -80,12 +80,8 @@ export interface PolyfenceLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
-  altitude?: number;
   speed?: number;
-  bearing?: number;
   timestamp?: number;
-  interval?: number;
-  isFallback?: boolean;
   activity?: ActivityAtEvent;
 }
 

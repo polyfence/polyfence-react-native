@@ -526,20 +526,12 @@ describe('Types', () => {
         latitude: 37.7749,
         longitude: -122.4194,
         accuracy: 10,
-        altitude: 50,
         speed: 5.5,
-        bearing: 90,
         timestamp: Date.now(),
-        interval: 5000,
-        isFallback: false,
         activity: 'walking',
       };
       expect(location.accuracy).toBe(10);
-      expect(location.altitude).toBe(50);
       expect(location.speed).toBe(5.5);
-      expect(location.bearing).toBe(90);
-      expect(location.interval).toBe(5000);
-      expect(location.isFallback).toBe(false);
       expect(location.activity).toBe('walking');
     });
   });

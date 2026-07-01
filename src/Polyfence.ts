@@ -143,6 +143,7 @@ export class Polyfence {
     storage?: StorageAdapter,
   ): Promise<void> {
     this.assertNotDisposed();
+    if (config) assertKnownConfigKeys(config);
     await NativePolyfence.initialize(config ? { config } : {});
     this._isInitialized = true;
 

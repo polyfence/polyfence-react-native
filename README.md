@@ -343,7 +343,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | Method | Callback | Description |
 |--------|----------|-------------|
 | `onLocationUpdate(callback)` | `(location: PolyfenceLocation) => void` | Raw GPS location updates |
-| `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter/exit/dwell events |
+| `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter / exit / dwell / recoveryEnter / recoveryExit events |
 | `onError(callback)` | `(error: PolyfenceError) => void` | **Central error channel — subscribe before any other SDK call.** GPS / permission / service / battery / zone-validation errors all route here; errors fired without a listener are dropped silently |
 | `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates. Multiplexed channel — discriminate on `payload.type` (`'status'`, `'runtime_status'`, …); see [Performance Events](#performance-events) |
 | `onHealthScore(callback)` | `(event: HealthScoreEvent) => void` | Periodic health score (0-100) with top issue |

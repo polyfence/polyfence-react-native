@@ -184,10 +184,24 @@ await Polyfence.instance.initialize();
 
 ### Step 2: Request Permissions
 
+**iOS:** `requestPermissions({ always: true })` triggers the system permission dialog.
+
+**Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a library like [`react-native-permissions`](https://github.com/zoontek/react-native-permissions) first, then call `requestPermissions()` to verify the result.
+
 ```typescript
+import { Platform } from 'react-native';
+// Android only — trigger the OS permission dialog.
+// import { request, PERMISSIONS } from 'react-native-permissions';
+// if (Platform.OS === 'android') {
+//   await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+//   await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
+// }
+
+// Both platforms — verify the result. On iOS this ALSO shows the
+// system dialog on first call.
 const hasPermission = await Polyfence.instance.requestPermissions({ always: true });
 if (!hasPermission) {
-  // Handle permission denied
+  // Handle permission denied — e.g. guide the user to Settings.
   return;
 }
 ```

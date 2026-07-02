@@ -330,7 +330,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `requestPermissions(options?)` | `Promise<boolean>` | Request location permissions |
+| `requestPermissions(options?)` | `Promise<boolean>` | Request location permissions. **Android: reads current state only, does not show a dialog — see Step 2 for the two-step Android flow.** |
 | `isLocationServiceEnabled()` | `Promise<boolean>` | Check if location services are enabled |
 | `batteryOptimizationStatus()` | `Promise<BatteryOptimizationStatus>` | Check battery optimization status (Android) |
 | `requestBatteryOptimizationExemption()` | `Promise<void>` | Launch the Android system exemption dialog (fire-and-forget — re-poll `batteryOptimizationStatus()` to observe the user's response) |

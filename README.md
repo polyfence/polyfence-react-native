@@ -652,7 +652,6 @@ The following Flutter APIs are intentionally deferred from v2.0.1 of this packag
 - `zones` getter — Use `getZoneStates()` to query current zone state.
 - `currentConfiguration` getter — Use `getConfiguration()` instead.
 - `statusStream` — Use `onPerformance()` event listener for runtime status updates.
-- `requestPermissions` on Android does not show a system dialog. Use `react-native-permissions` to trigger the dialog, then call `requestPermissions()` to verify the result.
 
 These gaps will be addressed in subsequent releases.
 

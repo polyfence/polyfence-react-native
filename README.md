@@ -252,7 +252,7 @@ subscription.remove();
 ```
 
 <p align="center">
-  <img alt="ENTER, EXIT and DWELL events as your device moves" src="assets/screenshots/events.png" width="280" />
+  <img alt="ENTER, EXIT, DWELL and RECOVERY events as your device moves" src="assets/screenshots/events.png" width="280" />
 </p>
 
 Events fire whether your app is foregrounded, backgrounded, or the screen is locked. Here's what users see on each platform when zones fire in the background:

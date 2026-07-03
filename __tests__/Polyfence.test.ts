@@ -692,7 +692,9 @@ describe('Polyfence', () => {
           desiredIntervalMs: 5000,
         }),
       ).rejects.toThrow(/desiredIntervalMs \(removed\)/);
-      expect(NativeModules.Polyfence.updateConfiguration).not.toHaveBeenCalled();
+      expect(
+        NativeModules.Polyfence.updateConfiguration,
+      ).not.toHaveBeenCalled();
     });
 
     it('rejects a never-recognised key with the "unknown" suffix', async () => {
@@ -702,7 +704,9 @@ describe('Polyfence', () => {
           definitelyNotAConfigKey: true,
         }),
       ).rejects.toThrow(/definitelyNotAConfigKey \(unknown\)/);
-      expect(NativeModules.Polyfence.updateConfiguration).not.toHaveBeenCalled();
+      expect(
+        NativeModules.Polyfence.updateConfiguration,
+      ).not.toHaveBeenCalled();
     });
 
     it('accepts every documented top-level key', async () => {
@@ -719,7 +723,9 @@ describe('Polyfence', () => {
         scheduleSettings: {},
         activitySettings: {},
       });
-      expect(NativeModules.Polyfence.updateConfiguration).toHaveBeenCalledTimes(1);
+      expect(NativeModules.Polyfence.updateConfiguration).toHaveBeenCalledTimes(
+        1,
+      );
     });
   });
 });

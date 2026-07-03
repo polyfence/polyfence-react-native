@@ -58,16 +58,20 @@ const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
 // surfacing the rename keeps the upgrade path clear for anyone whose
 // code still uses the old names.
 const LEGACY_KEY_HINTS: Record<string, string> = {
-  desiredIntervalMs: 'use proximitySettings.farZoneUpdateIntervalMs / movementSettings.stationaryUpdateIntervalMs',
-  fastestIntervalMs: 'use proximitySettings.nearZoneUpdateIntervalMs / movementSettings.movingUpdateIntervalMs',
+  desiredIntervalMs:
+    'use proximitySettings.farZoneUpdateIntervalMs / movementSettings.stationaryUpdateIntervalMs',
+  fastestIntervalMs:
+    'use proximitySettings.nearZoneUpdateIntervalMs / movementSettings.movingUpdateIntervalMs',
   smallestDisplacementM: 'use movementSettings.movementThresholdMeters',
   dwellDetectionEnabled: 'use dwellSettings: { enabled: true }',
   dwellDefaultThresholdMs: 'use dwellSettings: { dwellThresholdMs: ... }',
   clusteringEnabled: 'use clusterSettings: { enabled: true }',
   clusterRadiusM: 'use clusterSettings.activeRadiusMeters',
-  falseEventProtectionEnabled: 'no replacement — false-event protection is always on',
+  falseEventProtectionEnabled:
+    'no replacement — false-event protection is always on',
   activityRecognitionEnabled: 'use activitySettings: { enabled: true }',
-  activityRecognitionIntervalMs: 'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
+  activityRecognitionIntervalMs:
+    'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
 };
 
 function assertKnownConfigKeys(
@@ -77,7 +81,9 @@ function assertKnownConfigKeys(
   const unknown = Object.keys(config).filter(
     (k) => !ALLOWED_CONFIG_KEYS.has(k),
   );
-  if (unknown.length === 0) return;
+  if (unknown.length === 0) {
+    return;
+  }
 
   const hints = unknown
     .map((k) =>
@@ -89,7 +95,9 @@ function assertKnownConfigKeys(
 
   throw new Error(
     `Polyfence.${caller}: rejecting ${unknown.length} unknown ` +
-      `key${unknown.length === 1 ? '' : 's'} that pre-fix were silently ignored ` +
+      `key${
+        unknown.length === 1 ? '' : 's'
+      } that pre-fix were silently ignored ` +
       `by the native side:\n${hints}\n` +
       `Valid keys: ${[...ALLOWED_CONFIG_KEYS].join(', ')}.`,
   );
@@ -146,7 +154,9 @@ export class Polyfence {
     storage?: StorageAdapter,
   ): Promise<void> {
     this.assertNotDisposed();
-    if (config) assertKnownConfigKeys(config, 'initialize');
+    if (config) {
+      assertKnownConfigKeys(config, 'initialize');
+    }
     await NativePolyfence.initialize(config ? { config } : {});
     this._isInitialized = true;
 

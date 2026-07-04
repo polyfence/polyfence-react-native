@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2026-07-04
+
+> **Version-label note:** Same pragmatic-patch approach as polyfence-core 1.0.10 — this release contains multiple behavior contract changes that would warrant a major bump under strict semver, but ships as a patch because Polyfence is pre-open-source Early Access with no external consumers at cut time. Breaking changes are called out in the **Changed (BREAKING)** section below with migration guidance for each.
+
+### Changed (BREAKING)
+
+- **polyfence-core bumped 1.0.9 → 1.0.10 — inherits core's breaking behaviors.** See polyfence-core CHANGELOG for the full details:
+  - **BUG-015** — `updateConfiguration` now MERGES over current state instead of REPLACING. Consumers that relied on partial updates resetting unspecified fields to defaults must now pass every field explicitly, or call `resetConfiguration()` first.
+  - **BUG-010** — Android `emitHealthScore` callback delivered on a background thread. UI or non-thread-safe work inside `onHealthScore` must be re-dispatched to main.
+  - **BUG-013b** — `runtime_status` map returns a stable key set with `null` for unknown fields instead of omitting keys. Callers using `containsKey` / `in` presence checks must switch to null-checks.
+
+- **`requestBatteryOptimizationExemption` now returns `Promise<void>` (BUG-012).** Previously returned `Promise<boolean>`. The prior boolean was meaningless — Android's `startActivity` is fire-and-forget and can't observe the user's response to the system dialog. **Migration:** stop awaiting a bool. Poll `batteryOptimizationStatus` after `AppState` becomes `active` again to check whether the user granted the exemption.
+
+- **`getConfiguration()` returns lowerCamelCase enum strings (BUG-007).** Previously returned uppercase (e.g. `"MAX_ACCURACY"`, `"CONTINUOUS"`). Now returns `"maxAccuracy"`, `"continuous"`. Restores cross-platform parity with iOS, which never went through the Kotlin uppercasing path. **Migration:** update any string comparisons on `profile`, `updateStrategy`, `adaptiveMode`, etc. to match the lowerCamelCase form.
+
+- **`PolyfenceDebugInfo` TypeScript type aligned with the native engine response (BUG-008).** The type previously described fields the native side never emitted, and omitted fields it did emit. Strict TypeScript consumers of `getDebugInfo()` may see new compile errors. **Migration:** re-inspect the actual `getDebugInfo()` shape (documented in the API section of the README) and update field access.
+
+- **`onGeofenceEvent` payload no longer includes fields the native engine never populated (BUG-009 bridge companion).** Dropped `speedAtCrossing`, `deltaFromLast`, and other never-sent fields from the `GeofenceEvent` type. Consumers destructuring or reading these fields see `undefined` at runtime. **Migration:** remove references to the dropped fields; the ones still emitted (`zoneName`, `dwellDurationMs`, `detectionTimeMs`, `distanceToBoundaryM`) are typed and populated.
+
+- **`updateConfiguration` and `initialize` REJECT unknown keys (#83).** Previously silently ignored. Now throws `"Polyfence: unknown key(s) in <caller>: <keys>"`. Catches typos before they cause silent behavior mismatches. **Migration:** if you were passing extra keys (intentional or otherwise), remove them.
+
+- **Pre-2.x flat config props are fully removed (#83).** `PolyfenceConfiguration`'s `analyticsEnabled`, `industryCategory`, `saasApiKey`, `saasBaseUrl` — deprecated in 2.0 — now fully removed and rejected as unknown keys per the change above. **Migration:** use `AnalyticsConfig` (the second `initialize()` argument): `industryCategory` → `industryCategory`, `saasApiKey` → `apiKey`, `saasBaseUrl` → `apiEndpoint`, telemetry via `disableTelemetry`.
+
+### Fixed
+
+- **BUG-006 RN companion — native `zone_validation_failed` error code now maps to `zoneValidationFailed` in the JS layer.** The polyfence-core `zone_validation_failed` structured error was landing on the RN `onError` stream but with the raw snake_case code. `NATIVE_CODE_TO_TYPE` in `src/events.ts` now maps it to the documented `zoneValidationFailed` enum member, matching every other error code shape.
+- **BUG-013a — status payload includes real `profile` and `lastAccuracy` from polyfence-core.** Previously `getStatus()` returned `profile: null` and `lastAccuracy: null` even while tracking. The bridge now reads `runtime_status.profile` and calls the new `getLastKnownAccuracy()` core accessor (added in polyfence-core 1.0.10 alongside the BUG-013b shape stabilization).
+- **BUG-015 iOS parity — `updateConfiguration` on iOS routes through polyfence-core's merge-aware method.** The Swift bridge was still calling the old replace-semantics path even after core 1.0.10 added the merge method. Now uses the same code path as Android, so behavior matches across platforms.
+- **Analytics telemetry actually reaches the SaaS.** The RN telemetry upload payload was serialized in camelCase where the SaaS expects snake_case, so every batch was silently rejected. Also fixed `app_identifier` attribution — previously always empty because the bridge read the wrong Android manifest field.
+
+### Documented
+
+- **BUG-019 — RECOVERY_ENTER / RECOVERY_EXIT event semantics.** Follows polyfence-core 1.0.10's Events reference. The Quick Start Step 4 comment (added in BUG-018) has also been corrected — it originally attributed recovery events to "GPS gaps (airplane mode, tunnel, background restart, etc.)", which is the wrong reading. Recovery events fire ONLY on tracking-process restart (Doze kill / OOM / force-stop / phone reboot), not on GPS signal recovery during an active session.
+- **BUG-011 — `onError` is the SDK's central error channel.** README + JSDoc now emphasize that every recoverable failure (permission changes, GPS restart failures, silent zone-add throws in core, etc.) reaches consumers through `onError`.
+- **BUG-017 — Quick Start Step 2 documents the Android-specific `requestPermissions` flow.** Explains why Android requires the two-step foreground-then-background permission dance and how to handle the "granted foreground but denied background" state.
+- **BUG-018 — Quick Start Step 4 handles `recoveryEnter` / `recoveryExit`** in the example switch (see BUG-019 above for the follow-up semantic correction).
+- **iOS Critical Alerts entitlement + App Store review + privacy-policy guidance** added to SECURITY.md.
+- **`onPerformance` payload documentation** rewritten to match the actual native payload shape; `RuntimeStatus` type cleaned up to match.
+
 ## [2.0.1] - 2026-06-25
 
 ### Fixed

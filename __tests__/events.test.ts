@@ -400,7 +400,9 @@ describe('Events', () => {
   // the bridge — otherwise the filter matches nothing.
   describe('expandErrorTypesToNativeCodes', () => {
     it('expands a simple 1:1 camelCase type to its snake_case native code', () => {
-      const expanded = expandErrorTypesToNativeCodes(['batteryOptimizationRequired']);
+      const expanded = expandErrorTypesToNativeCodes([
+        'batteryOptimizationRequired',
+      ]);
       expect(expanded).toEqual(['battery_optimization_required']);
     });
 
@@ -454,7 +456,9 @@ describe('Events', () => {
       // Consumers can filter on codes that don't have a public enum
       // mapping (e.g. an ad-hoc integration-test-only code). The
       // expansion should not silently drop them — pass through.
-      const expanded = expandErrorTypesToNativeCodes(['custom_integration_code']);
+      const expanded = expandErrorTypesToNativeCodes([
+        'custom_integration_code',
+      ]);
       expect(expanded).toEqual(['custom_integration_code']);
     });
 
@@ -464,7 +468,10 @@ describe('Events', () => {
         'custom_code',
       ]);
       expect(expanded).toEqual(
-        expect.arrayContaining(['battery_optimization_required', 'custom_code']),
+        expect.arrayContaining([
+          'battery_optimization_required',
+          'custom_code',
+        ]),
       );
       expect(expanded).toHaveLength(2);
     });
@@ -507,7 +514,8 @@ describe('Events', () => {
       };
       const knownTypes = Object.keys(knownTypesSpec) as PolyfenceErrorType[];
       for (const t of knownTypes) {
-        const codes = TYPE_TO_NATIVE_CODES[t as keyof typeof TYPE_TO_NATIVE_CODES];
+        const codes =
+          TYPE_TO_NATIVE_CODES[t as keyof typeof TYPE_TO_NATIVE_CODES];
         expect(codes && codes.length > 0).toBe(true);
       }
     });

@@ -509,7 +509,8 @@ describe('Polyfence', () => {
       await Polyfence.instance.errorHistory({
         errorTypes: ['serviceStartFailed'],
       });
-      const call = (NativePolyfence.getErrorHistory as jest.Mock).mock.calls[0][0];
+      const call = (NativePolyfence.getErrorHistory as jest.Mock).mock
+        .calls[0][0];
       expect(call.errorTypes).toEqual(
         expect.arrayContaining(['tracking_error', 'service_start_failed']),
       );
@@ -519,8 +520,11 @@ describe('Polyfence', () => {
     it('expands `unknown` filter to include wake_lock_timeout so real unknown errors surface', async () => {
       (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce([]);
       await Polyfence.instance.errorHistory({ errorTypes: ['unknown'] });
-      const call = (NativePolyfence.getErrorHistory as jest.Mock).mock.calls[0][0];
-      expect(call.errorTypes).toEqual(expect.arrayContaining(['wake_lock_timeout']));
+      const call = (NativePolyfence.getErrorHistory as jest.Mock).mock
+        .calls[0][0];
+      expect(call.errorTypes).toEqual(
+        expect.arrayContaining(['wake_lock_timeout']),
+      );
     });
 
     it('short-circuits an explicit empty `errorTypes: []` to an empty result without a native call', async () => {

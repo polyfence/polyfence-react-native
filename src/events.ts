@@ -89,18 +89,15 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
  */
 export const TYPE_TO_NATIVE_CODES: Partial<
   Record<PolyfenceErrorType, string[]>
-> = Object.entries(NATIVE_CODE_TO_TYPE).reduce(
-  (acc, [nativeCode, type]) => {
-    const bucket = acc[type];
-    if (bucket) {
-      bucket.push(nativeCode);
-    } else {
-      acc[type] = [nativeCode];
-    }
-    return acc;
-  },
-  {} as Record<PolyfenceErrorType, string[]>,
-);
+> = Object.entries(NATIVE_CODE_TO_TYPE).reduce((acc, [nativeCode, type]) => {
+  const bucket = acc[type];
+  if (bucket) {
+    bucket.push(nativeCode);
+  } else {
+    acc[type] = [nativeCode];
+  }
+  return acc;
+}, {} as Record<PolyfenceErrorType, string[]>);
 
 /**
  * Expand an array of public `PolyfenceErrorType` filter values to the

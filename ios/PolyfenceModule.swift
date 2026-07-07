@@ -336,8 +336,15 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 throw NSError(domain: "PolyfenceModule", code: 14, userInfo: [NSLocalizedDescriptionKey: "Location tracker not initialized"])
             }
 
-            let smartConfig = tracker.getCurrentSmartConfiguration()
-            let configMap = SmartGpsConfigFactory.toMap(smartConfig)
+            // Use the composed 12-key shape from
+            // LocationTracker.getCurrentConfigurationMap rather than
+            // the 6-key SmartGpsConfig.toMap shape — the five extra
+            // fields (gpsAccuracyThreshold, dwellSettings,
+            // clusterSettings, scheduleSettings, activitySettings)
+            // live on GeofenceEngine / TrackingScheduler.shared / the
+            // tracker instance and can only be assembled at the
+            // LocationTracker level.
+            let configMap = tracker.getCurrentConfigurationMap()
             resolve(configMap)
         } catch {
             NSLog("PolyfenceModule: Get configuration failed: %@", error.localizedDescription)
@@ -356,37 +363,14 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 throw NSError(domain: "PolyfenceModule", code: 16, userInfo: [NSLocalizedDescriptionKey: "Location tracker not initialized"])
             }
 
-            // BUG-015: route through the merge-aware core method so
-            // partial updates preserve unspecified fields instead of
-            // resetting them to SmartGpsConfig data-class defaults.
-            // Android's map handler already merges internally; this is
-            // the iOS-side companion.
-            tracker.updateSmartConfigurationFromMap(configDict)
-
-            if let gpsAccuracyThreshold = configDict["gpsAccuracyThreshold"] as? Double {
-                tracker.setGpsAccuracyThreshold(gpsAccuracyThreshold)
-            }
-
-            if let dwellSettings = configDict["dwellSettings"] as? [String: Any] {
-                let dwellEnabled = dwellSettings["enabled"] as? Bool ?? true
-                let dwellThresholdMs = dwellSettings["dwellThresholdMs"] as? Int ?? 300000
-                tracker.setDwellConfig(enabled: dwellEnabled, thresholdMs: dwellThresholdMs)
-            }
-
-            if let clusterSettings = configDict["clusterSettings"] as? [String: Any] {
-                let clusterEnabled = clusterSettings["enabled"] as? Bool ?? false
-                let activeRadiusMeters = clusterSettings["activeRadiusMeters"] as? Double ?? 5000.0
-                let refreshDistanceMeters = clusterSettings["refreshDistanceMeters"] as? Double ?? 1000.0
-                tracker.setClusterConfig(enabled: clusterEnabled, activeRadiusMeters: activeRadiusMeters, refreshDistanceMeters: refreshDistanceMeters)
-            }
-
-            if let scheduleSettings = configDict["scheduleSettings"] as? [String: Any] {
-                tracker.setScheduleConfig(scheduleSettings)
-            }
-
-            if let activitySettings = configDict["activitySettings"] as? [String: Any] {
-                tracker.setActivityConfig(activitySettings)
-            }
+            // Delegate to the core's single-source
+            // updateConfigurationFromMap, which merges the
+            // SmartGpsConfig portion, applies the six extras
+            // subsystems (gpsAccuracyThreshold, dwell, cluster,
+            // schedule, activity, disableAlertNotifications), and
+            // keeps the field coverage in lockstep with Kotlin's
+            // identically-named method.
+            tracker.updateConfigurationFromMap(configDict)
 
             resolve(nil)
         } catch {
@@ -474,10 +458,9 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     @objc(requestBatteryOptimizationExemption:rejecter:)
     func requestBatteryOptimizationExemption(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        // iOS has no equivalent to Android's battery-optimisation exemption
-        // — this method is here for cross-platform API parity. Resolves
-        // void to match the Android shape (BUG-012); previously resolved
-        // `true` which was meaningless on both platforms.
+        // iOS has no equivalent to Android's battery-optimisation
+        // exemption — this method is here for cross-platform API
+        // parity. Resolves void to match the Android shape.
         resolve(nil)
     }
 
@@ -558,11 +541,10 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         // Query actual tracking state if not explicitly passed.
         // LocationTracker.isTracking() returns true if tracking is actively running.
         let tracking = trackingEnabled ?? (locationTracker?.isTracking() ?? false)
-        // BUG-013a: pull profile + lastAccuracy from polyfence-core
-        // instead of hardcoding nil. Pre-fix the two fields were dead
-        // values that suggested data was available when it wasn't —
-        // consumers reading status.profile / status.lastAccuracy
-        // always got null regardless of runtime state.
+        // Pull profile + lastAccuracy from polyfence-core rather than
+        // hardcoding nil — otherwise consumers reading status.profile
+        // and status.lastAccuracy see null regardless of runtime
+        // state, which suggests data is unavailable when it isn't.
         let profile = locationTracker?.getCurrentSmartConfiguration().accuracyProfile.rawValue
         let lastAccuracy: Any = locationTracker?.getLastKnownAccuracy() ?? NSNull()
         let payload: [String: Any] = [

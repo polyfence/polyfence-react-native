@@ -1,4 +1,5 @@
 import { getMockEventEmitter } from './setup';
+import type { PolyfenceErrorType } from '../src/types';
 import {
   onLocationUpdate,
   onGeofenceEvent,
@@ -6,6 +7,8 @@ import {
   onPerformance,
   removeAllListeners,
   normalizePolyfenceError,
+  expandErrorTypesToNativeCodes,
+  TYPE_TO_NATIVE_CODES,
 } from '../src/events';
 
 describe('Events', () => {
@@ -83,9 +86,9 @@ describe('Events', () => {
 
       listener(rawEvent);
 
-      // Bridge now forwards detectionTimeMs (BUG-009). activityAtEvent,
-      // distanceToBoundaryM, dwellDurationMs absent from this rawEvent
-      // so they normalize to undefined.
+      // Bridge forwards detectionTimeMs. activityAtEvent,
+      // distanceToBoundaryM, dwellDurationMs are absent from this
+      // rawEvent so they normalize to undefined.
       expect(callback).toHaveBeenCalledWith({
         zoneId: 'zone1',
         zoneName: 'Office',
@@ -105,12 +108,12 @@ describe('Events', () => {
       });
     });
 
-    // BUG-009: pre-fix bridge dropped activityAtEvent, detectionTimeMs,
-    // and distanceToBoundaryM that polyfence-core sends on every event.
-    // dwellDurationMs is sent only for DWELL events (post-BUG-009-core
-    // fix). Exercise the full happy-path shape so a future regression
-    // that drops any one of these fields fails the suite.
-    it('forwards all polyfence-core event fields including activity and dwell duration (BUG-009)', () => {
+    // Bridge must forward activityAtEvent, detectionTimeMs, and
+    // distanceToBoundaryM that polyfence-core sends on every event;
+    // dwellDurationMs is sent only for DWELL events. Exercise the
+    // full happy-path shape so a future regression that drops any
+    // one of these fields fails the suite.
+    it('forwards all polyfence-core event fields including activity and dwell duration', () => {
       const callback = jest.fn();
       onGeofenceEvent(callback);
       const geoCall = (mockEmitter.addListener as jest.Mock).mock.calls.find(
@@ -247,8 +250,8 @@ describe('Events', () => {
     // Each entry: (native code as emitted by polyfence-core, expected
     // public PolyfenceErrorType after normalization).
     it.each([
-      // BUG-006: LocationTracker.addZone reports zone validation failures
-      // through PolyfenceErrorManager with this exact native code string.
+      // LocationTracker.addZone reports zone validation failures through
+      // PolyfenceErrorManager with this exact native code string.
       ['zone_validation_failed', 'zoneValidationFailed'],
       // Pre-existing mappings, asserted here so a future map-shrink can't
       // silently break them.
@@ -388,6 +391,125 @@ describe('Events', () => {
       expect(geoSub).toHaveProperty('remove');
       expect(errSub).toHaveProperty('remove');
       expect(perfSub).toHaveProperty('remove');
+    });
+  });
+
+  // The native errorHistory filter runs against stored snake_case type
+  // strings, so the public PolyfenceErrorType filter values have to be
+  // expanded to every native code that maps back to them before crossing
+  // the bridge — otherwise the filter matches nothing.
+  describe('expandErrorTypesToNativeCodes', () => {
+    it('expands a simple 1:1 camelCase type to its snake_case native code', () => {
+      const expanded = expandErrorTypesToNativeCodes(['batteryOptimizationRequired']);
+      expect(expanded).toEqual(['battery_optimization_required']);
+    });
+
+    it('expands a 1:many camelCase type to every native code that maps back', () => {
+      // `serviceStartFailed` covers legacy `tracking_error` AND the
+      // canonical `service_start_failed` — filtering by the public
+      // enum must match both so newly-emitted-and-legacy stored
+      // errors are both surfaced.
+      const expanded = expandErrorTypesToNativeCodes(['serviceStartFailed']);
+      expect(expanded).toEqual(
+        expect.arrayContaining(['tracking_error', 'service_start_failed']),
+      );
+      expect(expanded).toHaveLength(2);
+    });
+
+    it('expands unknown to every native code that falls back to unknown, including wake_lock_timeout', () => {
+      const expanded = expandErrorTypesToNativeCodes(['unknown']);
+      // `wake_lock_timeout` is the only native code legitimately
+      // emitted that maps to `unknown` — without expansion, filtering
+      // by `unknown` matches nothing.
+      expect(expanded).toEqual(expect.arrayContaining(['wake_lock_timeout']));
+      // Sanity: it also covers the other three unknown-mapped codes.
+      expect(expanded).toEqual(
+        expect.arrayContaining([
+          'activity_recognition_unavailable',
+          'configuration_error',
+          'battery_check_failed',
+        ]),
+      );
+    });
+
+    it('expands gpsPermissionDenied to both native aliases', () => {
+      const expanded = expandErrorTypesToNativeCodes(['gpsPermissionDenied']);
+      expect(expanded).toEqual(
+        expect.arrayContaining(['permission_denied', 'gps_permission_denied']),
+      );
+    });
+
+    it('deduplicates when the same native code appears through multiple filter values', () => {
+      const expanded = expandErrorTypesToNativeCodes([
+        'serviceStartFailed',
+        'serviceStartFailed', // duplicate input
+      ]);
+      expect(expanded).toEqual(
+        expect.arrayContaining(['tracking_error', 'service_start_failed']),
+      );
+      expect(expanded).toHaveLength(2);
+    });
+
+    it('passes ad-hoc snake_case filter strings through unchanged so custom native codes still work', () => {
+      // Consumers can filter on codes that don't have a public enum
+      // mapping (e.g. an ad-hoc integration-test-only code). The
+      // expansion should not silently drop them — pass through.
+      const expanded = expandErrorTypesToNativeCodes(['custom_integration_code']);
+      expect(expanded).toEqual(['custom_integration_code']);
+    });
+
+    it('handles a mixed camelCase + ad-hoc snake_case input correctly', () => {
+      const expanded = expandErrorTypesToNativeCodes([
+        'batteryOptimizationRequired',
+        'custom_code',
+      ]);
+      expect(expanded).toEqual(
+        expect.arrayContaining(['battery_optimization_required', 'custom_code']),
+      );
+      expect(expanded).toHaveLength(2);
+    });
+
+    it('returns an empty array for an empty input', () => {
+      expect(expandErrorTypesToNativeCodes([])).toEqual([]);
+    });
+
+    it('TYPE_TO_NATIVE_CODES covers every PolyfenceErrorType with at least one native code', () => {
+      // Anti-regression: someone adds a new PolyfenceErrorType value
+      // and forgets to add a native-code mapping. Without at least
+      // one code, filtering by that type would silently expand to
+      // the empty set and match nothing.
+      //
+      // Derive the list from a `Record<PolyfenceErrorType, true>`
+      // object literal instead of hardcoding it — TypeScript compiles
+      // this only when every union member is a key, so a new
+      // PolyfenceErrorType value forces the test to update at compile
+      // time. Prevents the same silent-drift pattern the whole map
+      // was designed to catch at runtime.
+      const knownTypesSpec: Record<PolyfenceErrorType, true> = {
+        gpsTimeout: true,
+        gpsPermissionDenied: true,
+        gpsServiceDisabled: true,
+        gpsAccuracyPoor: true,
+        gpsUnreliable: true,
+        serviceStartFailed: true,
+        serviceKilled: true,
+        serviceRestartFailed: true,
+        batteryOptimizationRequired: true,
+        lowBattery: true,
+        zoneValidationFailed: true,
+        zoneStorageFailed: true,
+        zoneLoadFailed: true,
+        networkTimeout: true,
+        analyticsUploadFailed: true,
+        permissionRevoked: true,
+        memoryLow: true,
+        unknown: true,
+      };
+      const knownTypes = Object.keys(knownTypesSpec) as PolyfenceErrorType[];
+      for (const t of knownTypes) {
+        const codes = TYPE_TO_NATIVE_CODES[t as keyof typeof TYPE_TO_NATIVE_CODES];
+        expect(codes && codes.length > 0).toBe(true);
+      }
     });
   });
 });

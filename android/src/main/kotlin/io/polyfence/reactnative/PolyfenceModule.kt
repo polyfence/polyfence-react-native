@@ -67,17 +67,17 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 sendErrorEvent(errorMap)
             }
 
-            // BUG-001 upgrade-path hygiene. The `tracking_enabled` SharedPref
+            // Upgrade-path hygiene. The `tracking_enabled` SharedPref
             // persists across app launches and only flips false on explicit
-            // stopTracking()/dispose(). A consumer who hit BUG-001 on an
-            // earlier release left that flag stuck at true; without this
-            // reset, the first addZone() in the new session still routes
-            // through the Intent/service path before startTracking() is
-            // ever called again. iOS doesn't have this persistence (the
-            // tracker is process-scoped), so resetting here matches iOS.
-            // startTracking() re-arms the flag immediately, so this is a
-            // no-op for callers who follow the documented init → start
-            // sequence.
+            // stopTracking()/dispose(). A prior session that never called
+            // stopTracking would leave that flag stuck at true; without
+            // this reset, the first addZone() in a new session would
+            // still route through the Intent/service path before
+            // startTracking() is called again. iOS doesn't have this
+            // persistence (the tracker is process-scoped), so resetting
+            // here matches iOS. startTracking() re-arms the flag
+            // immediately, so this is a no-op for callers who follow
+            // the documented init → start sequence.
             setTrackingEnabled(context, false)
 
             promise.resolve(null)
@@ -343,8 +343,18 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             }
 
             val configMap = configData.toHashMap()
-            val smartConfig = SmartGpsConfigFactory.fromMap(configMap)
-            LocationTracker.updateSmartConfiguration(smartConfig)
+            // Route only through the merge-aware Intent path. Do NOT
+            // pre-derive a SmartGpsConfig from the partial incoming
+            // map and push it via updateSmartConfiguration in parallel
+            // — SmartGpsConfigFactory.fromMap on a partial map has no
+            // way to distinguish "caller omitted this key" from
+            // "caller wants the default", so it silently resets every
+            // unspecified field (BALANCED / CONTINUOUS / null nested
+            // settings). The Intent handler in
+            // LocationTracker.updateConfigurationFromMap reads the
+            // current smartConfig, merges the incoming partial over
+            // it, then applies. iOS uses the same core merge method
+            // — cross-platform parity, no per-bridge extras cascade.
             updateConfigurationInternal(configMap)
             promise.resolve(null)
         } catch (e: Exception) {
@@ -356,9 +366,14 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     @ReactMethod
     fun resetConfiguration(promise: Promise) {
         try {
-            val defaultConfig = SmartGpsConfig()
-            LocationTracker.updateSmartConfiguration(defaultConfig)
-            val configMap = SmartGpsConfigFactory.toMap(defaultConfig)
+            // Send the full 12-key default map so the merge-aware
+            // updateConfigurationFromMap path resets every subsystem,
+            // not just SmartGpsConfig. Sending only the 6-key
+            // SmartGpsConfig map here would leave the
+            // `if (dwellSettings != null)` / cluster / schedule /
+            // activity branches skipped and those subsystems would
+            // survive a resetConfiguration() call.
+            val configMap = LocationTracker.buildDefaultConfigurationMap()
             updateConfigurationInternal(configMap)
             promise.resolve(null)
         } catch (e: Exception) {
@@ -442,10 +457,10 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         // denied it. The system has no synchronous mechanism to report the
         // user's response back to us — observing the outcome requires
         // re-polling batteryOptimizationStatus() AFTER the user has
-        // responded. Previously this method resolved `true` regardless of
-        // outcome (BUG-012), which was actively misleading. Now resolves
-        // void on successful launch and rejects only when startActivity
-        // itself fails.
+        // responded. Resolves void on successful launch and rejects
+        // only when startActivity itself fails; resolving a boolean
+        // for "user accepted" would be misleading because the bridge
+        // can't observe that.
         try {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:${context.packageName}")
@@ -643,11 +658,10 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             persistence.getZoneCount()
         } catch (e: Exception) { 0 }
 
-        // BUG-013a: pull profile + lastAccuracy from polyfence-core
-        // instead of hardcoding null. Pre-fix the two fields were dead
-        // values that suggested data was available when it wasn't —
-        // consumers reading status.profile / status.lastAccuracy always
-        // got null regardless of runtime state.
+        // Pull profile + lastAccuracy from polyfence-core rather than
+        // hardcoding null — otherwise consumers reading status.profile
+        // and status.lastAccuracy see null regardless of runtime
+        // state, which suggests data is unavailable when it isn't.
         val profile = LocationTracker.getCurrentSmartConfiguration().accuracyProfile.name
         val lastAccuracy = LocationTracker.getLastKnownAccuracy()
 
@@ -725,8 +739,16 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
      * Get current SmartGpsConfig as a map
      */
     private fun getConfigurationMap(): Map<String, Any> {
-        val config = LocationTracker.getCurrentSmartConfiguration()
-        return SmartGpsConfigFactory.toMap(config)
+        // Use the composed 12-key shape from
+        // LocationTracker.getCurrentConfigurationMap rather than the
+        // 6-key SmartGpsConfig.toMap shape — the five extra fields
+        // (gpsAccuracyThreshold, dwellSettings, clusterSettings,
+        // scheduleSettings, activitySettings) live on GeofenceEngine /
+        // TrackingScheduler / the running instance and can only be
+        // assembled at the LocationTracker level. Pass the bridge's
+        // context so the scheduler can rehydrate its on-disk snapshot
+        // when the service hasn't started yet.
+        return LocationTracker.getCurrentConfigurationMap(context)
     }
 
     /**
@@ -739,14 +761,20 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             LocationTracker.setPendingActivitySettings(activitySettings)
         }
 
-        try {
-            val intent = Intent(context, LocationTracker::class.java).apply {
-                action = LocationTracker.ACTION_UPDATE_CONFIG
-                putExtra("config", HashMap(configMap))
-            }
-            context.startService(intent)
-        } catch (e: Exception) {
-            Log.w("PolyfenceModule", "Failed to apply config: ${e.message}")
+        val intent = Intent(context, LocationTracker::class.java).apply {
+            action = LocationTracker.ACTION_UPDATE_CONFIG
+            putExtra("config", HashMap(configMap))
         }
+        // Do NOT swallow startService failures here. On Android 8+
+        // background restrictions (Doze / app-standby / battery
+        // saver) `context.startService(intent)` throws
+        // IllegalStateException when the app is in the background.
+        // Since this is the only write path (no direct
+        // `updateSmartConfiguration` fallback), swallowing would let
+        // the caller's promise resolve as success while nothing was
+        // applied and nothing persisted. Bubble instead so
+        // `updateConfiguration.catch(...)` fires and the caller can
+        // retry when the app foregrounds.
+        context.startService(intent)
     }
 }

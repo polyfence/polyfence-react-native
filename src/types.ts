@@ -45,10 +45,9 @@ export interface GeofenceEvent {
   distanceToBoundaryM?: number;
   /**
    * Milliseconds the device has been inside the zone at the moment of the
-   * event. Populated only on DWELL events (BUG-009 — pre-2.0.2 was always
-   * undefined because polyfence-core computed the value but did not include
-   * it in the event payload). For ENTER/EXIT/RECOVERY_* events the field is
-   * absent — those events don't carry a meaningful dwell duration.
+   * event. Populated only on DWELL events. For ENTER/EXIT/RECOVERY_*
+   * events the field is absent — those events don't carry a meaningful
+   * dwell duration.
    */
   dwellDurationMs?: number;
 }
@@ -131,11 +130,23 @@ export interface ClusterSettings {
   refreshDistanceMeters?: number;
 }
 
+/**
+ * A single point in a 24-hour day, minute-precision. Nested inside
+ * [TimeWindow] to match the shape the native `TrackingScheduler`
+ * accepts on write and emits on read. A flat
+ * `TimeWindow { startHour, startMinute, ... }` shape would not match
+ * native's `TimeOfDay { hour, minute }` nesting and the fields would
+ * be silently `undefined` at runtime coming back from
+ * `getConfiguration()`.
+ */
+export interface TimeOfDay {
+  hour: number;
+  minute: number;
+}
+
 export interface TimeWindow {
-  startHour: number;
-  startMinute: number;
-  endHour: number;
-  endMinute: number;
+  startTime: TimeOfDay;
+  endTime: TimeOfDay;
   daysOfWeek?: number[];
 }
 
@@ -186,8 +197,8 @@ export interface PolyfenceConfiguration {
  * import { normalizeConfigEnums } from 'polyfence-react-native/dist/configNormalize';
  * ```
  *
- * `currentGpsAccuracy` is null until the first GPS fix lands
- * (stable-key contract from polyfence-core BUG-013b).
+ * `currentGpsAccuracy` is null until the first GPS fix lands — the
+ * field is always emitted so consumers can rely on a stable key set.
  */
 export interface RuntimeStatus {
   strategy: string;

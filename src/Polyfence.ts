@@ -21,6 +21,7 @@ import {
   onPerformance,
   onHealthScore,
   normalizePolyfenceError,
+  expandErrorTypesToNativeCodes,
   removeAllListeners as removeAllEventListeners,
 } from './events';
 import { normalizeConfigEnums } from './configNormalize';
@@ -39,7 +40,7 @@ if (!NativePolyfence) {
 
 // Keys accepted by updateConfiguration. Kept in lock-step with the
 // PolyfenceConfiguration interface in ./types so a future field added
-// to one needs to be added to the other. BUG-014a.
+// to one needs to be added to the other.
 const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'accuracyProfile',
   'updateStrategy',
@@ -97,8 +98,8 @@ function assertKnownConfigKeys(
     `Polyfence.${caller}: rejecting ${unknown.length} unknown ` +
       `key${
         unknown.length === 1 ? '' : 's'
-      } that pre-fix were silently ignored ` +
-      `by the native side:\n${hints}\n` +
+      } that the native side would silently ignore ` +
+      `otherwise:\n${hints}\n` +
       `Valid keys: ${[...ALLOWED_CONFIG_KEYS].join(', ')}.`,
   );
 }
@@ -133,8 +134,8 @@ export class Polyfence {
   // routing them through a service path that requires the core delegate +
   // PolyfenceErrorManager wired by initialize() — both are no-ops until then,
   // so events and per-zone failures are lost. iOS already rejects every
-  // pre-init call via `guard let tracker = locationTracker`. This mirrors
-  // that guard at the bridge layer so both platforms reject loudly. (BUG-001)
+  // pre-init call via `guard let tracker = locationTracker`. Mirror that
+  // guard at the bridge layer so both platforms reject loudly.
   private assertInitialized(): void {
     if (!this._isInitialized) {
       throw new Error('Polyfence: call initialize() before any other method.');
@@ -324,7 +325,7 @@ export class Polyfence {
     // Native engine emits enum string values in UPPERCASE_SNAKE_CASE on both
     // platforms (Kotlin enum.name; Swift `case balanced = "BALANCED"` raw
     // values). Normalize to lowerCamelCase here to match the TypeScript
-    // AccuracyProfile / UpdateStrategy unions in `./types`. BUG-007.
+    // AccuracyProfile / UpdateStrategy unions in `./types`.
     const raw = (await NativePolyfence.getConfiguration()) as Record<
       string,
       unknown
@@ -379,9 +380,8 @@ export class Polyfence {
    * On iOS this is a no-op kept for cross-platform API parity (iOS has
    * no equivalent battery-optimisation exemption surface).
    *
-   * Pre-2.0.2 this returned `Promise<boolean>` that resolved `true`
-   * regardless of the user's choice — actively misleading. Now returns
-   * `Promise<void>`. (BUG-012)
+   * Returns `Promise<void>` — resolving a boolean for "user accepted"
+   * would be misleading because the bridge can't observe that.
    */
   async requestBatteryOptimizationExemption(): Promise<void> {
     this.assertNotDisposed();
@@ -394,7 +394,35 @@ export class Polyfence {
     errorTypes?: string[];
   }): Promise<PolyfenceError[]> {
     this.assertNotDisposed();
-    const raw: unknown = await NativePolyfence.getErrorHistory(options ?? {});
+    // The native errorHistory filter compares each stored error's
+    // snake_case `type` string (e.g. "battery_optimization_required")
+    // against the incoming `errorTypes` array. Public
+    // PolyfenceErrorType values are camelCase (e.g.
+    // "batteryOptimizationRequired"), so without expansion the filter
+    // matches nothing. Expand each camelCase filter entry to every
+    // native code that maps back to it in NATIVE_CODE_TO_TYPE — a
+    // single camelCase type can cover multiple native codes (e.g.
+    // `serviceStartFailed` covers legacy `tracking_error` and
+    // canonical `service_start_failed`).
+    //
+    // An explicit empty `errorTypes: []` short-circuits: the native
+    // `isNotEmpty()` guard would otherwise treat it as "no filter —
+    // return everything", which is user-hostile for callers who
+    // computed an empty filter and expected an empty result.
+    // Short-circuit here so the semantic matches the array literal
+    // on either end.
+    if (options?.errorTypes && options.errorTypes.length === 0) {
+      return [];
+    }
+    const nativeOptions = options
+      ? {
+          ...options,
+          ...(options.errorTypes
+            ? { errorTypes: expandErrorTypesToNativeCodes(options.errorTypes) }
+            : {}),
+        }
+      : {};
+    const raw: unknown = await NativePolyfence.getErrorHistory(nativeOptions);
     if (!Array.isArray(raw)) {
       return [];
     }

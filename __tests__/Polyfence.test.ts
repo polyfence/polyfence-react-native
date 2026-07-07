@@ -50,7 +50,7 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('precondition: initialize() required (BUG-001)', () => {
+  describe('precondition: initialize() required', () => {
     beforeEach(() => {
       // Override: fresh singleton with _isInitialized = false so we can
       // exercise the pre-init guard.
@@ -60,12 +60,12 @@ describe('Polyfence', () => {
 
     const errorPattern = /call initialize\(\) before any other method/;
 
-    // The Android-side silent path leak (addZone routing through the
-    // Intent/service branch when tracking_enabled is true) is the
-    // motivating symptom for BUG-001. Kept as its own narrative test
-    // because the polygon shape and Android context matter for the bug
-    // trail; the every-guarded-method coverage lives in the table below.
-    it('addZone() rejects before initialize() with a polygon zone (BUG-001 repro shape)', async () => {
+    // The Android silent-path leak — addZone routing through the
+    // Intent/service branch when tracking_enabled is true — is the
+    // narrative motivator for this precondition. Kept as its own
+    // scenario because the polygon shape and Android context matter;
+    // the every-guarded-method coverage lives in the table below.
+    it('addZone() rejects before initialize() with a polygon zone', async () => {
       const zone: Zone = {
         id: 'z1',
         name: 'Polygon',
@@ -262,7 +262,7 @@ describe('Polyfence', () => {
   describe('debugInfo', () => {
     it('should return native result', async () => {
       // Matches the nested shape returned by polyfence-core
-      // PolyfenceDebugCollector.collectDebugInfo() on both platforms (BUG-008).
+      // PolyfenceDebugCollector.collectDebugInfo() on both platforms.
       const mockDebugInfo = {
         systemStatus: {
           isLocationPermissionGranted: true,
@@ -375,11 +375,11 @@ describe('Polyfence', () => {
       expect(NativePolyfence.getConfiguration).toHaveBeenCalled();
     });
 
-    // BUG-007: native engine emits enum string values in UPPERCASE_SNAKE_CASE
-    // on both platforms (Kotlin enum.name; Swift `case balanced = "BALANCED"`
+    // Native engine emits enum string values in UPPERCASE_SNAKE_CASE on
+    // both platforms (Kotlin enum.name; Swift `case balanced = "BALANCED"`
     // raw values). The JS bridge normalizes them to lowerCamelCase before
     // returning so they match the TS AccuracyProfile / UpdateStrategy unions.
-    it('normalizes UPPERCASE_SNAKE enum values to lowerCamelCase (BUG-007)', async () => {
+    it('normalizes UPPERCASE_SNAKE enum values to lowerCamelCase', async () => {
       (NativePolyfence.getConfiguration as jest.Mock).mockResolvedValueOnce({
         accuracyProfile: 'BALANCED',
         updateStrategy: 'PROXIMITY_BASED',
@@ -445,10 +445,11 @@ describe('Polyfence', () => {
   });
 
   describe('requestBatteryOptimizationExemption', () => {
-    // BUG-012: the method is fire-and-forget (startActivity is launched,
-    // the user response is async and not observable from the bridge).
-    // Pre-2.0.2 this resolved `true` regardless of outcome, which was
-    // actively misleading. The contract is now `Promise<void>`.
+    // The method is fire-and-forget — startActivity is launched but the
+    // user response is async and not observable from the bridge, so the
+    // contract is `Promise<void>`. Resolving `true` (or any outcome
+    // boolean) would be misleading because the bridge can't actually
+    // observe what the user chose.
     it('resolves void after launching the system dialog', async () => {
       (
         NativePolyfence.requestBatteryOptimizationExemption as jest.Mock
@@ -488,6 +489,59 @@ describe('Polyfence', () => {
       await Polyfence.instance.errorHistory();
       expect(NativePolyfence.getErrorHistory).toHaveBeenCalledWith({});
     });
+
+    // `errorTypes` filter values are camelCase public enum values, but
+    // native stores snake_case codes. The bridge must expand each
+    // camelCase filter to every native code that maps back to it, or
+    // the filter matches nothing.
+    it('expands camelCase errorTypes to snake_case native codes before crossing the bridge', async () => {
+      (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce([]);
+      await Polyfence.instance.errorHistory({
+        errorTypes: ['batteryOptimizationRequired'],
+      });
+      expect(NativePolyfence.getErrorHistory).toHaveBeenCalledWith({
+        errorTypes: ['battery_optimization_required'],
+      });
+    });
+
+    it('expands 1:many mappings (serviceStartFailed covers tracking_error and service_start_failed)', async () => {
+      (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce([]);
+      await Polyfence.instance.errorHistory({
+        errorTypes: ['serviceStartFailed'],
+      });
+      const call = (NativePolyfence.getErrorHistory as jest.Mock).mock.calls[0][0];
+      expect(call.errorTypes).toEqual(
+        expect.arrayContaining(['tracking_error', 'service_start_failed']),
+      );
+      expect(call.errorTypes).toHaveLength(2);
+    });
+
+    it('expands `unknown` filter to include wake_lock_timeout so real unknown errors surface', async () => {
+      (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce([]);
+      await Polyfence.instance.errorHistory({ errorTypes: ['unknown'] });
+      const call = (NativePolyfence.getErrorHistory as jest.Mock).mock.calls[0][0];
+      expect(call.errorTypes).toEqual(expect.arrayContaining(['wake_lock_timeout']));
+    });
+
+    it('short-circuits an explicit empty `errorTypes: []` to an empty result without a native call', async () => {
+      const result = await Polyfence.instance.errorHistory({ errorTypes: [] });
+      expect(result).toEqual([]);
+      expect(NativePolyfence.getErrorHistory).not.toHaveBeenCalled();
+    });
+
+    it('preserves limit and timeRangeMs alongside expanded errorTypes', async () => {
+      (NativePolyfence.getErrorHistory as jest.Mock).mockResolvedValueOnce([]);
+      await Polyfence.instance.errorHistory({
+        errorTypes: ['batteryOptimizationRequired'],
+        limit: 5,
+        timeRangeMs: 60_000,
+      });
+      expect(NativePolyfence.getErrorHistory).toHaveBeenCalledWith({
+        errorTypes: ['battery_optimization_required'],
+        limit: 5,
+        timeRangeMs: 60_000,
+      });
+    });
   });
 
   describe('dispose', () => {
@@ -498,7 +552,7 @@ describe('Polyfence', () => {
       expect(NativePolyfence.dispose).toHaveBeenCalled();
     });
 
-    // BUG-002: dispose() must NOT permanently brick the SDK. It retires the
+    // dispose() must NOT permanently brick the SDK. It retires the
     // cached singleton so the documented logout -> login pattern works again.
     it('supports re-initialize after dispose (logout -> login)', async () => {
       const first = Polyfence.instance;
@@ -681,7 +735,7 @@ describe('Polyfence', () => {
     });
   });
 
-  describe('updateConfiguration: unknown-key rejection (BUG-014a)', () => {
+  describe('updateConfiguration: unknown-key rejection', () => {
     beforeEach(async () => {
       jest.clearAllMocks();
       await Polyfence.instance.initialize();

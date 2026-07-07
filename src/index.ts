@@ -46,5 +46,6 @@ export type {
   ClusterSettings,
   ScheduleSettings,
   TimeWindow,
+  TimeOfDay,
   ActivitySettings,
 } from './types';

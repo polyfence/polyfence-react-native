@@ -531,10 +531,8 @@ await Polyfence.instance.updateConfiguration({
     enabled: true,
     timeWindows: [
       {
-        startHour: 9,
-        startMinute: 0,
-        endHour: 17,
-        endMinute: 0,
+        startTime: { hour: 9, minute: 0 },
+        endTime: { hour: 17, minute: 0 },
         daysOfWeek: [1, 2, 3, 4, 5], // Monday-Friday
       },
     ],

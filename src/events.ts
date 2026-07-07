@@ -32,10 +32,17 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   // polyfence-core LocationTracker.addZone surfaces zone validation
   // failures via PolyfenceErrorManager.reportError("zone_validation_failed",
   // ...) on both platforms. Without this mapping the onError event still
-  // fires but JS consumers receive type: 'unknown'. BUG-006 (RN companion).
+  // fires but JS consumers receive type: 'unknown'.
   zone_validation_failed: 'zoneValidationFailed',
   tracking_error: 'serviceStartFailed',
   network_error: 'networkTimeout',
+  // The engine's error-description switch recognises `network_timeout`
+  // as a real supported code even though no current call-site emits
+  // it — keep the mapping in sync so a future emitter (or a legacy
+  // build's persisted history) doesn't surface as `type: 'unknown'`
+  // here while Flutter's inverse map resolves it correctly to
+  // `networkTimeout`.
+  network_timeout: 'networkTimeout',
   gps_permission_denied: 'gpsPermissionDenied',
   gps_service_disabled: 'gpsServiceDisabled',
   permission_revoked: 'permissionRevoked',
@@ -52,7 +59,80 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   zone_load_failed: 'zoneLoadFailed',
   analytics_upload_failed: 'analyticsUploadFailed',
   memory_low: 'memoryLow',
+  // `wake_lock_timeout` is the only native code that legitimately
+  // maps to `unknown` and is actually emitted. Without this entry,
+  // `errorHistory({ errorTypes: ['unknown'] })` would expand to a set
+  // of codes that are never actually emitted
+  // (activity_recognition_unavailable, configuration_error,
+  // battery_check_failed) and miss every real wake-lock timeout.
+  wake_lock_timeout: 'unknown',
+  // The engine emits this as a NON-FATAL warning when it accepts a
+  // self-intersecting polygon (ray-casting handles the even-odd
+  // interior correctly, so the zone is not rejected). Consumers can
+  // filter warnings from real errors via
+  // `error.context.severity === 'warning'`.
+  polygon_self_intersecting: 'unknown',
 };
+
+/**
+ * Inverse of {@link NATIVE_CODE_TO_TYPE}. Maps each public
+ * `PolyfenceErrorType` value to the full set of snake_case native codes
+ * the engine emits under that type.
+ *
+ * One camelCase type can correspond to multiple native codes (e.g.
+ * `serviceStartFailed` covers both `tracking_error` — legacy — and
+ * `service_start_failed`; `unknown` covers a handful of leftover
+ * native codes). The native errorHistory filter runs against stored
+ * snake_case type strings, so a camelCase filter value has to be
+ * expanded to every matching native code before being passed across
+ * the bridge, or the filter matches nothing.
+ */
+export const TYPE_TO_NATIVE_CODES: Partial<
+  Record<PolyfenceErrorType, string[]>
+> = Object.entries(NATIVE_CODE_TO_TYPE).reduce(
+  (acc, [nativeCode, type]) => {
+    const bucket = acc[type];
+    if (bucket) {
+      bucket.push(nativeCode);
+    } else {
+      acc[type] = [nativeCode];
+    }
+    return acc;
+  },
+  {} as Record<PolyfenceErrorType, string[]>,
+);
+
+/**
+ * Expand an array of public `PolyfenceErrorType` filter values to the
+ * flat set of snake_case native codes the errorHistory filter can
+ * match against on the native side. Types with no mapping (unlikely
+ * given the enum is exhaustively covered by NATIVE_CODE_TO_TYPE) are
+ * still passed through as-is so the caller can filter on ad-hoc
+ * strings without silently losing them.
+ */
+export function expandErrorTypesToNativeCodes(
+  errorTypes: readonly string[],
+): string[] {
+  const expanded: string[] = [];
+  const seen = new Set<string>();
+  for (const t of errorTypes) {
+    const mapped = TYPE_TO_NATIVE_CODES[t as PolyfenceErrorType];
+    if (mapped && mapped.length > 0) {
+      for (const nativeCode of mapped) {
+        if (!seen.has(nativeCode)) {
+          seen.add(nativeCode);
+          expanded.push(nativeCode);
+        }
+      }
+    } else if (!seen.has(t)) {
+      // Pass unknown filter values through unchanged so consumers
+      // filtering on ad-hoc native codes still work.
+      seen.add(t);
+      expanded.push(t);
+    }
+  }
+  return expanded;
+}
 
 function addListener<T>(
   eventName: string,
@@ -121,17 +201,16 @@ function normalizeGeofenceEvent(
       // polyfence-core sends activity recognition state under
       // "activityAtEvent" — the lowercased ActivityType enum name (one of
       // 'still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown').
-      // Map to PolyfenceLocation.activity for consumers. BUG-009 — pre-2.0.2
-      // this was always undefined because the bridge didn't read the native
-      // field. Cast is best-effort: a future polyfence-core release adding a
-      // new ActivityType would arrive here as a value outside the union, so
-      // consumers should still defensively narrow before branching.
+      // Map to PolyfenceLocation.activity for consumers. Cast is
+      // best-effort: a future polyfence-core release adding a new
+      // ActivityType would arrive here as a value outside the union,
+      // so consumers should still defensively narrow before branching.
       activity: raw.activityAtEvent as ActivityAtEvent | undefined,
       timestamp: (raw.timestamp as number) ?? Date.now(),
     },
     timestamp: (raw.timestamp as number) ?? Date.now(),
     // detectionTimeMs and distanceToBoundaryM are sent by polyfence-core
-    // on every event; pre-2.0.2 the bridge dropped them. BUG-009.
+    // on every event.
     detectionTimeMs: raw.detectionTimeMs as number | undefined,
     distanceToBoundaryM: raw.distanceToBoundaryM as number | undefined,
     // dwellDurationMs is populated only for DWELL events (polyfence-core

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2026-07-08
+
+### Changed
+- **polyfence-core bumped 1.0.10 → 1.0.11.** Picks up the new `applyConfigurationDirect` companion helper on the Android side.
+- **Android bridge switched to `LocationTracker.applyConfigurationDirect`.** Closes a read-after-write race where `await polyfence.updateConfiguration({...})` followed by an immediate `await polyfence.getConfiguration()` on the same thread could return pre-write state. Now returns after the mutation lands when the Service is already running; falls back to the previous `startService` Intent transport when the Service isn't running (read-after-write is only observable in the direct path). iOS bridges were never affected — they already call `updateConfigurationFromMap` directly.
+
+### Fixed
+- **Round-2 residual bridge fixes.**
+  - `getConfiguration()` returns the full shape — native emits the 12-key `PolyfenceConfiguration` map; JS marshals enum strings to canonical camelCase.
+  - `updateConfiguration()` is merge-aware end-to-end on both Android and iOS bridges — partial payloads preserve omitted keys instead of resetting them.
+  - `disableAlertNotifications` write path wired through the bridge — write it, read it back, reset applies the default.
+  - Polygon self-intersection warnings reach `onError` and `errorHistory` via the shared `NATIVE_CODE_TO_TYPE` mapping and its inverse `TYPE_TO_NATIVE_CODES`.
+  - `errorHistory` retains warnings alongside errors; the `type` filter accepts either the canonical `PolyfenceErrorType` or its legacy native-code aliases so consumers on either shape keep working.
+
 ## [2.0.2] - 2026-07-04
 
 ### Changed (BREAKING)

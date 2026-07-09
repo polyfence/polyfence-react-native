@@ -754,13 +754,17 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     /**
      * Update configuration on the running LocationTracker Service.
      *
-     * Calls the core's direct-apply helper so the promise resolves
-     * after the mutation lands — an immediately-following
-     * `getConfiguration()` observes the new state without needing an
+     * Calls the core's direct-apply helper. When the Service is
+     * already running, apply is synchronous — the promise resolves
+     * after the mutation lands and an immediately-following
+     * `getConfiguration()` observes the new state without an
      * `await sleep(…)` on the JS side. When no Service instance is
      * running, applyConfigurationDirect falls back to startService
      * with the same Intent transport as before — preserving the
-     * start-if-needed contract this method had originally.
+     * start-if-needed contract this method had originally. Read
+     * after-write is NOT guaranteed on that fallback path; callers
+     * that depend on immediate observability must ensure the Service
+     * is running first (via `initialize` + `startTracking`).
      *
      * startService failures propagate. On Android 8+ background
      * restrictions (Doze / app-standby / battery saver) startService

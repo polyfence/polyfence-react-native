@@ -752,7 +752,23 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     }
 
     /**
-     * Update configuration and notify service
+     * Update configuration on the running LocationTracker Service.
+     *
+     * Calls the core's direct-apply helper so the promise resolves
+     * after the mutation lands — an immediately-following
+     * `getConfiguration()` observes the new state without needing an
+     * `await sleep(…)` on the JS side. When no Service instance is
+     * running, applyConfigurationDirect falls back to startService
+     * with the same Intent transport as before — preserving the
+     * start-if-needed contract this method had originally.
+     *
+     * startService failures propagate. On Android 8+ background
+     * restrictions (Doze / app-standby / battery saver) startService
+     * throws IllegalStateException when the app is in the background;
+     * swallowing here would let the caller's promise resolve as
+     * success while nothing was applied. Bubble instead so
+     * `updateConfiguration.catch(...)` fires and the caller can retry
+     * when the app foregrounds.
      */
     private fun updateConfigurationInternal(configMap: Map<String, Any>) {
         val activitySettingsMap = configMap["activitySettings"] as? Map<String, Any>
@@ -761,20 +777,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             LocationTracker.setPendingActivitySettings(activitySettings)
         }
 
-        val intent = Intent(context, LocationTracker::class.java).apply {
-            action = LocationTracker.ACTION_UPDATE_CONFIG
-            putExtra("config", HashMap(configMap))
-        }
-        // Do NOT swallow startService failures here. On Android 8+
-        // background restrictions (Doze / app-standby / battery
-        // saver) `context.startService(intent)` throws
-        // IllegalStateException when the app is in the background.
-        // Since this is the only write path (no direct
-        // `updateSmartConfiguration` fallback), swallowing would let
-        // the caller's promise resolve as success while nothing was
-        // applied and nothing persisted. Bubble instead so
-        // `updateConfiguration.catch(...)` fires and the caller can
-        // retry when the app foregrounds.
-        context.startService(intent)
+        LocationTracker.applyConfigurationDirect(context, configMap)
     }
 }

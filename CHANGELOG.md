@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.2] - 2026-07-04
 
-> **Version-label note:** Same pragmatic-patch approach as polyfence-core 1.0.10 — this release contains multiple behavior contract changes that would warrant a major bump under strict semver, but ships as a patch because Polyfence is pre-open-source Early Access with no external consumers at cut time. Breaking changes are called out in the **Changed (BREAKING)** section below with migration guidance for each.
-
 ### Changed (BREAKING)
 
 - **polyfence-core bumped 1.0.9 → 1.0.10 — inherits core's breaking behaviors.** See polyfence-core CHANGELOG for the full details:

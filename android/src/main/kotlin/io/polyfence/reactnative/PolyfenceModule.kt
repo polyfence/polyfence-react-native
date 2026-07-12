@@ -60,11 +60,32 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             val disableAlerts = (configMap["config"] as? Map<*, *>)?.get("disableAlertNotifications") as? Boolean ?: false
             LocationTracker.setAlertNotificationsEnabled(!disableAlerts)
 
+            // Wire the error stream BEFORE forwarding the initialize
+            // config to updateConfigurationInternal below. If a running
+            // Service instance from a previous session applies the
+            // config synchronously and reportError fires from the
+            // exception path, we want the live errorSink to receive it
+            // instead of dropping it silently. (errorHistory always
+            // records via PolyfenceDebugCollector — the concern is the
+            // live stream, not the buffer.)
             LocationTracker.setPendingCoreDelegate(this)
             LocationTracker.setBridgePlatform("react-native")
 
             PolyfenceErrorManager.initialize { errorMap ->
                 sendErrorEvent(errorMap)
+            }
+
+            // Apply all remaining tracking config fields (accuracyProfile,
+            // updateStrategy, gpsAccuracyThreshold, nested settings, etc.).
+            // Strip plugin-only keys that have dedicated handlers above so
+            // they are not double-processed by updateConfigurationInternal.
+            @Suppress("UNCHECKED_CAST")
+            val configDict = configMap["config"] as? Map<String, Any>
+            if (configDict != null) {
+                val gpsConfig = configDict - setOf("pluginVersion", "disableAlertNotifications")
+                if (gpsConfig.isNotEmpty()) {
+                    updateConfigurationInternal(gpsConfig)
+                }
             }
 
             // Upgrade-path hygiene. The `tracking_enabled` SharedPref

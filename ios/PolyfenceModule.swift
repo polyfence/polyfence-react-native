@@ -109,6 +109,19 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 locationTracker?.setAlertNotificationsEnabled(!disableAlerts)
             }
 
+            // Apply all remaining tracking config fields (accuracyProfile,
+            // updateStrategy, gpsAccuracyThreshold, nested settings, etc.).
+            // Strip plugin-only keys that have dedicated handlers above so
+            // they are not double-processed by updateConfigurationFromMap.
+            if let configDict = config?["config"] as? [String: Any] {
+                var gpsConfig = configDict
+                gpsConfig.removeValue(forKey: "pluginVersion")
+                gpsConfig.removeValue(forKey: "disableAlertNotifications")
+                if !gpsConfig.isEmpty {
+                    locationTracker?.updateConfigurationFromMap(gpsConfig)
+                }
+            }
+
             resolve(nil)
         } catch {
             NSLog("PolyfenceModule: Initialize failed: %@", error.localizedDescription)

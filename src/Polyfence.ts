@@ -214,9 +214,9 @@ export class Polyfence {
    * currently inside the zone, the next reconciliation may fire a fresh
    * `enter` / `recoveryEnter` event — in-place metadata edits without a
    * re-enter are a known limitation. If your workflow requires unique
-   * IDs across additions, `getZoneStates()` returns the currently-loaded
-   * IDs — but note that it returns `{}` when tracking has not been
-   * started (see the BUG-003 note in the CHANGELOG).
+   * IDs across additions, track loaded IDs in application state:
+   * `getZoneStates()` is only reliable after `startTracking()` (on Android
+   * it returns `[]` before then — see the README's Zone State section).
    */
   async addZone(zone: Zone): Promise<void> {
     this.assertNotDisposed();

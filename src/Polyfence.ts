@@ -201,6 +201,18 @@ export class Polyfence {
     return NativePolyfence.stopTracking();
   }
 
+  /**
+   * Add a zone for monitoring.
+   *
+   * The zone is persisted natively and starts generating entry/exit events
+   * once tracking is running.
+   *
+   * **Duplicate IDs.** Calling `addZone` with a `zone.id` that is already
+   * being monitored silently overwrites the previous zone — no error is
+   * thrown. This is the expected way to update a zone's shape or metadata
+   * without an explicit remove-then-add. If your workflow requires unique
+   * IDs across additions, check `getZoneStates()` before calling.
+   */
   async addZone(zone: Zone): Promise<void> {
     this.assertNotDisposed();
     this.assertInitialized();

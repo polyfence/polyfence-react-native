@@ -7,15 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Documentation
-- **`addZone` docstring now documents duplicate-ID behaviour (Bug-024).** Calling `addZone` with a `zone.id` already being monitored silently overwrites the previous zone — no error is thrown. This is the expected way to update a zone's shape or metadata without an explicit remove-then-add. The behaviour is unchanged; only the documentation is new.
-
 ### Fixed
 - **`debugInfo()` on Android no longer stalls the `@ReactMethod` invocation thread (Bug-022).** `collectDebugInfo` reaches `getCpuUsage()` in polyfence-core, which reads `/proc/stat` with a ~360ms sleep. Old Architecture dispatched `@ReactMethod` on a native-modules background thread and tolerated the block; New Architecture (Turbo Modules / Bridgeless) can invoke on the JS thread instead, where a 360ms stall drops frames and delays the Promise. The call is now dispatched to a dedicated background thread — `Promise.resolve` / `reject` are thread-safe and marshal back to JS. iOS is unaffected — `collectDebugInfo` on iOS hard-codes `cpuUsagePercent: 0.0` and never reads `/proc/stat`.
 - **`initialize(config)` now applies every field of `PolyfenceConfiguration`, not just `disableAlertNotifications` (Bug-020).** The native `initialize` handler on both platforms was reading `pluginVersion` + `disableAlertNotifications` from the config map and silently dropping every other field — `accuracyProfile`, `updateStrategy`, `gpsAccuracyThreshold`, and all nested settings. Native `LocationTracker` retained stale / default state; consumers who passed a full `PolyfenceConfiguration` saw only two of its fields applied. Bridge now forwards the remaining keys through the merge-aware `updateConfigurationFromMap` path already used by later `updateConfiguration` calls, so `initialize(config)` and `updateConfiguration(config)` produce identical state.
 
 ### Changed
 - **Behavioural note (Android only):** `initialize(config)` with any tracking-config key now spins up the `LocationTracker` Service, where previously only `startTracking()` did. On Android 8+ from a backgrounded context, `context.startService` throws `IllegalStateException`, so the initialize promise now rejects where it previously silently dropped the config. Realistic apps call `initialize` on cold-start / foreground so this is not an incidental regression; call sites that init from a background service should catch and retry when the app foregrounds. iOS has no equivalent change.
+
+### Documented
+- **`addZone` docstring now documents duplicate-ID behaviour (Bug-024).** Calling `addZone` with a `zone.id` already being monitored silently overwrites the previous zone — no error is thrown. **Re-adding also resets the persisted INSIDE/OUTSIDE state for that zone (and on iOS, its confidence state).** If the device is currently inside the zone, the next reconciliation may fire a fresh `enter` / `recoveryEnter` event. In-place metadata edits without a re-enter are a known limitation. Behaviour is unchanged; only the documentation is new.
 
 ## [2.0.3] - 2026-07-08
 

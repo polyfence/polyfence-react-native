@@ -209,9 +209,14 @@ export class Polyfence {
    *
    * **Duplicate IDs.** Calling `addZone` with a `zone.id` that is already
    * being monitored silently overwrites the previous zone — no error is
-   * thrown. This is the expected way to update a zone's shape or metadata
-   * without an explicit remove-then-add. If your workflow requires unique
-   * IDs across additions, check `getZoneStates()` before calling.
+   * thrown. Re-adding also **resets the persisted INSIDE/OUTSIDE state**
+   * for that zone (and on iOS, its confidence state). If the device is
+   * currently inside the zone, the next reconciliation may fire a fresh
+   * `enter` / `recoveryEnter` event — in-place metadata edits without a
+   * re-enter are a known limitation. If your workflow requires unique
+   * IDs across additions, `getZoneStates()` returns the currently-loaded
+   * IDs — but note that it returns `{}` when tracking has not been
+   * started (see the BUG-003 note in the CHANGELOG).
    */
   async addZone(zone: Zone): Promise<void> {
     this.assertNotDisposed();

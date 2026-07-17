@@ -242,13 +242,25 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
     @ReactMethod
     fun getDebugInfo(promise: Promise) {
-        try {
-            val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
-            promise.resolve(mapToWritableMap(debugInfo))
-        } catch (e: Exception) {
-            Log.e("PolyfenceModule", "Failed to get debug info: ${e.message}")
-            promise.reject("DEBUG_INFO_FAILED", e.message)
-        }
+        // collectDebugInfo → collectPerformanceMetrics → getCpuUsage
+        // blocks ~360ms reading /proc/stat and MUST NOT run on the
+        // thread invoking a @ReactMethod. React Native's old
+        // architecture dispatches @ReactMethod on a native-modules
+        // background thread which tolerates it, but the New
+        // Architecture (Turbo Modules / Bridgeless) can invoke on
+        // the JS thread — StrictMode / the ANR watchdog trips there.
+        // Dispatch to a dedicated background thread to be safe under
+        // both architectures; Promise.resolve / reject are
+        // thread-safe and marshal back to JS.
+        Thread {
+            try {
+                val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
+                promise.resolve(mapToWritableMap(debugInfo))
+            } catch (e: Exception) {
+                Log.e("PolyfenceModule", "Failed to get debug info: ${e.message}")
+                promise.reject("DEBUG_INFO_FAILED", e.message)
+            }
+        }.start()
     }
 
     @ReactMethod

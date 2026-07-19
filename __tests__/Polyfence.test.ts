@@ -776,6 +776,7 @@ describe('Polyfence', () => {
         accuracyProfile: 'balanced',
         updateStrategy: 'intelligent',
         gpsAccuracyThreshold: 50,
+        gpsStalenessTimeoutMs: 30000,
         enableDebugLogging: false,
         proximitySettings: {},
         movementSettings: {},

@@ -45,6 +45,7 @@ const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'accuracyProfile',
   'updateStrategy',
   'gpsAccuracyThreshold',
+  'gpsStalenessTimeoutMs',
   'enableDebugLogging',
   'proximitySettings',
   'movementSettings',

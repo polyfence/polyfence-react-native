@@ -19,7 +19,8 @@ import type {
 // under RN 0.76+ Bridgeless / New Architecture.
 const emitter = DeviceEventEmitter;
 
-// Valid geofence event types: enter, exit, dwell, recoveryEnter, recoveryExit
+// Valid geofence event types: enter, exit, dwell, recoveryEnter, recoveryExit,
+// signalLost, signalRestored
 // Normalization uses parseGeofenceEventType() below (unknown → dropped).
 
 /** Map native error codes/keys to the public PolyfenceErrorType union. */

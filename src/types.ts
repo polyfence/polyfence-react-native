@@ -173,6 +173,12 @@ export interface PolyfenceConfiguration {
   accuracyProfile?: AccuracyProfile;
   updateStrategy?: UpdateStrategy;
   gpsAccuracyThreshold?: number;
+  /**
+   * Degraded-GPS handling (Option D + signal-lost). Milliseconds; `0` (default)
+   * disables it. When `> 0`, a low-accuracy fix may drive EXITs and, after this
+   * long with no valid fix while inside a zone, a `signalLost` event is emitted.
+   */
+  gpsStalenessTimeoutMs?: number;
   enableDebugLogging?: boolean;
   // Nested settings
   proximitySettings?: ProximitySettings;

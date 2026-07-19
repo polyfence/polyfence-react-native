@@ -76,6 +76,29 @@ const LEGACY_KEY_HINTS: Record<string, string> = {
     'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
 };
 
+// A negative gpsStalenessTimeoutMs would flow to native and read as "off":
+// both platforms gate the staleness watchdog on a strictly positive value.
+// For most config a bad value failing quietly is harmless, but this field is
+// a safety timeout — silently disabling it on a typo is the exact failure it
+// exists to prevent — so coerce a negative to 0 (off) and warn, rather than
+// let it turn off staleness detection unnoticed.
+function coerceConfigValues(
+  config: PolyfenceConfiguration,
+): PolyfenceConfiguration {
+  if (
+    typeof config.gpsStalenessTimeoutMs === 'number' &&
+    config.gpsStalenessTimeoutMs < 0
+  ) {
+    console.warn(
+      `Polyfence: gpsStalenessTimeoutMs was ${config.gpsStalenessTimeoutMs} ` +
+        `(negative) — coercing to 0, which turns the staleness watchdog off. ` +
+        `Pass a positive number of milliseconds to enable it.`,
+    );
+    return { ...config, gpsStalenessTimeoutMs: 0 };
+  }
+  return config;
+}
+
 function assertKnownConfigKeys(
   config: PolyfenceConfiguration,
   caller: 'initialize' | 'updateConfiguration',
@@ -158,6 +181,7 @@ export class Polyfence {
     this.assertNotDisposed();
     if (config) {
       assertKnownConfigKeys(config, 'initialize');
+      config = coerceConfigValues(config);
     }
     await NativePolyfence.initialize(config ? { config } : {});
     this._isInitialized = true;
@@ -355,7 +379,7 @@ export class Polyfence {
     this.assertNotDisposed();
     this.assertInitialized();
     assertKnownConfigKeys(config, 'updateConfiguration');
-    return NativePolyfence.updateConfiguration(config);
+    return NativePolyfence.updateConfiguration(coerceConfigValues(config));
   }
 
   async resetConfiguration(): Promise<void> {

@@ -48,6 +48,28 @@ describe('Polyfence', () => {
       await Polyfence.instance.initialize();
       expect(NativePolyfence.initialize).toHaveBeenCalledWith({});
     });
+
+    it('coerces a negative gpsStalenessTimeoutMs to 0 and warns', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await Polyfence.instance.initialize({ gpsStalenessTimeoutMs: -1 });
+      expect(NativePolyfence.initialize).toHaveBeenCalledWith({
+        config: { gpsStalenessTimeoutMs: 0 },
+      });
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('gpsStalenessTimeoutMs'),
+      );
+      warn.mockRestore();
+    });
+
+    it('passes a positive gpsStalenessTimeoutMs through untouched', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await Polyfence.instance.initialize({ gpsStalenessTimeoutMs: 30000 });
+      expect(NativePolyfence.initialize).toHaveBeenCalledWith({
+        config: { gpsStalenessTimeoutMs: 30000 },
+      });
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 
   describe('precondition: initialize() required', () => {
@@ -410,6 +432,20 @@ describe('Polyfence', () => {
       };
       await Polyfence.instance.updateConfiguration(config);
       expect(NativePolyfence.updateConfiguration).toHaveBeenCalledWith(config);
+    });
+
+    it('coerces a negative gpsStalenessTimeoutMs to 0 and warns', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await Polyfence.instance.updateConfiguration({
+        gpsStalenessTimeoutMs: -5000,
+      });
+      expect(NativePolyfence.updateConfiguration).toHaveBeenCalledWith({
+        gpsStalenessTimeoutMs: 0,
+      });
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('gpsStalenessTimeoutMs'),
+      );
+      warn.mockRestore();
     });
   });
 

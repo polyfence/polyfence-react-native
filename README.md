@@ -253,17 +253,26 @@ const subscription = Polyfence.instance.onGeofenceEvent((event) => {
     // and restarted (Doze kill / OOM / force-stop / phone reboot). On
     // the first GPS fix after restart, the SDK reconciles persisted
     // zone state against the actual location and emits recoveryEnter /
-    // recoveryExit for any mismatch. They do NOT fire on GPS signal
-    // loss (airplane mode, tunnel) during active tracking — a regular
-    // enter/exit fires for those. Treat recovery events like enter/exit
-    // unless you specifically want to distinguish "user just crossed
-    // the boundary" from "user was already inside/outside when the
-    // tracking process resumed after being killed."
+    // recoveryExit for any mismatch. Treat recovery events like
+    // enter/exit unless you specifically want to distinguish "user just
+    // crossed the boundary" from "user was already inside/outside when
+    // the tracking process resumed after being killed."
     case 'recoveryEnter':
       console.log(`Confirmed inside (post-restart): ${event.zoneId}`);
       break;
     case 'recoveryExit':
       console.log(`Confirmed outside (post-restart): ${event.zoneId}`);
+      break;
+    // Signal-lost / restored fire only when degraded-GPS handling is
+    // enabled (gpsStalenessTimeoutMs > 0). If GPS goes fully stale while
+    // you're inside a zone, the SDK reports signalLost — membership is
+    // now uncertain, NOT exited — then signalRestored once a valid fix
+    // confirms you're still inside (or a normal exit if you actually left).
+    case 'signalLost':
+      console.log(`GPS lost, still assumed inside: ${event.zoneId}`);
+      break;
+    case 'signalRestored':
+      console.log(`GPS restored, confirmed inside: ${event.zoneId}`);
       break;
   }
 });
@@ -364,7 +373,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | Method | Callback | Description |
 |--------|----------|-------------|
 | `onLocationUpdate(callback)` | `(location: PolyfenceLocation) => void` | Raw GPS location updates |
-| `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter / exit / dwell / recoveryEnter / recoveryExit events |
+| `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter / exit / dwell / recoveryEnter / recoveryExit / signalLost / signalRestored events |
 | `onError(callback)` | `(error: PolyfenceError) => void` | **Central error channel — subscribe before any other SDK call.** GPS / permission / service / battery / zone-validation errors all route here; errors fired without a listener are dropped silently |
 | `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates. Multiplexed channel — discriminate on `payload.type` (`'status'`, `'runtime_status'`, …); see [Performance Events](#performance-events) |
 | `onHealthScore(callback)` | `(event: HealthScoreEvent) => void` | Periodic health score (0-100) with top issue |
@@ -384,7 +393,7 @@ Polyfence.instance.onGeofenceEvent((event) => {
   console.log({
     zoneId: event.zoneId,
     zoneName: event.zoneName,
-    type: event.type, // 'enter' | 'exit' | 'dwell' | 'recoveryEnter' | 'recoveryExit'
+    type: event.type, // 'enter' | 'exit' | 'dwell' | 'recoveryEnter' | 'recoveryExit' | 'signalLost' | 'signalRestored'
     location: event.location, // includes location.activity ('still' | 'walking' | 'running' | 'cycling' | 'driving' | 'unknown')
     timestamp: event.timestamp,
     detectionTimeMs: event.detectionTimeMs, // ms the engine took to detect the transition

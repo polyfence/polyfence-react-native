@@ -160,6 +160,8 @@ function parseGeofenceEventType(raw: string): GeofenceEventType | null {
     DWELL: 'dwell',
     RECOVERY_ENTER: 'recoveryEnter',
     RECOVERY_EXIT: 'recoveryExit',
+    SIGNAL_LOST: 'signalLost',
+    SIGNAL_RESTORED: 'signalRestored',
   };
   return mapping[key] ?? null;
 }
@@ -180,7 +182,7 @@ function normalizeGeofenceEvent(
           rawType,
         )} ` +
           `for zoneId=${JSON.stringify(raw.zoneId ?? null)}. ` +
-          'Expected one of: ENTER, EXIT, DWELL, RECOVERY_ENTER, RECOVERY_EXIT.',
+          'Expected one of: ENTER, EXIT, DWELL, RECOVERY_ENTER, RECOVERY_EXIT, SIGNAL_LOST, SIGNAL_RESTORED.',
       );
     }
     return null;

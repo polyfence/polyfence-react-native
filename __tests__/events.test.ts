@@ -227,6 +227,21 @@ describe('Events', () => {
 
       expect(callback).not.toHaveBeenCalled();
     });
+
+    it('maps SIGNAL_LOST and SIGNAL_RESTORED degraded-GPS events', () => {
+      const callback = jest.fn();
+      onGeofenceEvent(callback);
+      const geoCall = (mockEmitter.addListener as jest.Mock).mock.calls.find(
+        (call: any[]) => call[0] === 'onGeofenceEvent',
+      );
+      const listener = geoCall![1];
+
+      listener({ zoneId: 'z1', zoneName: 'T', eventType: 'SIGNAL_LOST', latitude: 1, longitude: 1, gpsAccuracy: 10, timestamp: 1000 });
+      listener({ zoneId: 'z1', zoneName: 'T', eventType: 'SIGNAL_RESTORED', latitude: 1, longitude: 1, gpsAccuracy: 10, timestamp: 2000 });
+
+      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({ type: 'signalLost' }));
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({ type: 'signalRestored' }));
+    });
   });
 
   describe('onError', () => {

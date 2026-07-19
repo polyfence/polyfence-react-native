@@ -24,7 +24,9 @@ export type GeofenceEventType =
   | 'exit'
   | 'dwell'
   | 'recoveryEnter'
-  | 'recoveryExit';
+  | 'recoveryExit'
+  | 'signalLost'
+  | 'signalRestored';
 
 export interface GeofenceEvent {
   zoneId: string;

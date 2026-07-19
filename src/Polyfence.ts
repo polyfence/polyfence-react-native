@@ -91,8 +91,8 @@ function coerceConfigValues(
   ) {
     console.warn(
       `Polyfence: gpsStalenessTimeoutMs was ${config.gpsStalenessTimeoutMs} ` +
-        `(negative) — coercing to 0, which turns the staleness watchdog off. ` +
-        `Pass a positive number of milliseconds to enable it.`,
+        '(negative) — coercing to 0, which turns the staleness watchdog off. ' +
+        'Pass a positive number of milliseconds to enable it.',
     );
     return { ...config, gpsStalenessTimeoutMs: 0 };
   }

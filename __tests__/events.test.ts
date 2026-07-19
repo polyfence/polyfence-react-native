@@ -236,11 +236,33 @@ describe('Events', () => {
       );
       const listener = geoCall![1];
 
-      listener({ zoneId: 'z1', zoneName: 'T', eventType: 'SIGNAL_LOST', latitude: 1, longitude: 1, gpsAccuracy: 10, timestamp: 1000 });
-      listener({ zoneId: 'z1', zoneName: 'T', eventType: 'SIGNAL_RESTORED', latitude: 1, longitude: 1, gpsAccuracy: 10, timestamp: 2000 });
+      listener({
+        zoneId: 'z1',
+        zoneName: 'T',
+        eventType: 'SIGNAL_LOST',
+        latitude: 1,
+        longitude: 1,
+        gpsAccuracy: 10,
+        timestamp: 1000,
+      });
+      listener({
+        zoneId: 'z1',
+        zoneName: 'T',
+        eventType: 'SIGNAL_RESTORED',
+        latitude: 1,
+        longitude: 1,
+        gpsAccuracy: 10,
+        timestamp: 2000,
+      });
 
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({ type: 'signalLost' }));
-      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({ type: 'signalRestored' }));
+      expect(callback).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ type: 'signalLost' }),
+      );
+      expect(callback).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ type: 'signalRestored' }),
+      );
     });
   });
 

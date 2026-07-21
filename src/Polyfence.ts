@@ -252,16 +252,10 @@ export class Polyfence {
   /**
    * Remove a zone from monitoring.
    *
-   * **Android: dispatch is asynchronous.** Removal is sent to the
-   * `LocationTracker` foreground Service via a `startService` Intent.
-   * The `Promise` returned by this method resolves when the Intent
-   * has been queued, NOT when the Service has actually removed the
-   * zone from the engine and persistence. A `getZoneStates()` call
-   * immediately after `removeZone()` may still show the zone. iOS is
-   * synchronous — the tracker's `removeZone` runs to completion
-   * before the bridge Promise resolves. If you need immediate
-   * read-after-write on Android, allow ~500ms before querying, or
-   * track the removal in application state.
+   * The Promise resolves after the engine and persistence are both
+   * updated on both platforms — a `getZoneStates()` call immediately
+   * after `removeZone()` reflects the removal without needing an
+   * explicit wait.
    */
   async removeZone(zoneId: string): Promise<void> {
     this.assertNotDisposed();
@@ -270,16 +264,9 @@ export class Polyfence {
   }
 
   /**
-   * Remove every zone from monitoring.
-   *
-   * **Android: dispatch is asynchronous** — same transport as
-   * `removeZone`. The clear is sent to the `LocationTracker` Service
-   * via a `startService` Intent; the returned `Promise` resolves when
-   * the Intent has been queued, not when the Service has finished
-   * clearing. `getZoneStates()` immediately after may still show
-   * zones. iOS is synchronous. If you need immediate read-after-write
-   * on Android, allow ~500ms before querying, or track the clear in
-   * application state.
+   * Remove every zone from monitoring. Same read-after-write
+   * semantics as `removeZone` — `getZoneStates()` immediately after
+   * `clearAllZones()` returns an empty array on both platforms.
    */
   async clearAllZones(): Promise<void> {
     this.assertNotDisposed();

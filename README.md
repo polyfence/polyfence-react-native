@@ -347,6 +347,8 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 
 > **`getZoneStates()` only reports reliable inside/outside state after `startTracking()`.** Inside/outside is computed by the running location service, so before tracking starts there is nothing evaluated to report — on Android `getZoneStates()` returns `[]` even after `addZone()`. Always follow this order: `initialize()` → `addZone()` → `startTracking()` → `getZoneStates()`. (To track membership while running, use the `onZoneEnter` / `onZoneExit` events.)
 
+> **`addZone(zone)` treats `zone.id` as the primary key — duplicate IDs silently overwrite.** Calling `addZone` with an `id` already being monitored replaces the previous zone entry; no error is thrown. **Re-adding also resets the persisted INSIDE/OUTSIDE state for that zone (and on iOS, its confidence state).** If the device is currently inside the zone, the next reconciliation may fire a fresh `enter` / `recoveryEnter` event. In-place metadata edits without a re-enter are a known limitation. If your workflow requires unique IDs, dedupe before calling.
+
 ### Configuration
 
 | Method | Returns | Description |
@@ -626,6 +628,18 @@ await Polyfence.instance.initialize(undefined, { disableTelemetry: true });
 - **GDPR/CCPA-friendly**: Anonymous aggregates only by default, one-line disable for telemetry, opt-in for position retention
 
 ---
+
+## Upgrading
+
+### From `2.0.x` to `2.1.0`
+
+Additive release — no public API removed. New surfaces:
+
+- `GeofenceEventType.signalLost` / `.signalRestored` — reported when GPS goes stale while a device is inside a zone. Opt-in via `PolyfenceConfiguration.gpsStalenessTimeoutMs` (`0` = off, the default).
+
+**Behavioural change on Android — `initialize(config)`.** If you pass any tracking-config key to `initialize`, the `LocationTracker` foreground Service now starts as part of `initialize` rather than being deferred until `startTracking()`. On Android 8+, `context.startService` from a backgrounded context throws `IllegalStateException` — so `initialize` will now REJECT where it previously silently dropped the config. This is a bug fix (the old behaviour hid misconfigured init calls), but callers that init from a background service must catch the rejection and retry once the app foregrounds. Apps that call `initialize` on cold-start or from the foreground see no change. iOS is unaffected.
+
+For the full change list, see [CHANGELOG.md](./CHANGELOG.md).
 
 ## Common Gotchas
 

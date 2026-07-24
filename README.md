@@ -382,7 +382,7 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `onLocationUpdate(callback)` | `(location: PolyfenceLocation) => void` | Raw GPS location updates |
 | `onGeofenceEvent(callback)` | `(event: GeofenceEvent) => void` | Zone enter / exit / dwell / recoveryEnter / recoveryExit / signalLost / signalRestored events |
 | `onError(callback)` | `(error: PolyfenceError) => void` | **Central error channel — subscribe before any other SDK call.** GPS / permission / service / battery / zone-validation errors all route here; errors fired without a listener are dropped silently |
-| `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Performance status updates. Multiplexed channel — discriminate on `payload.type` (`'status'`, `'runtime_status'`, …); see [Performance Events](#performance-events) |
+| `onPerformance(callback)` | `(payload: PerformanceEventPayload) => void` | Live GPS performance snapshots (`type: 'runtime_status'`) emitted periodically by polyfence-core while tracking. See [Performance Events](#performance-events) |
 | `onHealthScore(callback)` | `(event: HealthScoreEvent) => void` | Periodic health score (0-100) with top issue |
 | `onZoneEnter(callback)` | `(event: GeofenceEvent) => void` | Zone enter events only |
 | `onZoneExit(callback)` | `(event: GeofenceEvent) => void` | Zone exit events only |
@@ -441,42 +441,28 @@ Polyfence.instance.onError((error) => {
 
 ### Performance Events
 
-The performance channel multiplexes several payload shapes. The payload is typed as `PerformanceEventPayload = Record<string, unknown>`; discriminate on `payload.type` (or the presence of a key like `data`) before reading fields.
+`onPerformance` surfaces live GPS performance snapshots emitted periodically by polyfence-core `LocationTracker` while tracking is running (typically every ~30 seconds and on strategy / accuracy-profile change). The channel filters to `type: 'runtime_status'` — health-score events travel on their own [`onHealthScore`](#events) subscription, and internal SDK state broadcasts are not surfaced.
 
 ```typescript
-Polyfence.instance.onPerformance((payload) => {
-  // Lightweight status snapshot — emitted on start/stop/zone changes.
-  // Shape: { type: 'status', trackingEnabled, zonesCount, profile,
-  //          lastAccuracy, timestamp }
-  if (payload.type === 'status') {
-    console.log({
-      trackingEnabled: payload.trackingEnabled,
-      zonesCount: payload.zonesCount,
-      profile: payload.profile,         // 'BALANCED' | 'MAX_ACCURACY' | ...
-      lastAccuracy: payload.lastAccuracy, // metres; null until first GPS fix
-    });
-    return;
-  }
-
+const subscription = Polyfence.instance.onPerformance((payload) => {
   // Engine runtime status — emitted periodically (and on change) by
   // polyfence-core LocationTracker. Shape: { type: 'runtime_status',
   // data: { strategy, intervalMs, accuracyProfile, nearestZoneDistanceM,
   //         isStationary, batteryMode, gpsAccuracy, currentGpsAccuracy,
   //         secondsSinceLastGpsFix, gpsAvailabilityDrops5Min, timestamp } }
-  if (payload.type === 'runtime_status') {
-    const data = payload.data as Record<string, unknown>;
-    console.log({
-      strategy: data.strategy,                 // 'CONTINUOUS' | 'INTELLIGENT' | ...
-      intervalMs: data.intervalMs,
-      gpsAccuracy: data.gpsAccuracy,           // metres (current fix)
-      currentGpsAccuracy: data.currentGpsAccuracy, // metres (last health-tracked fix; null until first fix)
-      nearestZoneDistanceM: data.nearestZoneDistanceM,
-    });
-  }
+  const data = payload.data as Record<string, unknown>;
+  console.log({
+    strategy: data.strategy,                 // 'CONTINUOUS' | 'INTELLIGENT' | ...
+    intervalMs: data.intervalMs,
+    gpsAccuracy: data.gpsAccuracy,           // metres (current fix)
+    currentGpsAccuracy: data.currentGpsAccuracy, // metres (last health-tracked fix; null until first fix)
+    nearestZoneDistanceM: data.nearestZoneDistanceM,
+  });
 });
-```
 
-Other event types (`system_health`, etc.) flow through the same channel — narrow before reading.
+// Remove the subscription during cleanup (e.g. useEffect return).
+subscription.remove();
+```
 
 ---
 

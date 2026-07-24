@@ -137,7 +137,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
             }
             tracker.startTracking()
             setTrackingEnabled(true)
-            sendStatus(trackingEnabled: true)
             resolve(nil)
         } catch {
             NSLog("PolyfenceModule: Start tracking failed: %@", error.localizedDescription)
@@ -153,7 +152,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
             }
             tracker.stopTracking()
             setTrackingEnabled(false)
-            sendStatus(trackingEnabled: false)
             resolve(nil)
         } catch {
             NSLog("PolyfenceModule: Stop tracking failed: %@", error.localizedDescription)
@@ -175,7 +173,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
             }
 
             tracker.addZone(zoneId: zoneId, zoneName: zoneName, zoneData: zoneDict)
-            sendStatus(trackingEnabled: nil)
             resolve(nil)
         } catch {
             NSLog("PolyfenceModule: Add zone failed: %@", error.localizedDescription)
@@ -195,7 +192,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
             }
 
             tracker.removeZone(zoneId: zoneId)
-            sendStatus(trackingEnabled: nil)
             resolve(nil)
         } catch {
             NSLog("PolyfenceModule: Remove zone failed: %@", error.localizedDescription)
@@ -211,7 +207,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
             }
 
             tracker.clearAllZones()
-            sendStatus(trackingEnabled: nil)
             resolve(nil)
         } catch {
             NSLog("PolyfenceModule: Clear zones failed: %@", error.localizedDescription)
@@ -547,28 +542,6 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
 
     private func sendPerformanceEvent(_ eventData: [String: Any]) {
         emit("onPerformance", body: eventData)
-    }
-
-    private func sendStatus(trackingEnabled: Bool?) {
-        let zonesCount = (try? zonePersistence?.getZoneCount()) ?? 0
-        // Query actual tracking state if not explicitly passed.
-        // LocationTracker.isTracking() returns true if tracking is actively running.
-        let tracking = trackingEnabled ?? (locationTracker?.isTracking() ?? false)
-        // Pull profile + lastAccuracy from polyfence-core rather than
-        // hardcoding nil — otherwise consumers reading status.profile
-        // and status.lastAccuracy see null regardless of runtime
-        // state, which suggests data is unavailable when it isn't.
-        let profile = locationTracker?.getCurrentSmartConfiguration().accuracyProfile.rawValue
-        let lastAccuracy: Any = locationTracker?.getLastKnownAccuracy() ?? NSNull()
-        let payload: [String: Any] = [
-            "type": "status",
-            "trackingEnabled": tracking,
-            "zonesCount": zonesCount,
-            "profile": profile ?? NSNull(),
-            "lastAccuracy": lastAccuracy,
-            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
-        ]
-        sendPerformanceEvent(payload)
     }
 
     // MARK: - Device Category Detection

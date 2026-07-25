@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **`onPerformance` no longer surfaces internal `status` pings (bridge removal) or health-score events (SDK-boundary filter) (Bug-028).** Every zone/tracking method (`startTracking`, `stopTracking`, `addZone`, `removeZone`, `clearAllZones`) on both platforms was pushing an internal `{type: "status", trackingEnabled, zonesCount, profile, lastAccuracy, timestamp}` payload into the `onPerformance` emitter — the same channel that carries real `type: "runtime_status"` GPS metrics from polyfence-core `LocationTracker`. Consumers writing threshold guards saw non-metric payloads mixed in, and any `payload.data.*` field-access on the status-typed variant read `undefined`. Fixed on two axes for defense in depth: (a) both native bridges (`ios/PolyfenceModule.swift`, `android/src/main/kotlin/io/polyfence/reactnative/PolyfenceModule.kt`) no longer emit the status payload — the `sendStatus` helper and every call site is removed (no in-tree consumer branched on `type: "status"`; downstream apps that did are covered by the migration note under **Changed** below); and (b) the JS `onPerformance` handler in `src/events.ts` now filters `raw.type === 'runtime_status'` before invoking the caller's callback, dropping health-score events and any future non-runtime_status payloads at the SDK boundary. `onHealthScore` already filtered separately for `type: "health_score"` and is unaffected.
+
+### Changed
+- **`onPerformance` payload contract narrowed to `type: 'runtime_status'` (Bug-028 migration).** Prior README taught consumers to branch on `payload.type === 'status'` and read `trackingEnabled`, `zonesCount`, `profile`, `lastAccuracy` — those variants are gone. Direct replacements: use `getConfiguration()` for `profile`, track tracking-enabled state locally around your `startTracking()` / `stopTracking()` calls (there is no dedicated `isTracking` query on this bridge), and read the last GPS accuracy from a `runtime_status` payload's `currentGpsAccuracy` (nested under `payload.data`). For `zonesCount`, track it in your own app state as you call `addZone` / `removeZone` / `clearAllZones` — `getZoneStates()` only reports reliable state *after* `startTracking()` (on Android it returns `[]` before that, per its own docstring), so its `.length` is not a drop-in replacement for the old always-available `zonesCount` field. Health-score events also no longer arrive on `onPerformance` — use `onHealthScore`. `PerformanceEventPayload` JSDoc in `src/types.ts` was updated to match the new scope.
+
+### Documented
+- **`onPerformance` README rewritten to match the new behaviour (Bug-028 companion).** Previous "Performance Events" section described the channel as multiplexing `type: "status"` and `type: "runtime_status"` variants; the status variant is gone and `onPerformance` is now scoped to real `runtime_status` snapshots. Points the reader at `onHealthScore` for health events and includes an example subscription with cleanup.
+
 ## [2.1.0] - 2026-07-21
 
 ### Added

@@ -333,7 +333,17 @@ export function onError(
 export function onPerformance(
   callback: (payload: PerformanceEventPayload) => void,
 ): Subscription {
-  return addListener('onPerformance', callback);
+  // The native onPerformance emitter multiplexes several event types
+  // (runtime_status GPS metrics and health_score events; health_score
+  // is intended for onHealthScore below). Filter to runtime_status so
+  // subscribers of onPerformance receive only real GPS performance
+  // snapshots and never see health-score payloads mixed in. Any future
+  // additional native event type on this channel is dropped by default.
+  return addListener('onPerformance', (raw: Record<string, unknown>) => {
+    if (raw.type === 'runtime_status') {
+      callback(raw as unknown as PerformanceEventPayload);
+    }
+  });
 }
 
 /**

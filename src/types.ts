@@ -224,11 +224,11 @@ export interface RuntimeStatus {
 }
 
 /**
- * Payloads on the performance channel vary — see {@link RuntimeStatus}
- * for `type: 'runtime_status'` events (nested under `payload.data`),
- * plus `type: 'status'` snapshots (`trackingEnabled`, `zonesCount`,
- * `profile`, `lastAccuracy`, …), `system_health`, and others.
- * Discriminate on `payload.type` before reading fields.
+ * Payload delivered to `onPerformance` subscribers. Scoped to
+ * `type: 'runtime_status'` events shaped
+ * `{type: 'runtime_status', data: RuntimeStatus}` — see
+ * {@link RuntimeStatus} for the fields under `payload.data`.
+ * `onHealthScore` delivers `type: 'health_score'` events separately.
  */
 export type PerformanceEventPayload = Record<string, unknown>;
 

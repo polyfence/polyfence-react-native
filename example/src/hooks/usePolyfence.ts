@@ -376,7 +376,8 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
         // errSub is already subscribed at the top of init — see the
         // BUG-011 comment there for the reasoning.
 
-        // Subscribe to performance (health score, runtime status)
+        // Subscribe to runtime_status GPS snapshots. Health scores
+        // travel on onHealthScore.
         const perfSub = polyfence.current.onPerformance((_payload) => {
           if (!mounted) return;
           // Activity is now extracted from onLocation events (loc.activity)

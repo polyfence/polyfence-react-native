@@ -342,6 +342,56 @@ describe('Events', () => {
       expect(subscription).toHaveProperty('remove');
       expect(typeof subscription.remove).toBe('function');
     });
+
+    it('surfaces runtime_status payloads only, drops status and health_score', () => {
+      // Contract for onPerformance: the native emitter carries several
+      // event types on this channel (runtime_status GPS metrics and
+      // health_score updates). The subscriber must see only
+      // runtime_status — health scores are delivered via onHealthScore,
+      // and any status-typed payload the bridge may push must not reach
+      // consumers writing threshold guards on the metric fields.
+      const callback = jest.fn();
+      onPerformance(callback);
+      // The last addListener call is the one this test just registered.
+      const registered = (mockEmitter.addListener as jest.Mock).mock.calls;
+      const perfCall = [...registered]
+        .reverse()
+        .find((c: any[]) => c[0] === 'onPerformance');
+      expect(perfCall).toBeDefined();
+      const nativeCallback = perfCall![1] as (raw: unknown) => void;
+
+      nativeCallback({
+        type: 'status',
+        trackingEnabled: true,
+        zonesCount: 3,
+        timestamp: 1234567890,
+      });
+      nativeCallback({ type: 'health_score', score: 87, topIssue: null });
+      // Production envelope: {type: 'runtime_status', data: RuntimeStatus}
+      // — the metric fields live nested under `data`. Fabricating a
+      // top-level shape would mask a future regression that mishandles
+      // or strips the `data` sub-map.
+      const runtime = {
+        type: 'runtime_status',
+        data: {
+          strategy: 'CONTINUOUS',
+          intervalMs: 5000,
+          accuracyProfile: 'BALANCED',
+          nearestZoneDistanceM: 42.5,
+          isStationary: false,
+          batteryMode: 'NORMAL',
+          gpsAccuracy: 15.2,
+          timestamp: 1700000000000,
+          secondsSinceLastGpsFix: 3,
+          gpsAvailabilityDrops5Min: 0,
+          currentGpsAccuracy: 15.2,
+        },
+      };
+      nativeCallback(runtime);
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith(runtime);
+    });
   });
 
   describe('removeAllListeners', () => {

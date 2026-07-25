@@ -116,7 +116,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 action = LocationTracker.ACTION_START_TRACKING
             }
             context.startForegroundService(intent)
-            sendStatus(context)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to start tracking: ${e.message}")
@@ -132,7 +131,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 action = LocationTracker.ACTION_STOP_TRACKING
             }
             context.startService(intent)
-            sendStatus(context)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to stop tracking: ${e.message}")
@@ -162,7 +160,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 } catch (e: Exception) {
                     Log.w("PolyfenceModule", "Failed to persist zone $zoneId: ${e.message}")
                 }
-                sendStatus(context)
                 promise.resolve(null)
                 return
             }
@@ -174,7 +171,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 putExtra("zoneData", HashMap(zoneMap))
             }
             context.startService(intent)
-            sendStatus(context)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to add zone: ${e.message}")
@@ -199,7 +195,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             // ACTION_REMOVE_ZONE Intent transport with the same async
             // semantics as before.
             LocationTracker.applyRemoveZoneDirect(context, zoneId)
-            sendStatus(context)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to remove zone: ${e.message}")
@@ -212,7 +207,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         try {
             // Same synchronous-when-running pattern as removeZone above.
             LocationTracker.applyClearZonesDirect(context)
-            sendStatus(context)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to clear all zones: ${e.message}")
@@ -683,39 +677,6 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         } catch (e: Exception) {
             Log.w("PolyfenceModule", "Failed to emit event $eventName: ${e.message}")
         }
-    }
-
-    /**
-     * Send status event (zone count, tracking enabled) to onPerformance
-     */
-    private fun sendStatus(context: Context) {
-        val tracking = isTrackingEnabled(context)
-        val zonesCount = try {
-            val persistence = ZonePersistence(context)
-            persistence.getZoneCount()
-        } catch (e: Exception) { 0 }
-
-        // Pull profile + lastAccuracy from polyfence-core rather than
-        // hardcoding null — otherwise consumers reading status.profile
-        // and status.lastAccuracy see null regardless of runtime
-        // state, which suggests data is unavailable when it isn't.
-        val profile = LocationTracker.getCurrentSmartConfiguration().accuracyProfile.name
-        val lastAccuracy = LocationTracker.getLastKnownAccuracy()
-
-        val statusMap = Arguments.createMap().apply {
-            putString("type", "status")
-            putBoolean("trackingEnabled", tracking)
-            putInt("zonesCount", zonesCount)
-            putString("profile", profile)
-            // null until the first GPS fix lands.
-            if (lastAccuracy != null) {
-                putDouble("lastAccuracy", lastAccuracy.toDouble())
-            } else {
-                putNull("lastAccuracy")
-            }
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-        }
-        sendEvent("onPerformance", statusMap)
     }
 
     /**

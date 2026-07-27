@@ -1,6 +1,6 @@
 # Polyfence React Native Telemetry Reference
 
-**Last updated:** 2026-07-21
+**Last updated:** 2026-07-27
 
 This is the field-by-field technical reference for Polyfence's anonymous telemetry. For the privacy policy (opt-out instructions, legal basis, data retention, your rights), see [PRIVACY.md](../PRIVACY.md).
 
@@ -14,7 +14,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 {
   "app_identifier": "com.example.logistics",
   "platform": "android",
-  "plugin_version": "2.1.0",
+  "plugin_version": "2.1.1",
   "core_version": "1.0.14",
 
   "industry_category": null,
@@ -81,7 +81,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 |-------|------|---------|-------------|
 | `app_identifier` | string | `"com.example.logistics"` | App package name (not a user identifier) |
 | `platform` | string | `"android"` | Operating system |
-| `plugin_version` | string | `"2.1.0"` | Package version |
+| `plugin_version` | string | `"2.1.1"` | Package version |
 | `bridge_platform` | string | `"react-native"` | Bridge layer. Set automatically. |
 | `core_version` | string | `"1.0.14"` | Native engine version from polyfence-core. Stamped automatically. |
 

@@ -6,6 +6,7 @@ Security updates are provided for the following versions:
 
 | Version | Supported          |
 |---------|--------------------|
+| 2.2.x   | Yes                |
 | 2.1.x   | Yes                |
 | 2.0.x   | Yes                |
 | 0.1.x   | Limited (security only) |

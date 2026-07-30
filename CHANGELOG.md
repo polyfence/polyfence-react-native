@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0]
+
+### Added
+- **Durable pending-events queue exposed on the RN bridge.** Set `pendingEventsQueueSize > 0` on `PolyfenceConfiguration` (e.g. `500`) to enable polyfence-core's on-disk queue for zone-crossing events that would otherwise drop when the JS runtime is torn down but the native tracker is still alive (Doze kill, RN bundle reload, foreground-service outliving the bridge). Off by default (`0` = disabled — today's behaviour) so existing integrations see zero behaviour change on upgrade.
+- **`Polyfence.instance.drainPendingEvents(): Promise<GeofenceEvent[]>`** — atomically drains and clears the native queue, oldest-first. Each event carries `deliveredLate: true`, `capturedTs` (original native detection timestamp, ms since epoch), and `queuedDurationMs` (time the event sat on disk). Rejects with the standard not-initialized error when called before `initialize()`. When the native `LocationTracker` Service is running, drained events are also applied to the engine's persisted zone states so the next reconcile only fires `RECOVERY_ENTER` / `RECOVERY_EXIT` where a genuine mismatch remains.
+- **`Polyfence.instance.pendingEventsDroppedCount(): Promise<number>`** — cumulative counter of events oldest-first eviction has dropped since a store was first constructed. Persists across process restarts; does not reset. Silent loss also surfaces on the existing `onError` channel with `type: "pending_events_evicted"` and `context.severity: "warning"` — no new event channel.
+- **Additive `GeofenceEvent` fields — `deliveredLate?: boolean`, `capturedTs?: number`, `queuedDurationMs?: number`.** Nullable / optional; live events never carry them (they read as `undefined`), drained events arrive with them stamped. Consumers unchanged unless they opt into the queue.
+
+### Changed
+- **polyfence-core bumped 1.0.14 → 1.1.0.** Picks up the durable `PendingEventsStore` primitive, `LocationTracker.setBridgeAttached(Boolean)`, and `GeofenceEngine.applyDrainedEventsToState` — the drain-then-reconcile ordering the new bridge API depends on. See polyfence-core 1.1.0 CHANGELOG for the native details.
+- **RN bridge lifecycle now toggles the persist-vs-live signal on the native tracker.** iOS `initialize()` re-flips `bridgeAttached=true` (a shared tracker carried over from a previous session may have latched false), `dispose()` and RCTEventEmitter `invalidate` flip to false (chained to `super.invalidate()` for the `NS_REQUIRES_SUPER` contract). Android does the same in `initialize()`, `dispose()`, and `onCatalystInstanceDestroy` — reaching the tracker's instance method reflectively via the private `LocationTracker.Companion.currentInstance` field. Direct-Kotlin / direct-Swift consumers see no change: `bridgeAttached` defaults to true on the Service.
+
 ## [2.1.1] - 2026-07-27
 
 ### Fixed

@@ -12,3 +12,7 @@ coverage/
 # Example app has its own ESLint setup; linting it from the bridge root
 # fights with its own config and adds nothing to bridge correctness.
 example/
+
+# Native test/build outputs — Gradle drops HTML/JS report artifacts under
+# android/build/reports/ that trip prettier and are gitignored anyway.
+android/build/

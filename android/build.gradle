@@ -59,7 +59,10 @@ repositories {
 
 dependencies {
     compileOnly "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '0.76.7')}"
-    implementation "io.polyfence:polyfence-core:1.0.14"
+    // Coordinated MINOR bump with the polyfence-core 1.1.0 release train — introduces
+    // the durable pending-events queue primitive (setBridgeAttached, drainPendingEvents,
+    // pendingEventsDroppedCount) that this bridge exposes to JS.
+    implementation "io.polyfence:polyfence-core:1.1.0"
     implementation "com.google.android.gms:play-services-location:21.3.0"
     implementation "androidx.core:core-ktx:1.15.0"
 }

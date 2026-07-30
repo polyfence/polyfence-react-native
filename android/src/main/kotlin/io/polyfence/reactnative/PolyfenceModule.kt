@@ -75,6 +75,15 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
                 sendErrorEvent(errorMap)
             }
 
+            // A running Service instance carried over from a previous session
+            // may have its bridgeAttached flag latched to false (either because
+            // this bridge instance was reloaded and set it explicitly, or the
+            // auto-flip on a previous delegate throw fired). Re-flip to true so
+            // events from this session route through the live delegate rather
+            // than the durable queue. No-op when no Service instance exists —
+            // fresh Services default bridgeAttached to true on construction.
+            signalCoreBridgeAttached(true)
+
             // Apply all remaining tracking config fields (accuracyProfile,
             // updateStrategy, gpsAccuracyThreshold, nested settings, etc.).
             // Strip plugin-only keys that have dedicated handlers above so
@@ -534,6 +543,11 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     @ReactMethod
     fun dispose(promise: Promise) {
         try {
+            // Flip the persist-vs-live signal on core BEFORE nulling the
+            // delegate below. Any event fired between now and delegate teardown
+            // lands in the durable queue instead of hitting a torn-down
+            // React instance and dropping silently.
+            signalCoreBridgeAttached(false)
             val intent = Intent(context, LocationTracker::class.java).apply {
                 action = LocationTracker.ACTION_STOP_TRACKING
             }
@@ -544,6 +558,78 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to dispose: ${e.message}")
             promise.reject("DISPOSE_FAILED", e.message)
+        }
+    }
+
+    /**
+     * Drain every event that polyfence-core persisted while the JS side was
+     * unreachable. Returns oldest-first; each entry carries the same fields as
+     * a live geofence event, with `deliveredLate=true` and the additive
+     * `capturedTs` / `queuedDurationMs` fields stamped by the JS layer.
+     */
+    @ReactMethod
+    fun drainPendingEvents(promise: Promise) {
+        try {
+            val events = LocationTracker.drainPendingEvents(context)
+            val result = Arguments.createArray()
+            for (event in events) {
+                result.pushMap(mapToWritableMap(event))
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e("PolyfenceModule", "Failed to drain pending events: ${e.message}")
+            promise.reject("DRAIN_PENDING_EVENTS_FAILED", e.message)
+        }
+    }
+
+    /**
+     * Cumulative count of events that oldest-first eviction has dropped since
+     * a store was first constructed on this device. Persists across process
+     * restarts; does not reset.
+     */
+    @ReactMethod
+    fun pendingEventsDroppedCount(promise: Promise) {
+        try {
+            val count = LocationTracker.pendingEventsDroppedCount(context)
+            promise.resolve(count.toDouble())
+        } catch (e: Exception) {
+            Log.e("PolyfenceModule", "Failed to read dropped-count: ${e.message}")
+            promise.reject("PENDING_EVENTS_DROPPED_COUNT_FAILED", e.message)
+        }
+    }
+
+    /**
+     * Fires when the React catalyst instance is being destroyed (RN reload,
+     * app terminating, JS bundle swap). The native LocationTracker Service can
+     * outlive this so any event fired after this point would reach a torn-down
+     * React instance and drop silently — signal core to persist instead.
+     */
+    override fun onCatalystInstanceDestroy() {
+        signalCoreBridgeAttached(false)
+        super.onCatalystInstanceDestroy()
+    }
+
+    /**
+     * Flip the persist-vs-live signal on the running LocationTracker Service.
+     * polyfence-core keeps [io.polyfence.core.LocationTracker.setBridgeAttached]
+     * as an instance method on the Service; the running instance reference is
+     * held in a private companion field. Reach it reflectively so the bridge
+     * can toggle the flag across the React catalyst lifecycle without waiting
+     * on a core companion helper. Silent no-op when no Service is running
+     * (fresh Services default `bridgeAttached` to `true`) or when the private
+     * field is not resolvable — the auto-flip fallback in core still catches
+     * delegate exceptions in that case.
+     */
+    private fun signalCoreBridgeAttached(attached: Boolean) {
+        try {
+            val companion = LocationTracker.Companion
+            val currentInstanceField = companion.javaClass.getDeclaredField("currentInstance")
+            currentInstanceField.isAccessible = true
+            val instance = currentInstanceField.get(companion) ?: return
+            val setter = instance.javaClass.getMethod("setBridgeAttached", java.lang.Boolean.TYPE)
+            setter.invoke(instance, attached)
+        } catch (t: Throwable) {
+            Log.w("PolyfenceModule", "signalCoreBridgeAttached($attached) failed: ${t.message}")
         }
     }
 

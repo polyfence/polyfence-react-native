@@ -52,6 +52,27 @@ export interface GeofenceEvent {
    * dwell duration.
    */
   dwellDurationMs?: number;
+  /**
+   * `true` when this event was drained from the durable pending-events queue
+   * (persisted by polyfence-core while the JS runtime was unreachable). Live
+   * events never carry this field; absent is semantically equivalent to
+   * `false`. Only surfaces when `pendingEventsQueueSize > 0` is configured.
+   */
+  deliveredLate?: boolean;
+  /**
+   * Milliseconds since epoch when polyfence-core originally detected the
+   * crossing. Distinct from `timestamp`, which stays anchored to the event's
+   * native timestamp — for a drained event, both fields carry the same
+   * captured moment; consumers wanting the delivery time can add
+   * `queuedDurationMs`. Only present on drained events.
+   */
+  capturedTs?: number;
+  /**
+   * Milliseconds the event sat in the durable queue between core capture and
+   * consumer delivery. Zero on live events; the field is only present on
+   * drained events (`deliveredLate === true`).
+   */
+  queuedDurationMs?: number;
 }
 
 /**
@@ -180,6 +201,15 @@ export interface PolyfenceConfiguration {
    * `signalLost` event is emitted (resolved by `signalRestored` or `exit`).
    */
   gpsStalenessTimeoutMs?: number;
+  /**
+   * Cap for the durable pending-events queue that polyfence-core writes to
+   * when the JS runtime is unreachable (Doze, memory pressure, RN reload).
+   * `0` (default) disables persistence entirely — today's behaviour. When
+   * `> 0`, the queue holds up to N events on disk with oldest-first eviction
+   * on cap; drain with {@link Polyfence.drainPendingEvents} on the next
+   * successful attach. A cap of ~500 is a reasonable starting point.
+   */
+  pendingEventsQueueSize?: number;
   enableDebugLogging?: boolean;
   // Nested settings
   proximitySettings?: ProximitySettings;

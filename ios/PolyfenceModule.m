@@ -82,6 +82,12 @@ RCT_EXTERN_METHOD(requestBatteryOptimizationExemption:(RCTPromiseResolveBlock)re
 RCT_EXTERN_METHOD(dispose:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(drainPendingEvents:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(pendingEventsDroppedCount:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;

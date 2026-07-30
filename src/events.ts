@@ -167,7 +167,7 @@ function parseGeofenceEventType(raw: string): GeofenceEventType | null {
   return mapping[key] ?? null;
 }
 
-function normalizeGeofenceEvent(
+export function normalizeGeofenceEvent(
   raw: Record<string, unknown>,
 ): GeofenceEvent | null {
   const rawType = (raw.eventType as string | undefined) ?? '';
@@ -216,6 +216,13 @@ function normalizeGeofenceEvent(
     // dwellDurationMs is populated only for DWELL events (polyfence-core
     // sends the key only in that case; otherwise absent → undefined here).
     dwellDurationMs: raw.dwellDurationMs as number | undefined,
+    // Additive drain-only fields — live events never carry them so the
+    // reader sees `undefined`; drained events arrive with `deliveredLate`
+    // stamped `true` and the two duration/capture fields derived by the
+    // Polyfence drain path.
+    deliveredLate: raw.deliveredLate as boolean | undefined,
+    capturedTs: raw.capturedTs as number | undefined,
+    queuedDurationMs: raw.queuedDurationMs as number | undefined,
   };
 }
 

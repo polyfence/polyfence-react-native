@@ -20,6 +20,7 @@ import {
   onError,
   onPerformance,
   onHealthScore,
+  normalizeGeofenceEvent,
   normalizePolyfenceError,
   expandErrorTypesToNativeCodes,
   removeAllListeners as removeAllEventListeners,
@@ -46,6 +47,7 @@ const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'updateStrategy',
   'gpsAccuracyThreshold',
   'gpsStalenessTimeoutMs',
+  'pendingEventsQueueSize',
   'enableDebugLogging',
   'proximitySettings',
   'movementSettings',
@@ -441,6 +443,70 @@ export class Polyfence {
   async requestBatteryOptimizationExemption(): Promise<void> {
     this.assertNotDisposed();
     return NativePolyfence.requestBatteryOptimizationExemption();
+  }
+
+  /**
+   * Drain every zone-crossing event that polyfence-core persisted while the
+   * JS runtime was unreachable. Returns oldest-first; each event carries
+   * `deliveredLate: true` plus `capturedTs` (the native detection timestamp,
+   * ms since epoch) and `queuedDurationMs` (time the event sat in the queue).
+   *
+   * Safe to call whether or not `pendingEventsQueueSize > 0` — returns `[]`
+   * when persistence is disabled. Never throws on an empty queue. Rejects
+   * with the standard not-initialized error when called before
+   * {@link Polyfence.initialize}. Post-dispose access raises the disposed
+   * error from {@link assertNotDisposed}.
+   *
+   * Calling this method drains the queue on the native side (transactional
+   * read + clear) — replaying against the same session is not possible.
+   * The engine's persisted `zoneStates` are updated in the same call so the
+   * next reconcile only fires `RECOVERY_ENTER` / `RECOVERY_EXIT` for zones
+   * where a genuine mismatch remains.
+   */
+  async drainPendingEvents(): Promise<GeofenceEvent[]> {
+    this.assertNotDisposed();
+    this.assertInitialized();
+    const raw: unknown = await NativePolyfence.drainPendingEvents();
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const now = Date.now();
+    const events: GeofenceEvent[] = [];
+    for (const item of raw) {
+      if (item === null || typeof item !== 'object') {
+        continue;
+      }
+      const map = item as Record<string, unknown>;
+      const capturedTs =
+        typeof map.timestamp === 'number' ? map.timestamp : now;
+      const stamped: Record<string, unknown> = {
+        ...map,
+        deliveredLate: true,
+        capturedTs,
+        queuedDurationMs: Math.max(0, now - capturedTs),
+      };
+      const normalized = normalizeGeofenceEvent(stamped);
+      if (normalized !== null) {
+        events.push(normalized);
+      }
+    }
+    return events;
+  }
+
+  /**
+   * Cumulative count of events that oldest-first eviction has dropped since
+   * a store was first constructed on this device. Persists across process
+   * restarts; does not reset. Returns `0` when no store has ever been
+   * created (i.e. `pendingEventsQueueSize` has always been `0`).
+   */
+  async pendingEventsDroppedCount(): Promise<number> {
+    this.assertNotDisposed();
+    this.assertInitialized();
+    const raw: unknown = await NativePolyfence.pendingEventsDroppedCount();
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      return 0;
+    }
+    return raw;
   }
 
   async errorHistory(options?: {

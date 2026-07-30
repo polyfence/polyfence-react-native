@@ -398,7 +398,7 @@ missed.forEach((event) => {
 });
 ```
 
-Silent-loss visibility surfaces through `onError`: a `PolyfenceError` with `type: 'pendingEventsEvicted'` and `context.droppedCount` fires when the queue evicts oldest-first at cap.
+Silent-loss visibility surfaces through `onError`: a `PolyfenceError` with `type: 'pendingEventsEvicted'` fires when the queue evicts oldest-first at cap. The native eviction payload lands nested under the generic `PolyfenceError.context` envelope, so read the eviction fields via `error.context?.context?.droppedCount` and `error.context?.context?.severity`.
 
 ### Events
 

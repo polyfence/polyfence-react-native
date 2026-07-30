@@ -298,6 +298,11 @@ describe('Events', () => {
       ['permission_revoked', 'permissionRevoked'],
       ['gps_timeout', 'gpsTimeout'],
       ['low_battery', 'lowBattery'],
+      // Fired by the durable pending-events queue when oldest-first eviction
+      // drops one or more events at cap. A missing mapping here silently
+      // falls back to `unknown` and consumers cannot discriminate silent
+      // data loss from any other unmapped error.
+      ['pending_events_evicted', 'pendingEventsEvicted'],
     ])('maps native code "%s" to PolyfenceErrorType "%s"', (code, expected) => {
       const normalized = normalizePolyfenceError({
         code,

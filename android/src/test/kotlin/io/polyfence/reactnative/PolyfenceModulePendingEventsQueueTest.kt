@@ -35,6 +35,12 @@ class PolyfenceModulePendingEventsQueueTest {
     private val reactContext: ReactApplicationContext = mock()
     private lateinit var module: PolyfenceModule
 
+    // Coupled to core's `pendingBridgeAttached` private field name; a rename
+    // in core will break this test opaquely. The alternative is a
+    // `@VisibleForTesting` accessor on core, which needs its own commit +
+    // republish — accept the coupling for now and revisit if this becomes a
+    // recurring pain.
+    //
     // Kotlin lifts companion `private var` properties onto the outer class as
     // `private static` fields — read the staging value there rather than on
     // the Companion class where a naive lookup would fail with NoSuchField.

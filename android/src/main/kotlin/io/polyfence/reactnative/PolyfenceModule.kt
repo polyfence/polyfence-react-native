@@ -80,9 +80,11 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             // this bridge instance was reloaded and set it explicitly, or the
             // auto-flip on a previous delegate throw fired). Re-flip to true so
             // events from this session route through the live delegate rather
-            // than the durable queue. No-op when no Service instance exists —
-            // fresh Services default bridgeAttached to true on construction.
-            signalCoreBridgeAttached(true)
+            // than the durable queue. When no Service instance exists the
+            // companion stages the value as pending and applies it in
+            // onCreate — fresh Services default to true on construction, so
+            // the pending value is a no-op there.
+            LocationTracker.setBridgeAttached(true)
 
             // Apply all remaining tracking config fields (accuracyProfile,
             // updateStrategy, gpsAccuracyThreshold, nested settings, etc.).
@@ -547,7 +549,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             // delegate below. Any event fired between now and delegate teardown
             // lands in the durable queue instead of hitting a torn-down
             // React instance and dropping silently.
-            signalCoreBridgeAttached(false)
+            LocationTracker.setBridgeAttached(false)
             val intent = Intent(context, LocationTracker::class.java).apply {
                 action = LocationTracker.ACTION_STOP_TRACKING
             }
@@ -605,32 +607,8 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
      * React instance and drop silently — signal core to persist instead.
      */
     override fun onCatalystInstanceDestroy() {
-        signalCoreBridgeAttached(false)
+        LocationTracker.setBridgeAttached(false)
         super.onCatalystInstanceDestroy()
-    }
-
-    /**
-     * Flip the persist-vs-live signal on the running LocationTracker Service.
-     * polyfence-core keeps [io.polyfence.core.LocationTracker.setBridgeAttached]
-     * as an instance method on the Service; the running instance reference is
-     * held in a private companion field. Reach it reflectively so the bridge
-     * can toggle the flag across the React catalyst lifecycle without waiting
-     * on a core companion helper. Silent no-op when no Service is running
-     * (fresh Services default `bridgeAttached` to `true`) or when the private
-     * field is not resolvable — the auto-flip fallback in core still catches
-     * delegate exceptions in that case.
-     */
-    private fun signalCoreBridgeAttached(attached: Boolean) {
-        try {
-            val companion = LocationTracker.Companion
-            val currentInstanceField = companion.javaClass.getDeclaredField("currentInstance")
-            currentInstanceField.isAccessible = true
-            val instance = currentInstanceField.get(companion) ?: return
-            val setter = instance.javaClass.getMethod("setBridgeAttached", java.lang.Boolean.TYPE)
-            setter.invoke(instance, attached)
-        } catch (t: Throwable) {
-            Log.w("PolyfenceModule", "signalCoreBridgeAttached($attached) failed: ${t.message}")
-        }
     }
 
     override fun onGeofenceEvent(eventData: Map<String, Any>) {

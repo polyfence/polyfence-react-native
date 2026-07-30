@@ -375,6 +375,31 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `getSessionTelemetry()` | `Promise<SessionTelemetry>` | Get session metrics (GPS updates, zone events, battery impact) |
 | `errorHistory(options?)` | `Promise<PolyfenceError[]>` | Get recent errors |
 
+### Pending events queue
+
+Zone crossings that fire while the JS runtime is torn down but the native tracker is still alive (Doze kill, RN bundle reload, background foreground-service) can be persisted on disk and delivered on the next attach.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `drainPendingEvents()` | `Promise<GeofenceEvent[]>` | Read + clear the durable queue atomically; oldest-first. Each event carries `deliveredLate: true`, `capturedTs` (original native detection time), and `queuedDurationMs`. Returns `[]` when the queue is empty or the feature is off. |
+| `pendingEventsDroppedCount()` | `Promise<number>` | Cumulative count of events dropped by oldest-first eviction since a store was first constructed on this device. Persists across process restarts. |
+
+Enable persistence via `pendingEventsQueueSize` on `PolyfenceConfiguration`:
+
+```typescript
+await Polyfence.instance.initialize({
+  pendingEventsQueueSize: 500, // 0 (default) disables persistence — no behaviour change
+});
+
+// on next foreground / cold start
+const missed = await Polyfence.instance.drainPendingEvents();
+missed.forEach((event) => {
+  // Same shape as onGeofenceEvent — plus event.deliveredLate === true.
+});
+```
+
+Silent-loss visibility surfaces through `onError`: a `PolyfenceError` with `type: 'pendingEventsEvicted'` and `context.droppedCount` fires when the queue evicts oldest-first at cap.
+
 ### Events
 
 | Method | Callback | Description |

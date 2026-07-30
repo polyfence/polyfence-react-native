@@ -4,9 +4,9 @@ import ObjectiveC
 
 /// Cross-platform parity coverage for the pending-events-queue bridge surface.
 /// Every case here has a matching Kotlin counterpart in
-/// `android/src/test/kotlin/io/polyfence/reactnative/PolyfenceModulePendingEventsQueueTest.kt`.
-/// Drift between the two is the failure mode Bug-028 caught on the previous
-/// release train.
+/// `android/src/test/kotlin/io/polyfence/reactnative/PolyfenceModulePendingEventsQueueTest.kt`
+/// — running the two together is what keeps the bridge's public surface
+/// identical on both platforms.
 ///
 /// The bridge is an RCTEventEmitter subclass whose end-to-end lifecycle needs
 /// a live RN bridge to exercise; these tests inspect the compiled ObjC
@@ -28,10 +28,11 @@ final class PolyfenceModulePendingEventsQueueTests: XCTestCase {
         return cls
     }
 
-    // Case 1 parity — the JS drainPendingEvents flow depends on a native
-    // Promise-resolving method exported as `drainPendingEvents:rejecter:`.
-    // A rename or arity drift surfaces as a silent NativeModule miss under
-    // Bridgeless / New Arch rather than a clean method-not-found.
+    // The JS drainPendingEvents flow depends on a native Promise-resolving
+    // method exported as `drainPendingEvents:rejecter:`. A rename or arity
+    // drift surfaces as a silent NativeModule miss under Bridgeless / New Arch
+    // rather than a clean method-not-found — assert the selector shape so a
+    // rename here trips the test rather than the consumer.
     func testDrainPendingEventsExportsPromiseResolvingSelector() {
         let selector = NSSelectorFromString("drainPendingEvents:rejecter:")
         XCTAssertTrue(
@@ -40,8 +41,10 @@ final class PolyfenceModulePendingEventsQueueTests: XCTestCase {
         )
     }
 
-    // Case 7 parity — pendingEventsDroppedCount is the observable-eviction
-    // hook that Roadie asked for; the wire name must match the TS surface.
+    // pendingEventsDroppedCount is the observable-eviction hook — silent
+    // loss would otherwise reach consumers only through the eviction error
+    // event. Its wire name must match the TS surface exactly, and the
+    // exported selector is what the RN bridge resolves against.
     func testPendingEventsDroppedCountExportsPromiseResolvingSelector() {
         let selector = NSSelectorFromString("pendingEventsDroppedCount:rejecter:")
         XCTAssertTrue(
@@ -50,10 +53,10 @@ final class PolyfenceModulePendingEventsQueueTests: XCTestCase {
         )
     }
 
-    // Case 3 parity — the bridge must own setBridgeAttached toggling. On iOS
-    // the persist-vs-live signal flips from within initialize / dispose /
-    // invalidate; a missing @objc-exported invalidate override reintroduces
-    // the silent-drop regression the queue exists to prevent.
+    // The bridge owns setBridgeAttached toggling. On iOS the persist-vs-live
+    // signal flips from within initialize / dispose / invalidate; a missing
+    // @objc-exported invalidate override reintroduces the silent-drop
+    // regression the queue exists to prevent.
     func testInvalidateSelectorPresent() {
         let selector = NSSelectorFromString("invalidate")
         XCTAssertTrue(
@@ -62,15 +65,33 @@ final class PolyfenceModulePendingEventsQueueTests: XCTestCase {
         )
     }
 
-    // Case 4 parity — the dispose selector routes through the ObjC bridge
-    // and must remain exported as the RCT_EXTERN_METHOD signature the JS
-    // dispose() call resolves against. If this drifts, dispose() rejects at
-    // runtime and Polyfence.dispose() throws in production.
+    // The dispose selector routes through the ObjC bridge and must remain
+    // exported as the RCT_EXTERN_METHOD signature the JS dispose() call
+    // resolves against. If this drifts, dispose() rejects at runtime and
+    // Polyfence.dispose() throws in production.
     func testDisposeSelectorPresent() {
         let selector = NSSelectorFromString("dispose:rejecter:")
         XCTAssertTrue(
             moduleClass.instancesRespond(to: selector),
             "Polyfence.dispose:rejecter: selector must exist"
+        )
+    }
+
+    // XOR of the attach signal — the drain method must exist so drained
+    // events reach the consumer through the drain channel, and the invalidate
+    // hook must exist so live delivery stops on RN bridge teardown. Present
+    // both selectors together captures the XOR shape: one channel or the
+    // other, never both, per polyfence-core's persist-vs-live contract.
+    func testXORChannelSelectorsPresent() {
+        let drain = NSSelectorFromString("drainPendingEvents:rejecter:")
+        let invalidate = NSSelectorFromString("invalidate")
+        XCTAssertTrue(
+            moduleClass.instancesRespond(to: drain),
+            "drainPendingEvents:rejecter: is the queue-side channel — must exist"
+        )
+        XCTAssertTrue(
+            moduleClass.instancesRespond(to: invalidate),
+            "invalidate is the detach signal that closes the live channel — must exist"
         )
     }
 }

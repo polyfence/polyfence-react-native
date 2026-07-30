@@ -69,8 +69,8 @@ export interface GeofenceEvent {
   capturedTs?: number;
   /**
    * Milliseconds the event sat in the durable queue between core capture and
-   * consumer delivery. Zero on live events; the field is only present on
-   * drained events (`deliveredLate === true`).
+   * consumer delivery. Only present on drained events
+   * (`deliveredLate === true`); live events leave the field `undefined`.
    */
   queuedDurationMs?: number;
 }
@@ -287,6 +287,7 @@ export type PolyfenceErrorType =
   | 'analyticsUploadFailed'
   | 'permissionRevoked'
   | 'memoryLow'
+  | 'pendingEventsEvicted'
   | 'unknown';
 
 export interface PolyfenceError {

@@ -1,15 +1,16 @@
 import { getMockEventEmitter } from './setup';
 import { NativeModules } from 'react-native';
 import { Polyfence } from '../src/Polyfence';
-import { normalizeGeofenceEvent } from '../src/events';
+import { normalizeGeofenceEvent, normalizePolyfenceError } from '../src/events';
 import type { PolyfenceConfiguration } from '../src/types';
 
 /**
- * Test-parity contract (`polyfence-react-native/tasks/lessons.md` L202):
- * every case here has a matching Kotlin `PendingEventsQueueTest.kt` and Swift
- * `PendingEventsQueueTests.swift` counterpart on the native side. Drift
- * between the three surfaces is exactly the class of gap that Bug-028 caught
- * on the previous release train.
+ * The pending-events-queue contract sits across three surfaces (Jest, Kotlin,
+ * Swift). Every case in this file has a matching Kotlin
+ * `PolyfenceModulePendingEventsQueueTest.kt` and Swift
+ * `PolyfenceModulePendingEventsQueueTests.swift` counterpart — running the
+ * three together is what catches per-platform drift on this cross-bridge
+ * feature.
  */
 describe('Pending events queue', () => {
   const NativePolyfence = NativeModules.Polyfence;
@@ -273,6 +274,202 @@ describe('Pending events queue', () => {
           queuedDurationMs: undefined,
         }),
       );
+    });
+  });
+
+  describe('pending_events_evicted error normalization', () => {
+    it('maps the native code to the discriminable pendingEventsEvicted type', () => {
+      const normalized = normalizePolyfenceError({
+        type: 'pending_events_evicted',
+        message: 'Pending events queue reached capacity; oldest events dropped',
+        context: { severity: 'warning', droppedCount: 3, platform: 'android' },
+        timestamp: 1_700_000_000_000,
+      });
+      expect(normalized.type).toBe('pendingEventsEvicted');
+      expect(normalized.message).toContain('Pending events queue');
+      const context = normalized.context as Record<string, unknown> | undefined;
+      expect(context).toBeDefined();
+      const inner = context!.context as Record<string, unknown>;
+      expect(inner).toEqual({
+        severity: 'warning',
+        droppedCount: 3,
+        platform: 'android',
+      });
+    });
+
+    it('resolves the mapping equally from raw.code (Flutter-shaped emit)', () => {
+      const normalized = normalizePolyfenceError({
+        code: 'pending_events_evicted',
+        message: 'evicted',
+        context: { severity: 'warning', droppedCount: 1 },
+      });
+      expect(normalized.type).toBe('pendingEventsEvicted');
+    });
+  });
+
+  describe('coerceConfigValues — pendingEventsQueueSize negative guard', () => {
+    beforeEach(() => {
+      resetSingleton();
+      jest.clearAllMocks();
+    });
+
+    it('coerces a negative pendingEventsQueueSize on initialize() to 0 and warns', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await Polyfence.instance.initialize({ pendingEventsQueueSize: -1 });
+      expect(NativePolyfence.initialize).toHaveBeenCalledWith({
+        config: { pendingEventsQueueSize: 0 },
+      });
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('pendingEventsQueueSize'),
+      );
+      warn.mockRestore();
+    });
+
+    it('coerces a negative pendingEventsQueueSize on updateConfiguration() to 0 and warns', async () => {
+      await Polyfence.instance.initialize();
+      jest.clearAllMocks();
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await Polyfence.instance.updateConfiguration({
+        pendingEventsQueueSize: -500,
+      });
+      expect(NativePolyfence.updateConfiguration).toHaveBeenCalledWith({
+        pendingEventsQueueSize: 0,
+      });
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('pendingEventsQueueSize'),
+      );
+      warn.mockRestore();
+    });
+
+    it('leaves a positive pendingEventsQueueSize untouched', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await Polyfence.instance.initialize({ pendingEventsQueueSize: 500 });
+      expect(NativePolyfence.initialize).toHaveBeenCalledWith({
+        config: { pendingEventsQueueSize: 500 },
+      });
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
+
+  describe('XOR — live delivers OR persist, never both', () => {
+    // The XOR contract is enforced by polyfence-core (see the core's
+    // LocationTrackerPersistHookTests / DrainThenReconcileTests). The bridge's
+    // job is (a) route delegate events to the JS listener while attached and
+    // (b) surface the queue faithfully when the JS side re-attaches after
+    // detach. This suite proves the JS-side half of that contract against the
+    // native mock: attached => listener fires, drain empty; detached =>
+    // listener silent, drain replays.
+    beforeEach(() => {
+      resetSingleton();
+      jest.clearAllMocks();
+    });
+
+    it('while attached: listener receives the live event AND drain returns empty', async () => {
+      await Polyfence.instance.initialize({ pendingEventsQueueSize: 10 });
+
+      const consumer = jest.fn();
+      Polyfence.instance.onGeofenceEvent(consumer);
+
+      const mockEmitter = getMockEventEmitter();
+      const registered = (mockEmitter.addListener as jest.Mock).mock.calls.find(
+        (c: unknown[]) => c[0] === 'onGeofenceEvent',
+      );
+      const nativeCallback = registered![1] as (raw: unknown) => void;
+
+      // Native pushes a live event on the delegate → RCTDeviceEventEmitter.
+      nativeCallback({
+        zoneId: 'z1',
+        zoneName: 'Home',
+        eventType: 'ENTER',
+        latitude: 51.5074,
+        longitude: -0.1278,
+        gpsAccuracy: 8.5,
+        timestamp: 1_700_000_000_000,
+      });
+
+      expect(consumer).toHaveBeenCalledTimes(1);
+      expect(consumer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          zoneId: 'z1',
+          type: 'enter',
+          deliveredLate: undefined,
+        }),
+      );
+
+      // Nothing persisted while attached — mock returns empty, drain is []
+      (NativePolyfence.drainPendingEvents as jest.Mock).mockResolvedValueOnce(
+        [],
+      );
+      const drained = await Polyfence.instance.drainPendingEvents();
+      expect(drained).toEqual([]);
+    });
+
+    it('while detached: listener silent AND drain returns the queued event', async () => {
+      await Polyfence.instance.initialize({ pendingEventsQueueSize: 10 });
+
+      const consumer = jest.fn();
+      Polyfence.instance.onGeofenceEvent(consumer);
+
+      // The JS event emitter is the surface a torn-down RN runtime kills; on
+      // that boundary the native side pushes to the durable queue instead of
+      // hitting a dead sink. Simulate that: no listener callback, drain
+      // returns the missed event with the drain-only additive fields.
+      const capturedAt = 1_700_000_000_000;
+      const now = capturedAt + 15_000;
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+      (NativePolyfence.drainPendingEvents as jest.Mock).mockResolvedValueOnce([
+        {
+          zoneId: 'z1',
+          zoneName: 'Home',
+          eventType: 'ENTER',
+          latitude: 51.5074,
+          longitude: -0.1278,
+          gpsAccuracy: 8.5,
+          timestamp: capturedAt,
+        },
+      ]);
+
+      const drained = await Polyfence.instance.drainPendingEvents();
+      nowSpy.mockRestore();
+
+      expect(consumer).not.toHaveBeenCalled();
+      expect(drained).toHaveLength(1);
+      expect(drained[0]).toEqual(
+        expect.objectContaining({
+          zoneId: 'z1',
+          type: 'enter',
+          deliveredLate: true,
+          capturedTs: capturedAt,
+          queuedDurationMs: 15_000,
+        }),
+      );
+    });
+
+    it('drained events never leak back onto the live onGeofenceEvent listener', async () => {
+      // Regression proof: a bridge that mistakenly re-emits drained events
+      // via DeviceEventEmitter would double-count the ENTER on the consumer
+      // side. Drain must be the ONLY delivery channel for late events.
+      await Polyfence.instance.initialize({ pendingEventsQueueSize: 10 });
+
+      const consumer = jest.fn();
+      Polyfence.instance.onGeofenceEvent(consumer);
+
+      (NativePolyfence.drainPendingEvents as jest.Mock).mockResolvedValueOnce([
+        {
+          zoneId: 'z1',
+          zoneName: 'Home',
+          eventType: 'ENTER',
+          latitude: 51.5074,
+          longitude: -0.1278,
+          gpsAccuracy: 8.5,
+          timestamp: 1_700_000_000_000,
+        },
+      ]);
+
+      const drained = await Polyfence.instance.drainPendingEvents();
+      expect(drained).toHaveLength(1);
+      expect(consumer).not.toHaveBeenCalled();
     });
   });
 });

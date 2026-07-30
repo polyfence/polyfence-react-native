@@ -78,27 +78,41 @@ const LEGACY_KEY_HINTS: Record<string, string> = {
     'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
 };
 
-// A negative gpsStalenessTimeoutMs would flow to native and read as "off":
-// both platforms gate the staleness watchdog on a strictly positive value.
-// For most config a bad value failing quietly is harmless, but this field is
-// a safety timeout — silently disabling it on a typo is the exact failure it
-// exists to prevent — so coerce a negative to 0 (off) and warn, rather than
-// let it turn off staleness detection unnoticed.
+// A negative value on either safety-guarded field would flow to native and
+// read as "off" — polyfence-core gates both the staleness watchdog and the
+// pending-events queue on a strictly positive value. For most config a bad
+// value failing quietly is harmless, but these two fields are the ones a
+// typo silently disables — the exact failure they exist to prevent — so
+// coerce a negative to 0 (off) and warn, rather than let them turn off
+// unnoticed. Cross-bridge parity: Flutter rejects negatives on both, RN
+// coerces + warns; either way the negative never reaches native.
 function coerceConfigValues(
   config: PolyfenceConfiguration,
 ): PolyfenceConfiguration {
+  let coerced: PolyfenceConfiguration = config;
   if (
-    typeof config.gpsStalenessTimeoutMs === 'number' &&
-    config.gpsStalenessTimeoutMs < 0
+    typeof coerced.gpsStalenessTimeoutMs === 'number' &&
+    coerced.gpsStalenessTimeoutMs < 0
   ) {
     console.warn(
-      `Polyfence: gpsStalenessTimeoutMs was ${config.gpsStalenessTimeoutMs} ` +
+      `Polyfence: gpsStalenessTimeoutMs was ${coerced.gpsStalenessTimeoutMs} ` +
         '(negative) — coercing to 0, which turns the staleness watchdog off. ' +
         'Pass a positive number of milliseconds to enable it.',
     );
-    return { ...config, gpsStalenessTimeoutMs: 0 };
+    coerced = { ...coerced, gpsStalenessTimeoutMs: 0 };
   }
-  return config;
+  if (
+    typeof coerced.pendingEventsQueueSize === 'number' &&
+    coerced.pendingEventsQueueSize < 0
+  ) {
+    console.warn(
+      `Polyfence: pendingEventsQueueSize was ${coerced.pendingEventsQueueSize} ` +
+        '(negative) — coercing to 0, which disables the durable queue. ' +
+        'Pass a positive cap (e.g. 500) to enable it.',
+    );
+    coerced = { ...coerced, pendingEventsQueueSize: 0 };
+  }
+  return coerced;
 }
 
 function assertKnownConfigKeys(

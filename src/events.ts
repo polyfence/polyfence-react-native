@@ -73,6 +73,12 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   // filter warnings from real errors via
   // `error.context.severity === 'warning'`.
   polygon_self_intersecting: 'unknown',
+  // Fired by the durable pending-events queue when oldest-first eviction
+  // drops one or more events at cap. Carries `context.severity === 'warning'`
+  // and `context.droppedCount` (Number). Discriminate against real failures
+  // by branching on `type === 'pendingEventsEvicted'` — silent data loss
+  // would otherwise reach the consumer as an unknown-type error.
+  pending_events_evicted: 'pendingEventsEvicted',
 };
 
 /**
@@ -246,7 +252,9 @@ export function normalizePolyfenceError(
       ? raw.type
       : undefined;
 
-  // All 18 Flutter-aligned error types
+  // Cross-bridge PolyfenceErrorType roster — every value must be present in
+  // both the union in `types.ts` and this Set, or normalisation silently
+  // falls through to `unknown` and consumers cannot discriminate the code.
   const ALLOWED_ERROR_TYPES: ReadonlySet<string> = new Set<PolyfenceErrorType>([
     'gpsTimeout',
     'gpsPermissionDenied',
@@ -265,6 +273,7 @@ export function normalizePolyfenceError(
     'analyticsUploadFailed',
     'permissionRevoked',
     'memoryLow',
+    'pendingEventsEvicted',
     'unknown',
   ]);
 

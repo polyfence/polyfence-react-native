@@ -597,6 +597,7 @@ describe('Events', () => {
         analyticsUploadFailed: true,
         permissionRevoked: true,
         memoryLow: true,
+        pendingEventsEvicted: true,
         unknown: true,
       };
       const knownTypes = Object.keys(knownTypesSpec) as PolyfenceErrorType[];

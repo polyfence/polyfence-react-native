@@ -94,15 +94,36 @@ cd ios && pod install
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
 
+The minimum viable set. Tracking runs as a foreground service typed `location`, which holds location access for as long as it runs, so foreground location is all it needs:
+
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 ```
+
+You must also declare the tracker service. This package declares no `<service>` of its own, and `foregroundServiceType="location"` is what grants a foreground service its location access — required from API 29, hard-enforced from API 34, where `startForeground()` throws without it:
+
+```xml
+<service
+    android:name="io.polyfence.core.LocationTracker"
+    android:foregroundServiceType="location"
+    android:exported="false" />
+```
+
+**Required only if you set `osGeofenceWakeEnabled: true`:**
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+```
+
+`ACCESS_BACKGROUND_LOCATION` governs location access *outside* a foreground service, which is exactly what OS wake fences are: they fire when nothing of yours is running. Declaring it puts your app into Google Play's manual background-location review, which is why base tracking does not need it. `RECEIVE_BOOT_COMPLETED` lets Polyfence re-register wake fences after a device restart — Play Services drops all registered geofences on reboot.
+
+If the grant is missing or revoked, **tracking still runs**: wake fences degrade to polling-only and emit an `osGeofencePermissionDenied` error on `onError` with `context.severity === 'warning'`, and `debugInfo().systemStatus.osGeofenceRegistrationHealth` reports `lastError === 'background_location_denied'`.
 
 Ensure your `android/app/build.gradle` has the correct minimum SDK version:
 
@@ -186,22 +207,35 @@ await Polyfence.instance.initialize();
 
 ### Step 2: Request Permissions
 
-**iOS:** `requestPermissions({ always: true })` triggers the system permission dialog.
+Foreground location is the whole requirement — "While in use" on Android, "When In Use" on iOS. The stronger background grant is needed only for `osGeofenceWakeEnabled`; request it only when you set that flag, and never otherwise. On Android, requesting `ACCESS_BACKGROUND_LOCATION` once it has been denied shows no prompt and sends the user to the system settings screen.
+
+**iOS:** `requestPermissions()` triggers the system permission dialog. Pass `{ always: true }` only alongside `osGeofenceWakeEnabled: true`.
 
 **Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a library like [`react-native-permissions`](https://github.com/zoontek/react-native-permissions) first, then call `requestPermissions()` to verify the result.
 
 ```typescript
 import { Platform } from 'react-native';
+
+// One flag drives both the permission request and the configuration —
+// requesting the background grant without enabling the feature buys a Play
+// review for nothing, and enabling the feature without the grant leaves it
+// permanently degraded.
+const osGeofenceWakeEnabled = false;
+
 // Android only — trigger the OS permission dialog.
 // import { request, PERMISSIONS } from 'react-native-permissions';
 // if (Platform.OS === 'android') {
 //   await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
-//   await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
+//   if (osGeofenceWakeEnabled) {
+//     await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
+//   }
 // }
 
 // Both platforms — verify the result. On iOS this ALSO shows the
 // system dialog on first call.
-const hasPermission = await Polyfence.instance.requestPermissions({ always: true });
+const hasPermission = await Polyfence.instance.requestPermissions({
+  always: osGeofenceWakeEnabled,
+});
 if (!hasPermission) {
   // Handle permission denied — e.g. guide the user to Settings.
   return;

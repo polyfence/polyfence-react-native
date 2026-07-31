@@ -79,6 +79,26 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   // by branching on `type === 'pendingEventsEvicted'` — silent data loss
   // would otherwise reach the consumer as an unknown-type error.
   pending_events_evicted: 'pendingEventsEvicted',
+  // OS wake fences are enabled but the grant they need is missing
+  // (ACCESS_BACKGROUND_LOCATION on Android, "Always" authorization on
+  // iOS). Carries `context.severity === 'warning'`; the in-process
+  // engine keeps polling, so this reports lost wake-after-process-kill
+  // coverage rather than lost tracking.
+  os_geofence_permission_denied: 'osGeofencePermissionDenied',
+  // The OS refused a wake-fence registration for a reason other than a
+  // missing grant. `systemStatus.osGeofenceRegistrationHealth` reports
+  // how many regions are actually monitored.
+  os_geofence_registration_failed: 'osGeofenceRegistrationFailed',
+  // A crossing woke the app through an OS wake fence while
+  // `pendingEventsQueueSize` was 0, so there was nowhere durable to
+  // record it. Wake fences need the durable queue to deliver anything.
+  os_geofence_queue_disabled: 'osGeofenceQueueDisabled',
+  // The iOS CLLocationManager `didFailWithError` passthrough. It carries
+  // no failure classification of its own — the actionable conditions it
+  // can stand for already have dedicated types (`gpsTimeout`,
+  // `gpsServiceDisabled`, `gpsUnreliable`), so it resolves to `unknown`
+  // rather than widening the public union with a synonym.
+  gps_error: 'unknown',
 };
 
 /**
@@ -274,6 +294,9 @@ export function normalizePolyfenceError(
     'permissionRevoked',
     'memoryLow',
     'pendingEventsEvicted',
+    'osGeofencePermissionDenied',
+    'osGeofenceRegistrationFailed',
+    'osGeofenceQueueDisabled',
     'unknown',
   ]);
 

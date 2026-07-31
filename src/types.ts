@@ -210,6 +210,40 @@ export interface PolyfenceConfiguration {
    * successful attach. A cap of ~500 is a reasonable starting point.
    */
   pendingEventsQueueSize?: number;
+  /**
+   * Registers the nearest active zones with the operating system's geofence
+   * service so a crossing can still be captured after the app's process is
+   * fully killed. `false` (default) registers nothing with the OS and shares no
+   * zone data with it — Polyfence's own engine remains the sole detector either
+   * way; this is only a wake source.
+   *
+   * Requires `pendingEventsQueueSize > 0` to be useful: an OS wake writes the
+   * crossing into that queue and it is delivered on the next
+   * {@link Polyfence.drainPendingEvents}. With the queue off, the woken
+   * crossing has nowhere to go and the engine reports
+   * `osGeofenceQueueDisabled`.
+   *
+   * Costs the stronger background-location grant: `ACCESS_BACKGROUND_LOCATION`
+   * (and `RECEIVE_BOOT_COMPLETED`) on Android, "Always" authorization on iOS.
+   * Without it, wake fences degrade to polling-only and the engine reports
+   * `osGeofencePermissionDenied` — tracking is unaffected. Request that grant
+   * only when this is on; it puts an Android app through Google Play's manual
+   * background-location review.
+   */
+  osGeofenceWakeEnabled?: boolean;
+  /**
+   * How many OS geofence slots Polyfence may occupy while the app is
+   * backgrounded. Omitted (default) uses the native engine's per-platform
+   * default — 50 of Android's 100-per-app allocation, leaving half free for
+   * geofences the consumer app registers itself, and 20 on iOS, which is
+   * already Apple's hard per-app cap.
+   *
+   * Values outside the platform's usable range are clamped by the native
+   * engine, so the effective budget is whatever `getConfiguration()` reports
+   * back rather than necessarily the value passed here. Only meaningful when
+   * `osGeofenceWakeEnabled` is `true`.
+   */
+  osGeofenceMaxRegions?: number;
   enableDebugLogging?: boolean;
   // Nested settings
   proximitySettings?: ProximitySettings;
@@ -288,6 +322,9 @@ export type PolyfenceErrorType =
   | 'permissionRevoked'
   | 'memoryLow'
   | 'pendingEventsEvicted'
+  | 'osGeofencePermissionDenied'
+  | 'osGeofenceRegistrationFailed'
+  | 'osGeofenceQueueDisabled'
   | 'unknown';
 
 export interface PolyfenceError {
@@ -332,6 +369,38 @@ export interface PolyfenceSystemStatus {
   platformVersion: string;
   /** Bridge/plugin version reported via `initialize({ pluginVersion })`. `"unknown"` if not set. */
   pluginVersion: string;
+  /**
+   * State of the most recent OS wake-fence registration attempt, or `null` when
+   * no registration has been attempted — which is what a consumer with
+   * `osGeofenceWakeEnabled` off always sees, and what distinguishes "not opted
+   * in" from "opted in and failing".
+   */
+  osGeofenceRegistrationHealth: OsGeofenceRegistrationHealth | null;
+}
+
+/**
+ * State of the most recent attempt to register zone perimeters with the
+ * operating system's geofence service. Reached through
+ * {@link PolyfenceSystemStatus.osGeofenceRegistrationHealth}.
+ */
+export interface OsGeofenceRegistrationHealth {
+  /** How many zones Polyfence asked the OS to monitor. */
+  requested: number;
+  /**
+   * How many the OS accepted. Fewer than `requested` means the platform's
+   * per-app cap was reached and coverage is partial — expected on a large zone
+   * set, not a failure, and `lastError` stays `null`. Zero while the app is
+   * foregrounded is also deliberate: slots are released whenever the in-process
+   * engine is doing the detecting.
+   */
+  registered: number;
+  /**
+   * Why the last attempt could not register everything, or `null` when nothing
+   * went wrong. `"background_location_denied"` means the grant OS wake fences
+   * need is missing — `ACCESS_BACKGROUND_LOCATION` on Android, "Always"
+   * authorization on iOS.
+   */
+  lastError: string | null;
 }
 
 export interface PolyfencePerformanceMetrics {

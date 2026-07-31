@@ -178,6 +178,12 @@ describe('index exports', () => {
           lastLocationUpdate: 0,
           platformVersion: '15',
           pluginVersion: '2.0.1',
+          // Null is the "no registration attempted" state, which is what a
+          // consumer with osGeofenceWakeEnabled off always sees. The key is
+          // required rather than optional because the native side always
+          // emits it — required is what makes a missing shape a compile error
+          // instead of an undefined at runtime.
+          osGeofenceRegistrationHealth: null,
         },
         performance: {
           restartCount: 0,

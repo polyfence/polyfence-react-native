@@ -303,6 +303,16 @@ describe('Events', () => {
       // falls back to `unknown` and consumers cannot discriminate silent
       // data loss from any other unmapped error.
       ['pending_events_evicted', 'pendingEventsEvicted'],
+      // OS wake fences degrade rather than fail loudly, so an unmapped
+      // code here leaves a consumer unable to tell "wake coverage is
+      // gone" apart from any other unmapped error.
+      ['os_geofence_permission_denied', 'osGeofencePermissionDenied'],
+      ['os_geofence_registration_failed', 'osGeofenceRegistrationFailed'],
+      ['os_geofence_queue_disabled', 'osGeofenceQueueDisabled'],
+      // Deliberately resolved to `unknown` rather than given a public
+      // type — asserted so the decision is visible instead of looking
+      // like an oversight.
+      ['gps_error', 'unknown'],
     ])('maps native code "%s" to PolyfenceErrorType "%s"', (code, expected) => {
       const normalized = normalizePolyfenceError({
         code,
@@ -603,6 +613,9 @@ describe('Events', () => {
         permissionRevoked: true,
         memoryLow: true,
         pendingEventsEvicted: true,
+        osGeofencePermissionDenied: true,
+        osGeofenceRegistrationFailed: true,
+        osGeofenceQueueDisabled: true,
         unknown: true,
       };
       const knownTypes = Object.keys(knownTypesSpec) as PolyfenceErrorType[];

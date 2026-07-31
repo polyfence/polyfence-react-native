@@ -337,7 +337,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             // with Activity access and onRequestPermissionsResult handling, which is not feasible from NativeModule.
             // For production apps, use a library like react-native-permissions to trigger the system dialog,
             // then call this method to verify the result.
-            val hasPerms = hasAllRequiredPerms(context)
+            val hasPerms = hasCoreTrackingPerms(context)
             promise.resolve(hasPerms)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to check permissions: ${e.message}")
@@ -783,18 +783,33 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     }
 
     /**
-     * Check if all required permissions are granted
+     * Permissions required to run the tracker at all. Mirrors
+     * `LocationTracker.hasCoreTrackingPerms` in polyfence-core — this gate must
+     * never be stricter than the engine's own, or it refuses work the engine
+     * would have done.
+     *
+     * `ACCESS_BACKGROUND_LOCATION` is deliberately NOT part of this. The tracker
+     * is a foreground service, and a foreground service typed `location` has
+     * location access for as long as it runs. The background permission governs
+     * location access *outside* a foreground service — passive geofences, jobs,
+     * receivers — which is what OS wake fences use and nothing else here does.
+     * Requiring it unconditionally would refuse to start for consumers who
+     * never asked for that capability, and force every integrator through
+     * Google Play's background-location review for a feature they are not
+     * using. iOS accepts "when in use" here, so this is also what makes the
+     * platforms agree.
+     *
+     * With `osGeofenceWakeEnabled` on and the background grant missing, the
+     * engine still starts and reports `os_geofence_permission_denied` on the
+     * error channel; wake coverage degrades, tracking does not.
      */
-    private fun hasAllRequiredPerms(context: Context): Boolean {
+    private fun hasCoreTrackingPerms(context: Context): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val bgOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        } else true
         val fgsOk = if (Build.VERSION.SDK_INT >= 34) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else true
-        return (fine || coarse) && bgOk && fgsOk
+        return (fine || coarse) && fgsOk
     }
 
     /**

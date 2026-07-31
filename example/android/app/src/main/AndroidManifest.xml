@@ -1,7 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- ACCESS_BACKGROUND_LOCATION buys exactly one thing: OS wake fences
+         (osGeofenceWakeEnabled). Tracking runs as a foreground service typed
+         "location", which holds location access without it. Declaring it is
+         what puts an app into Google Play's manual background-location review,
+         so it stays out of the minimum set and is uncommented alongside
+         OS_GEOFENCE_WAKE_ENABLED in src/hooks/usePolyfence.ts.
+         RECEIVE_BOOT_COMPLETED goes with it — Play Services drops every
+         registered geofence on reboot.
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

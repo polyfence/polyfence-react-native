@@ -34,6 +34,25 @@ const MAX_EVENTS = 100;
 // absence — this turns that silence into a visible banner.
 const EVENT_WATCHDOG_MS = 30000;
 
+// Whether this app opts into OS wake fences, which let a zone crossing be
+// captured after the app's process is killed outright.
+//
+// Off here because it is not free: it needs the background-location grant, and
+// declaring ACCESS_BACKGROUND_LOCATION puts an Android app into Google Play's
+// manual background-location review. Base tracking does not need it — the
+// tracker runs as a foreground service typed "location" on Android and accepts
+// "When In Use" on iOS.
+//
+// One flag drives the permission request, the plugin configuration, and the
+// warnings below, because all three must agree: requesting the background grant
+// without enabling the feature buys a Play review for nothing, and enabling the
+// feature without the grant leaves it permanently degraded.
+const OS_GEOFENCE_WAKE_ENABLED = false;
+
+// The queue an OS wake fence deposits a crossing into. Wake fences have nowhere
+// to store a woken crossing without it, so the two are set together.
+const PENDING_EVENTS_QUEUE_SIZE = OS_GEOFENCE_WAKE_ENABLED ? 500 : 0;
+
 export interface PolyfenceState {
   // Tracking
   isTracking: boolean;
@@ -158,12 +177,19 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
   const permissionWarned = useRef({ background: false, notification: false });
   const surfacePermissionGaps = useCallback(
     (perms: PermissionState) => {
-      if (!perms.backgroundLocation && !permissionWarned.current.background) {
+      // Only a gap when wake fences are on. Tracking itself runs on the
+      // foreground grant, so warning about the background grant otherwise
+      // would report a problem the app does not have.
+      if (
+        OS_GEOFENCE_WAKE_ENABLED &&
+        !perms.backgroundLocation &&
+        !permissionWarned.current.background
+      ) {
         permissionWarned.current.background = true;
         addError(
           Platform.OS === 'ios'
-            ? "Location is 'While Using' only — iOS will not deliver zone enter/exit events or notifications in the background. Set Location to 'Always' in Settings > Polyfence RN Example > Location, then reopen the app."
-            : "Background location not granted — enter/exit events will not fire while the app is backgrounded. Choose 'Allow all the time' in Settings > Polyfence RN Example > Location, then reopen the app.",
+            ? "Location is 'While Using' only — OS wake fences cannot deliver a crossing after the app is closed. Tracking still runs while the app is alive. Set Location to 'Always' in Settings > Polyfence RN Example > Location to restore wake coverage."
+            : "Background location not granted — OS wake fences cannot deliver a crossing after the app's process is killed. Tracking still runs. Choose 'Allow all the time' in Settings > Polyfence RN Example > Location to restore wake coverage.",
         );
       } else if (perms.backgroundLocation) {
         permissionWarned.current.background = false;
@@ -279,7 +305,9 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
         });
 
         // Request permissions before initialize
-        const perms = await requestTrackingPermissions();
+        const perms = await requestTrackingPermissions({
+          osGeofenceWakeEnabled: OS_GEOFENCE_WAKE_ENABLED,
+        });
         if (!perms.location) {
           addError(
             'Location permission denied — tracking cannot start. Grant location access in Settings, then reopen the app.',
@@ -289,9 +317,10 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
           return;
         }
 
-        // When-In-Use is enough to start, but background geofencing and
-        // notifications silently no-op without "Always" + notification
-        // permission. Surface exactly what is missing instead of failing quietly.
+        // Foreground location is enough to track. Notifications and — only
+        // when wake fences are on — the background grant are what silently
+        // no-op when missing. Surface exactly what is missing instead of
+        // failing quietly.
         surfacePermissionGaps(perms);
 
         // Initialize polyfence
@@ -310,6 +339,12 @@ export function usePolyfence(): [PolyfenceState, PolyfenceActions] {
             confidenceThreshold: 75,
             debounceSeconds: 10,
           },
+          // Set together: a wake fence deposits the crossing it woke for into
+          // the pending-events queue, so the feature is inert with the queue
+          // off. osGeofenceMaxRegions is left unset so each platform keeps its
+          // own slot budget.
+          osGeofenceWakeEnabled: OS_GEOFENCE_WAKE_ENABLED,
+          pendingEventsQueueSize: PENDING_EVENTS_QUEUE_SIZE,
         });
 
         // Load stored events

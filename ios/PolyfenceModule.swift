@@ -33,6 +33,16 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     private var locationTracker: LocationTracker?
     private var zonePersistence: ZonePersistence?
 
+    override init() {
+        super.init()
+        // Declare that this bridge owns the listener-live signal, before any
+        // JS call can reach initialize() and register the delegate. Core would
+        // otherwise treat delegate registration as a direct-Swift consumer
+        // subscribing and replay the durable queue there — into a JS runtime
+        // that has not called onGeofenceEvent yet.
+        LocationTracker.setEventListenerActive(false)
+    }
+
     override func supportedEvents() -> [String] {
         return ["onLocation", "onGeofenceEvent", "onError", "onPerformance"]
     }
@@ -490,6 +500,7 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         // queue rather than reaching a torn-down JS runtime that would drop
         // it silently.
         locationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
         locationTracker?.stopTracking()
         setTrackingEnabled(false)
         locationTracker?.coreDelegate = nil
@@ -508,6 +519,15 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     func drainPendingEvents(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         let events = locationTracker?.drainPendingEvents() ?? []
         resolve(events)
+    }
+
+    /// Report whether a consumer's geofence-event listener is live. The JS
+    /// side subscribes through `RCTDeviceEventEmitter`, so the codegen
+    /// `addListener` hook above is never invoked and cannot carry this signal.
+    @objc(setEventListenerActive:resolver:rejecter:)
+    func setEventListenerActive(active: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        LocationTracker.setEventListenerActive(active)
+        resolve(nil)
     }
 
     /// Cumulative count of events that oldest-first eviction has dropped
@@ -531,6 +551,7 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     /// method overrides so the ObjC dispatcher resolves the same selector.
     @objc override func invalidate() {
         Self.sharedLocationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
         super.invalidate()
     }
 

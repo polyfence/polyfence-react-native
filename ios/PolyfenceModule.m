@@ -88,6 +88,10 @@ RCT_EXTERN_METHOD(drainPendingEvents:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(pendingEventsDroppedCount:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(setEventListenerActive:(BOOL)active
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;

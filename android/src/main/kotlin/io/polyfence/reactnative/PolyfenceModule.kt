@@ -45,6 +45,15 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
     private val context: Context = reactContext
 
+    init {
+        // Declare that this bridge owns the listener-live signal, before any
+        // JS call can reach initialize() and register the delegate. Core would
+        // otherwise treat delegate registration as a direct-Kotlin consumer
+        // subscribing and replay the durable queue there — into a JS runtime
+        // that has not called onGeofenceEvent yet.
+        LocationTracker.setEventListenerActive(false)
+    }
+
     override fun getName(): String = "Polyfence"
 
     @ReactMethod
@@ -550,6 +559,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             // lands in the durable queue instead of hitting a torn-down
             // React instance and dropping silently.
             LocationTracker.setBridgeAttached(false)
+            LocationTracker.setEventListenerActive(false)
             val intent = Intent(context, LocationTracker::class.java).apply {
                 action = LocationTracker.ACTION_STOP_TRACKING
             }
@@ -608,6 +618,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
      */
     override fun onCatalystInstanceDestroy() {
         LocationTracker.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
         super.onCatalystInstanceDestroy()
     }
 
@@ -712,6 +723,21 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             sendEvent("onPerformance", mapToWritableMap(eventData))
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to send performance event: ${e.message}")
+        }
+    }
+
+    /**
+     * Report whether a consumer's geofence-event listener is live. The JS side
+     * subscribes through `DeviceEventEmitter`, so the codegen `addListener`
+     * hook below is never invoked and cannot carry this signal.
+     */
+    @ReactMethod
+    fun setEventListenerActive(active: Boolean, promise: Promise) {
+        try {
+            LocationTracker.setEventListenerActive(active)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            promise.reject("SET_EVENT_LISTENER_ACTIVE_FAILED", e.message, e)
         }
     }
 

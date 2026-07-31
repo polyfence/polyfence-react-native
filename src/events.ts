@@ -1,4 +1,4 @@
-import { DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter, NativeModules } from 'react-native';
 import type {
   ActivityAtEvent,
   GeofenceEvent,
@@ -170,6 +170,42 @@ function addListener<T>(
   };
 }
 
+// Consumers subscribe through `DeviceEventEmitter` rather than
+// `NativeEventEmitter` (react-native#41394 drops events under Bridgeless), so
+// the native module's `addListener` / `removeListeners` codegen hooks are
+// never invoked and cannot serve as the listener-live signal. This counter is
+// the JS-side equivalent: it reports the 0↔1 transitions of the geofence
+// subscription to native, which is what triggers a replay of the durable
+// pending-events queue.
+let geofenceListenerCount = 0;
+
+function reportGeofenceListenerCount(): void {
+  const active = geofenceListenerCount > 0;
+  const nativeModule = NativeModules.Polyfence;
+  if (
+    !nativeModule ||
+    typeof nativeModule.setEventListenerActive !== 'function'
+  ) {
+    return;
+  }
+  // Fire-and-forget: subscribing must never be able to throw, and native
+  // treats a missed signal as "no listener" — events stay queued rather than
+  // being replayed into nothing.
+  try {
+    const result = nativeModule.setEventListenerActive(active);
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {});
+    }
+  } catch {
+    // Native module unavailable — nothing to report to.
+  }
+}
+
+/** Test seam so a suite can start from a known subscriber count. */
+export function __resetGeofenceListenerCountForTests(): void {
+  geofenceListenerCount = 0;
+}
+
 /** Collapse native variants (ENTER, recovery_enter, etc.) to a single upper key. */
 function canonicalGeofenceTypeKey(raw: string): string {
   return raw.trim().replace(/\s+/g, '_').toUpperCase();
@@ -339,12 +375,32 @@ export function onLocationUpdate(
 export function onGeofenceEvent(
   callback: (event: GeofenceEvent) => void,
 ): Subscription {
-  return addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
+  const sub = addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
     const event = normalizeGeofenceEvent(raw);
     if (event !== null) {
       callback(event);
     }
   });
+  geofenceListenerCount += 1;
+  if (geofenceListenerCount === 1) {
+    reportGeofenceListenerCount();
+  }
+  let removed = false;
+  return {
+    remove: () => {
+      // Guard against a double-remove decrementing past zero, which would
+      // leave native believing a listener is live after the last one is gone.
+      if (removed) {
+        return;
+      }
+      removed = true;
+      sub.remove();
+      geofenceListenerCount -= 1;
+      if (geofenceListenerCount === 0) {
+        reportGeofenceListenerCount();
+      }
+    },
+  };
 }
 
 /**
@@ -411,4 +467,8 @@ export function removeAllListeners(): void {
   emitter.removeAllListeners('onGeofenceEvent');
   emitter.removeAllListeners('onError');
   emitter.removeAllListeners('onPerformance');
+  if (geofenceListenerCount > 0) {
+    geofenceListenerCount = 0;
+    reportGeofenceListenerCount();
+  }
 }

@@ -211,6 +211,16 @@ export interface PolyfenceConfiguration {
    */
   pendingEventsQueueSize?: number;
   /**
+   * Whether queued events are delivered automatically the moment a consumer
+   * starts listening. `true` (default) replays the durable queue through
+   * {@link Polyfence.onGeofenceEvent} on the first subscription, so a crossing
+   * captured while the app was dead arrives without the consumer asking for it.
+   * `false` leaves the queue pull-only — {@link Polyfence.drainPendingEvents}
+   * is then the only way to get the events out. Only meaningful when
+   * `pendingEventsQueueSize > 0`.
+   */
+  pendingEventsAutoDrainEnabled?: boolean;
+  /**
    * Registers the nearest active zones with the operating system's geofence
    * service so a crossing can still be captured after the app's process is
    * fully killed. `false` (default) registers nothing with the OS and shares no

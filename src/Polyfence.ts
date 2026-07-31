@@ -48,6 +48,7 @@ const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'gpsAccuracyThreshold',
   'gpsStalenessTimeoutMs',
   'pendingEventsQueueSize',
+  'pendingEventsAutoDrainEnabled',
   'osGeofenceWakeEnabled',
   'osGeofenceMaxRegions',
   'enableDebugLogging',

@@ -4,6 +4,9 @@ import type {
   Zone,
   ZoneState,
   PolyfenceDebugInfo,
+  PolyfencePerformanceMetrics,
+  PolyfenceBatteryMetrics,
+  PolyfenceZoneStatus,
   SessionTelemetry,
   GeofenceEvent,
   HealthScoreEvent,
@@ -622,19 +625,55 @@ export class Polyfence {
  * this project's history, so the bridge does not assume a matched core.
  */
 function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
-  const level = info.battery?.batteryLevel;
-  const timed = info.performance?.timedZoneDetections ?? 0;
+  const timed = finiteCount(info.performance?.timedZoneDetections);
+  const latency = info.performance?.averageDetectionLatency;
+
+  // Rebuilt field by field rather than spread: a core older than this
+  // contract still sends the entries removed here, and a spread would carry
+  // them onto the returned object. They would be invisible to TypeScript and
+  // perfectly visible to anyone who logs or serialises the result.
   return {
-    ...info,
+    systemStatus: info.systemStatus,
     performance: {
-      ...info.performance,
+      uptime: info.performance?.uptime,
+      totalLocationUpdates: info.performance?.totalLocationUpdates,
+      totalZoneDetections: info.performance?.totalZoneDetections,
+      timedZoneDetections: timed,
       averageDetectionLatency:
-        timed > 0 ? info.performance?.averageDetectionLatency ?? null : null,
-    },
+        timed > 0 &&
+        typeof latency === 'number' &&
+        Number.isFinite(latency) &&
+        latency >= 0
+          ? latency
+          : null,
+      memoryUsageMB: info.performance?.memoryUsageMB,
+      restartCount: info.performance?.restartCount ?? null,
+    } as PolyfencePerformanceMetrics,
     battery: {
-      ...info.battery,
-      batteryLevel:
-        typeof level === 'number' && level >= 0 && level <= 100 ? level : null,
-    },
+      totalActiveTime: info.battery?.totalActiveTime,
+      batteryLevel: batteryLevelOrNull(info.battery?.batteryLevel),
+      isCharging: info.battery?.isCharging,
+    } as PolyfenceBatteryMetrics,
+    zones: {
+      activeZones: info.zones?.activeZones,
+      circleZones: info.zones?.circleZones,
+      polygonZones: info.zones?.polygonZones,
+    } as PolyfenceZoneStatus,
+    recentErrors: info.recentErrors,
   };
+}
+
+/** A count that is not a finite, non-negative number is not a count. */
+function finiteCount(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : 0;
+}
+
+/** A charge outside 0-100 is not a measurement, whatever the sentinel. */
+function batteryLevelOrNull(raw: unknown): number | null {
+  return typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= 0 &&
+    raw <= 100
+    ? raw
+    : null;
 }

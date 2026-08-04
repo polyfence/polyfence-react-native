@@ -358,6 +358,60 @@ describe('Polyfence', () => {
       expect(result.performance.averageDetectionLatency).toBe(12.5);
     });
 
+    it('supplies a timed-detection count a stale core never sent', async () => {
+      // The field is new. A core older than this contract omits it, and the
+      // type declares it required — so the accessor must supply it rather
+      // than hand back an object whose shape contradicts its own type.
+      const withoutTimed = { ...mockDebugInfo.performance } as Record<
+        string,
+        unknown
+      >;
+      delete withoutTimed.timedZoneDetections;
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        performance: withoutTimed,
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.performance.timedZoneDetections).toBe(0);
+      expect(result.performance.averageDetectionLatency).toBeNull();
+    });
+
+    it('drops fields a stale core still sends but this version removed', async () => {
+      // Types alone cannot do this: an extra key survives at runtime and
+      // shows up for anyone who logs or serialises the result, which is
+      // where an invented measurement would be believed.
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        performance: { ...mockDebugInfo.performance, cpuUsagePercent: 12 },
+        battery: { ...mockDebugInfo.battery, estimatedHourlyDrain: 47.3 },
+        zones: { ...mockDebugInfo.zones, zoneEventCounts: { a: 1 } },
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.performance).not.toHaveProperty('cpuUsagePercent');
+      expect(result.battery).not.toHaveProperty('estimatedHourlyDrain');
+      expect(result.zones).not.toHaveProperty('zoneEventCounts');
+    });
+
+    it('rejects a latency that is not a finite non-negative number', async () => {
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        performance: {
+          ...mockDebugInfo.performance,
+          totalZoneDetections: 3,
+          timedZoneDetections: 3,
+          averageDetectionLatency: Number.NaN,
+        },
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.performance.averageDetectionLatency).toBeNull();
+    });
+
     it('rejects a battery level no device could report', async () => {
       // Older native builds signal "not populated" with a negative sentinel.
       // Passing it on would show a consumer a charge that never existed, and

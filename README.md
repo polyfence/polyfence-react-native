@@ -814,9 +814,8 @@ debug.recentErrors.forEach((err) => console.log(err.type, err.message));
 
 > Note: `debugInfo()` is for operational diagnostics. For the *current configuration* (accuracy profile, update strategy, intervals) call `getConfiguration()`. For the *current zone membership* (which zones the user is inside right now) call `getZoneStates()` or subscribe to `onZoneEnter` / `onZoneExit`.
 
-Every value it returns is a measurement. Where a platform cannot measure
-something the field is `null` rather than a filler value, so absence is
-distinguishable from a genuine zero:
+Where a platform cannot measure one of the following, the field is `null`
+rather than a filler value, so absence is distinguishable from a genuine zero:
 
 | Field | `null` when |
 |---|---|
@@ -833,6 +832,9 @@ crossings are real and are counted; they simply carry no timing.
 
 `memoryUsageMB` measures whole-process resident size on iOS and Java heap only
 on Android, so the two are not comparable across platforms.
+
+Two older fields still use sentinels rather than `null`: `lastKnownAccuracy`
+is `-1` and `lastLocationUpdate` is `0` when no fix has arrived yet.
 
 ### Reporting Issues
 

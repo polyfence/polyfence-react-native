@@ -412,6 +412,49 @@ describe('Polyfence', () => {
       expect(result.performance.averageDetectionLatency).toBeNull();
     });
 
+    it('rejects a battery level above 100 as well as below 0', async () => {
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        battery: { ...mockDebugInfo.battery, batteryLevel: 150 },
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.battery.batteryLevel).toBeNull();
+    });
+
+    it('rejects a non-finite restart count', async () => {
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        performance: {
+          ...mockDebugInfo.performance,
+          restartCount: Number.POSITIVE_INFINITY,
+        },
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.performance.restartCount).toBeNull();
+    });
+
+    it('fills in counts a partial native map omitted entirely', async () => {
+      // Every count is typed as a number. A stale or partial map that omits
+      // one must not produce an object whose shape contradicts its own type.
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        systemStatus: mockDebugInfo.systemStatus,
+        recentErrors: [],
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.performance.uptime).toBe(0);
+      expect(result.performance.totalZoneDetections).toBe(0);
+      expect(result.zones.activeZones).toBe(0);
+      expect(result.battery.isCharging).toBe(false);
+      expect(result.battery.batteryLevel).toBeNull();
+      expect(result.performance.averageDetectionLatency).toBeNull();
+    });
+
     it('rejects a battery level no device could report', async () => {
       // Older native builds signal "not populated" with a negative sentinel.
       // Passing it on would show a consumer a charge that never existed, and

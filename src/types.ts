@@ -346,14 +346,21 @@ export interface PolyfenceError {
 }
 
 /**
- * Snapshot returned by {@link Polyfence.debugInfo}. Five flat metric groups —
- * the bridge passes the native engine's `PolyfenceDebugCollector.collectDebugInfo()`
- * response through unchanged on both platforms.
+ * Snapshot returned by {@link Polyfence.debugInfo}. Five flat metric groups,
+ * built from the native engine's `PolyfenceDebugCollector.collectDebugInfo()`
+ * response.
+ *
+ * The bridge rebuilds that response rather than forwarding it: entries this
+ * version no longer publishes are dropped, and a value that cannot be a
+ * measurement — a battery charge outside 0-100, a latency average with no
+ * samples behind it, anything non-finite — is reported as `null`. A core older
+ * than this contract signals "not populated" with a sentinel rather than with
+ * `null`, and the bridge does not assume a matched core.
  *
  * For functional state (current tracking on/off, current configuration, zone
- * membership), prefer the focused getters: `getConfiguration()`, `getZoneStates()`,
- * and the `onPerformance` event stream. `debugInfo()` is for operational
- * diagnostics — battery, CPU, system permissions, error history.
+ * membership), prefer the focused getters: `getConfiguration()`,
+ * `getZoneStates()`, and the `onPerformance` event stream. `debugInfo()` is for
+ * operational diagnostics — battery, system permissions, error history.
  */
 export interface PolyfenceDebugInfo {
   systemStatus: PolyfenceSystemStatus;

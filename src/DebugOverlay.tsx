@@ -177,7 +177,7 @@ function PolyfenceDebugOverlayInner({
             <MetricRow
               label="Battery"
               value={`${
-                debugInfo.battery.batteryLevel === null
+                debugInfo.battery.batteryLevel == null
                   ? '—'
                   : `${debugInfo.battery.batteryLevel}%`
               }${debugInfo.battery.isCharging ? ' ⚡' : ''}`}

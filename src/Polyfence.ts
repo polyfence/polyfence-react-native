@@ -4,9 +4,6 @@ import type {
   Zone,
   ZoneState,
   PolyfenceDebugInfo,
-  PolyfencePerformanceMetrics,
-  PolyfenceBatteryMetrics,
-  PolyfenceZoneStatus,
   SessionTelemetry,
   GeofenceEvent,
   HealthScoreEvent,
@@ -625,55 +622,62 @@ export class Polyfence {
  * this project's history, so the bridge does not assume a matched core.
  */
 function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
-  const timed = finiteCount(info.performance?.timedZoneDetections);
-  const latency = info.performance?.averageDetectionLatency;
+  // The argument is typed, but it arrives across a platform channel from a
+  // native module whose version is not guaranteed to match this one — so
+  // every field is read as unknown and coerced, and nothing is asserted.
+  const raw = info as unknown as Partial<
+    Record<string, Record<string, unknown>>
+  >;
+  const performance = raw.performance ?? {};
+  const battery = raw.battery ?? {};
+  const zones = raw.zones ?? {};
 
-  // Rebuilt field by field rather than spread: a core older than this
-  // contract still sends the entries removed here, and a spread would carry
-  // them onto the returned object. They would be invisible to TypeScript and
-  // perfectly visible to anyone who logs or serialises the result.
+  const timed = count(performance.timedZoneDetections);
+
+  // Rebuilt field by field rather than spread: a core older than this contract
+  // still sends the entries removed here, and a spread would carry them onto
+  // the returned object — invisible to TypeScript and perfectly visible to
+  // anyone who logs or serialises the result.
   return {
     systemStatus: info.systemStatus,
     performance: {
-      uptime: info.performance?.uptime,
-      totalLocationUpdates: info.performance?.totalLocationUpdates,
-      totalZoneDetections: info.performance?.totalZoneDetections,
+      uptime: count(performance.uptime),
+      totalLocationUpdates: count(performance.totalLocationUpdates),
+      totalZoneDetections: count(performance.totalZoneDetections),
       timedZoneDetections: timed,
       averageDetectionLatency:
-        timed > 0 &&
-        typeof latency === 'number' &&
-        Number.isFinite(latency) &&
-        latency >= 0
-          ? latency
-          : null,
-      memoryUsageMB: info.performance?.memoryUsageMB,
-      restartCount: info.performance?.restartCount ?? null,
-    } as PolyfencePerformanceMetrics,
+        timed > 0 ? measurement(performance.averageDetectionLatency) : null,
+      memoryUsageMB: count(performance.memoryUsageMB),
+      restartCount: measurement(performance.restartCount),
+    },
     battery: {
-      totalActiveTime: info.battery?.totalActiveTime,
-      batteryLevel: batteryLevelOrNull(info.battery?.batteryLevel),
-      isCharging: info.battery?.isCharging,
-    } as PolyfenceBatteryMetrics,
+      totalActiveTime: count(battery.totalActiveTime),
+      batteryLevel: percentage(battery.batteryLevel),
+      isCharging: battery.isCharging === true,
+    },
     zones: {
-      activeZones: info.zones?.activeZones,
-      circleZones: info.zones?.circleZones,
-      polygonZones: info.zones?.polygonZones,
-    } as PolyfenceZoneStatus,
-    recentErrors: info.recentErrors,
+      activeZones: count(zones.activeZones),
+      circleZones: count(zones.circleZones),
+      polygonZones: count(zones.polygonZones),
+    },
+    recentErrors: Array.isArray(info.recentErrors) ? info.recentErrors : [],
   };
 }
 
-/** A count that is not a finite, non-negative number is not a count. */
-function finiteCount(raw: unknown): number {
-  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : 0;
-}
-
-/** A charge outside 0-100 is not a measurement, whatever the sentinel. */
-function batteryLevelOrNull(raw: unknown): number | null {
-  return typeof raw === 'number' &&
-    Number.isFinite(raw) &&
-    raw >= 0 &&
-    raw <= 100
+/** A finite, non-negative number, or null. Anything else is not a measurement. */
+function measurement(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0
     ? raw
     : null;
+}
+
+/** A count that is absent or unusable reads as zero, never as undefined. */
+function count(raw: unknown): number {
+  return measurement(raw) ?? 0;
+}
+
+/** A charge outside 0-100 is not a measurement, whatever sentinel produced it. */
+function percentage(raw: unknown): number | null {
+  const value = measurement(raw);
+  return value !== null && value <= 100 ? value : null;
 }

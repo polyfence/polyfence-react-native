@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Android bridge switched to `LocationTracker.applyConfigurationDirect`.** Closes a read-after-write race where `await polyfence.updateConfiguration({...})` followed by an immediate `await polyfence.getConfiguration()` on the same thread could return pre-write state. Now returns after the mutation lands when the Service is already running; falls back to the previous `startService` Intent transport when the Service isn't running (read-after-write is only observable in the direct path). iOS bridges were never affected — they already call `updateConfigurationFromMap` directly.
 
 ### Fixed
-- **Round-2 residual bridge fixes.**
+- **Configuration round-trips faithfully through the bridge.**
   - `getConfiguration()` returns the full shape — native emits the 12-key `PolyfenceConfiguration` map; JS marshals enum strings to canonical camelCase.
   - `updateConfiguration()` is merge-aware end-to-end on both Android and iOS bridges — partial payloads preserve omitted keys instead of resetting them.
   - `disableAlertNotifications` write path wired through the bridge — write it, read it back, reset applies the default.
@@ -281,7 +281,7 @@ See `react-native#41394` for upstream context on `RCTEventEmitter` listener-expo
 
 ### Fixed
 
-- Peer review remediation: **PolyfenceCoreDelegate** alignment (map-based callbacks, `setCoreDelegate` / `coreDelegate`) on Android and iOS
+- **PolyfenceCoreDelegate** alignment (map-based callbacks, `setCoreDelegate` / `coreDelegate`) on Android and iOS
 - Battery APIs: JS method names match Android; iOS **batteryOptimizationStatus** / **requestBatteryOptimizationExemption** / **dispose** implemented and exported
 - **dispose** on Android; geofence payloads aligned with TS **GeofenceEvent** (`type`, nested `location`, etc.)
 - iOS: permission **granted** check no longer treats **.notDetermined** as granted; **pendingEvents** queue (50) with flush on **startObserving**; **sendStatus** uses **locationTracker.isTracking()** when needed

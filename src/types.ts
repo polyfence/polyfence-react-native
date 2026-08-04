@@ -366,11 +366,14 @@ export interface PolyfenceDebugInfo {
 export interface PolyfenceSystemStatus {
   isLocationPermissionGranted: boolean;
   isBackgroundLocationEnabled: boolean;
-  /** Android only — `true` on iOS (no equivalent system setting). */
-  isBatteryOptimizationDisabled: boolean;
+  /** `null` on iOS, which has no equivalent system setting to report. */
+  isBatteryOptimizationDisabled: boolean | null;
   isGpsEnabled: boolean;
-  /** Android only — `false` on iOS (no wake locks). */
-  isWakeLockAcquired: boolean;
+  /**
+   * `null` on iOS, which has no wake locks, and on Android when no tracking
+   * service is running — nothing could then be holding one.
+   */
+  isWakeLockAcquired: boolean | null;
   /** GPS accuracy of the last fix in metres. `-1` if no fix yet. */
   lastKnownAccuracy: number;
   /** Milliseconds since epoch; `0` if no fix yet. */
@@ -414,13 +417,29 @@ export interface OsGeofenceRegistrationHealth {
 }
 
 export interface PolyfencePerformanceMetrics {
-  restartCount: number;
-  cpuUsagePercent: number;
+  /** `null` on iOS, which has no foreground service to restart. */
+  restartCount: number | null;
   totalLocationUpdates: number;
-  /** Milliseconds. */
-  averageDetectionLatency: number;
+  /**
+   * Milliseconds, averaged over the crossings that were timed. `null` until
+   * at least one has been — zero is the best possible latency, so a device
+   * that has measured nothing is reported as unmeasured rather than perfect.
+   */
+  averageDetectionLatency: number | null;
+  /**
+   * Whole-process resident size on iOS, Java heap only on Android. The two
+   * are not comparable across platforms.
+   */
   memoryUsageMB: number;
+  /** Every zone crossing the consumer received, timed or not. */
   totalZoneDetections: number;
+  /**
+   * How many of those crossings were timed, and so how many samples
+   * {@link averageDetectionLatency} covers. Lower than
+   * {@link totalZoneDetections} when the engine synthesised a crossing
+   * outside a timed evaluation — a degraded-GPS exit, for instance.
+   */
+  timedZoneDetections: number;
   /** Milliseconds since session start. */
   uptime: number;
 }
@@ -428,25 +447,19 @@ export interface PolyfencePerformanceMetrics {
 export interface PolyfenceBatteryMetrics {
   /** Milliseconds the tracker has been actively listening this session. */
   totalActiveTime: number;
-  gpsActiveTimePercent: number;
-  /** `0–100`. */
-  batteryLevel: number;
-  /** Estimated battery drain attributable to tracking, percent per hour. */
-  estimatedHourlyDrain: number;
+  /**
+   * `0–100`, or `null` when the platform has not reported a level — on iOS
+   * before the OS populates it, which is always the case in the Simulator.
+   */
+  batteryLevel: number | null;
   isCharging: boolean;
-  /** Android only — counts CPU wake events; always `0` on iOS. */
-  wakeUpCount: number;
 }
 
 export interface PolyfenceZoneStatus {
-  /** Per-zone-id event counts (enter/exit/dwell aggregated). */
-  zoneEventCounts: Record<string, number>;
   polygonZones: number;
   circleZones: number;
   /** Number of zones currently in the active set (clustering-aware). */
   activeZones: number;
-  /** Milliseconds since epoch of the most recent zone add/remove/state change. */
-  lastZoneUpdate: number;
 }
 
 // Zone state

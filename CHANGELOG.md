@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New `PolyfenceErrorType` values — `'osGeofencePermissionDenied'`, `'osGeofenceRegistrationFailed'`, `'osGeofenceQueueDisabled'`.** polyfence-core emits all three; without these union members they arrived as `'unknown'` and a consumer could not tell degraded wake coverage apart from any other unmapped error. All three carry `severity: 'warning'` in the nested error context and leave tracking running. The iOS `gps_error` passthrough is now mapped explicitly to `'unknown'` rather than falling through unmapped.
 
 ### Changed
+- **`debugInfo()` returns only what was measured, so six fields are gone and five can now be `null`.** Removed from `PolyfenceDebugInfo`: `battery.estimatedHourlyDrain`, `battery.gpsActiveTimePercent`, `battery.wakeUpCount`, `zones.lastZoneUpdate`, `zones.zoneEventCounts` and `performance.cpuUsagePercent`. None ever carried a measurement — one was hours-since-start multiplied by five, another divided a duration by itself and so read `100` forever, a third returned zero from a function whose body was a note about what it would one day count. **Code reading them no longer type-checks**, which is deliberate: a silently-removed key would read as `undefined` at runtime, and nothing would say why.
+
+  Five fields become nullable, because a platform that cannot measure something now says so instead of substituting a value:
+
+  | Field | `null` when |
+  |---|---|
+  | `systemStatus.isBatteryOptimizationDisabled` | always on iOS — no such setting exists |
+  | `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running, since nothing could be holding a lock |
+  | `performance.restartCount` | always on iOS — no foreground service to restart |
+  | `performance.averageDetectionLatency` | until at least one crossing has been **timed** |
+  | `battery.batteryLevel` | when the platform has not reported a level |
+
+  New `performance.timedZoneDetections` says how many crossings contributed a latency sample. It is lower than `totalZoneDetections` when the engine synthesised a crossing outside a timed evaluation — a degraded-GPS exit, for instance. Those crossings are real, so they are counted; folding them into the mean as zero would drag it toward a speed nothing achieved.
+
+  `debugInfo()` now normalises the native payload rather than returning it untouched: a battery level outside `0–100` and an average latency with no samples behind it are both reported as `null`. Older native builds signal "not populated" with a sentinel rather than with `null`, and zero is the *best* possible latency — so a stale core paired with this bridge would otherwise show a perfect reading for something never measured. The bundled `DebugOverlay` renders an unknown battery level as `—` rather than `null%`.
 - **The listener signal is separate from the bridge-attach signal.** The JS side subscribes through `RCTDeviceEventEmitter`, so the native module's codegen `addListener` / `removeListeners` hooks are never invoked and cannot carry a listener signal. `Polyfence.onGeofenceEvent` therefore counts its own subscribers and reports the 0↔1 transitions to native through a new `setEventListenerActive` method. Bridge attach and JS subscription happen at different moments, and only the second means somebody is receiving — keying the automatic replay off the first would emit the queue at `initialize()` time, before any handler exists.
 - **Base tracking on Android requires only foreground location.** `ACCESS_FINE_LOCATION` or `ACCESS_COARSE_LOCATION`, plus `FOREGROUND_SERVICE_LOCATION` on API 34+, is the whole requirement. Tracking runs as a foreground service typed `location`, which holds location access for as long as it runs; `ACCESS_BACKGROUND_LOCATION` governs location access *outside* a foreground service and is therefore needed only for `osGeofenceWakeEnabled`. The bridge's `requestPermissions()` check previously demanded it unconditionally on API 29+ and reported `false` before the native engine was consulted. iOS accepts "When In Use"; "Always" is needed only for wake fences.
 

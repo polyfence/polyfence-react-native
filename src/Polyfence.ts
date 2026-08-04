@@ -304,7 +304,7 @@ export class Polyfence {
 
   async debugInfo(): Promise<PolyfenceDebugInfo> {
     this.assertNotDisposed();
-    return NativePolyfence.getDebugInfo();
+    return normalizeDebugInfo(await NativePolyfence.getDebugInfo());
   }
 
   async getSessionTelemetry(): Promise<SessionTelemetry> {
@@ -608,4 +608,33 @@ export class Polyfence {
   removeAllListeners(): void {
     removeAllEventListeners();
   }
+}
+
+/**
+ * Rejects values the native side can report but that are not measurements.
+ *
+ * A native build older than this contract signals "not populated" with a
+ * sentinel rather than with null: a negative battery level, and a zero
+ * average latency for a session that has timed nothing. Both would read as
+ * ordinary values — and zero is the *best* possible latency, so passing it on
+ * makes an unmeasured device look like a perfect one. Version pins are meant
+ * to prevent that pairing, but a stale pin is the most repeated failure in
+ * this project's history, so the bridge does not assume a matched core.
+ */
+function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
+  const level = info.battery?.batteryLevel;
+  const timed = info.performance?.timedZoneDetections ?? 0;
+  return {
+    ...info,
+    performance: {
+      ...info.performance,
+      averageDetectionLatency:
+        timed > 0 ? info.performance?.averageDetectionLatency ?? null : null,
+    },
+    battery: {
+      ...info.battery,
+      batteryLevel:
+        typeof level === 'number' && level >= 0 && level <= 100 ? level : null,
+    },
+  };
 }

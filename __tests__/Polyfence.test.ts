@@ -1,7 +1,11 @@
 import { getMockEventEmitter } from './setup';
 import { Polyfence } from '../src/Polyfence';
 import { NativeModules } from 'react-native';
-import type { Zone, PolyfenceConfiguration } from '../src/types';
+import type {
+  Zone,
+  PolyfenceConfiguration,
+  PolyfenceDebugInfo,
+} from '../src/types';
 
 describe('Polyfence', () => {
   const NativePolyfence = NativeModules.Polyfence;
@@ -282,53 +286,90 @@ describe('Polyfence', () => {
   });
 
   describe('debugInfo', () => {
+    // Matches the nested shape returned by polyfence-core
+    // PolyfenceDebugCollector.collectDebugInfo() on both platforms.
+    const mockDebugInfo: PolyfenceDebugInfo = {
+      systemStatus: {
+        isLocationPermissionGranted: true,
+        isBackgroundLocationEnabled: true,
+        isBatteryOptimizationDisabled: false,
+        isGpsEnabled: true,
+        isWakeLockAcquired: false,
+        lastKnownAccuracy: -1,
+        lastLocationUpdate: 0,
+        platformVersion: '15',
+        pluginVersion: '2.0.1',
+        osGeofenceRegistrationHealth: null,
+      },
+      performance: {
+        restartCount: 0,
+        totalLocationUpdates: 0,
+        averageDetectionLatency: 0,
+        memoryUsageMB: 10,
+        totalZoneDetections: 0,
+        timedZoneDetections: 0,
+        uptime: 1000,
+      },
+      battery: {
+        totalActiveTime: 0,
+        batteryLevel: 100,
+        isCharging: true,
+      },
+      zones: {
+        polygonZones: 0,
+        circleZones: 0,
+        activeZones: 2,
+      },
+      recentErrors: [],
+    };
+
     it('should return native result', async () => {
-      // Matches the nested shape returned by polyfence-core
-      // PolyfenceDebugCollector.collectDebugInfo() on both platforms.
-      const mockDebugInfo = {
-        systemStatus: {
-          isLocationPermissionGranted: true,
-          isBackgroundLocationEnabled: true,
-          isBatteryOptimizationDisabled: false,
-          isGpsEnabled: true,
-          isWakeLockAcquired: false,
-          lastKnownAccuracy: -1,
-          lastLocationUpdate: 0,
-          platformVersion: '15',
-          pluginVersion: '2.0.1',
-        },
-        performance: {
-          restartCount: 0,
-          cpuUsagePercent: 0,
-          totalLocationUpdates: 0,
-          averageDetectionLatency: 0,
-          memoryUsageMB: 10,
-          totalZoneDetections: 0,
-          uptime: 1000,
-        },
-        battery: {
-          totalActiveTime: 0,
-          gpsActiveTimePercent: 0,
-          batteryLevel: 100,
-          estimatedHourlyDrain: 0,
-          isCharging: true,
-          wakeUpCount: 0,
-        },
-        zones: {
-          zoneEventCounts: {},
-          polygonZones: 0,
-          circleZones: 0,
-          activeZones: 2,
-          lastZoneUpdate: 0,
-        },
-        recentErrors: [],
-      };
       (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce(
         mockDebugInfo,
       );
       const result = await Polyfence.instance.debugInfo();
-      expect(result).toEqual(mockDebugInfo);
+
+      // The accessor normalises rather than passing the native map straight
+      // through: with no timed crossings there is no mean, so a native zero
+      // is rejected instead of being reported as the best possible latency.
+      expect(result).toEqual({
+        ...mockDebugInfo,
+        performance: {
+          ...mockDebugInfo.performance,
+          averageDetectionLatency: null,
+        },
+      });
       expect(NativePolyfence.getDebugInfo).toHaveBeenCalled();
+    });
+
+    it('keeps a latency that has samples behind it', async () => {
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        performance: {
+          ...mockDebugInfo.performance,
+          totalZoneDetections: 4,
+          timedZoneDetections: 4,
+          averageDetectionLatency: 12.5,
+        },
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.performance.averageDetectionLatency).toBe(12.5);
+    });
+
+    it('rejects a battery level no device could report', async () => {
+      // Older native builds signal "not populated" with a negative sentinel.
+      // Passing it on would show a consumer a charge that never existed, and
+      // a `?? default` on their side would not catch it.
+      (NativePolyfence.getDebugInfo as jest.Mock).mockResolvedValueOnce({
+        ...mockDebugInfo,
+        battery: { ...mockDebugInfo.battery, batteryLevel: -100 },
+      });
+
+      const result = await Polyfence.instance.debugInfo();
+
+      expect(result.battery.batteryLevel).toBeNull();
     });
   });
 

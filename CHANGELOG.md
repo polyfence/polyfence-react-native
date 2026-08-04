@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   New `performance.timedZoneDetections` says how many crossings contributed a latency sample. It is lower than `totalZoneDetections` when the engine synthesised a crossing outside a timed evaluation — a degraded-GPS exit, for instance. Those crossings are real, so they are counted; folding them into the mean as zero would drag it toward a speed nothing achieved.
 
+
+  The iOS `null`s above come from polyfence-core, not from this bridge — which platform can measure what is core's knowledge, and mirroring it here would put the same facts in three places. They therefore hold from **core 3.0.0** onward, the version this package pins. What the bridge does enforce regardless of core version is narrower and version-independent: a battery charge outside 0-100, a latency average with no samples behind it, and any non-finite number are reported as `null`, because none of those can be a reading at any version.
+
   **Migration:** delete any access to the six removed fields; handle `null` on the five above; read `timedZoneDetections` when you need to know how many samples the latency average covers.
 
   `debugInfo()` now normalises the native payload rather than returning it untouched: a battery level outside `0–100` and an average latency with no samples behind it are both reported as `null`. Older native builds signal "not populated" with a sentinel rather than with `null`, and zero is the *best* possible latency — so a stale core paired with this bridge would otherwise show a perfect reading for something never measured. The bundled `DebugOverlay` renders an unknown battery level as `—` rather than `null%`.

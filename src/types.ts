@@ -353,9 +353,13 @@ export interface PolyfenceError {
  * The bridge rebuilds that response rather than forwarding it: entries this
  * version no longer publishes are dropped, and a value that cannot be a
  * measurement — a battery charge outside 0-100, a latency average with no
- * samples behind it, anything non-finite — is reported as `null`. A core older
- * than this contract signals "not populated" with a sentinel rather than with
- * `null`, and the bridge does not assume a matched core.
+ * samples behind it, anything non-finite — is reported as `null` whatever the
+ * native core sends, since none of those can be a reading at any version.
+ *
+ * Which fields a *platform* can measure at all is decided by polyfence-core,
+ * not here. The `null`s documented below for iOS therefore hold from core
+ * 3.0.0 onward — the version this bridge pins. An older core paired with this
+ * bridge reports the filler values it always did.
  *
  * For functional state (current tracking on/off, current configuration, zone
  * membership), prefer the focused getters: `getConfiguration()`,

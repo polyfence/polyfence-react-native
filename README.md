@@ -836,6 +836,13 @@ on Android, so the two are not comparable across platforms.
 Two older fields still use sentinels rather than `null`: `lastKnownAccuracy`
 is `-1` and `lastLocationUpdate` is `0` when no fix has arrived yet.
 
+The iOS `null`s in the table come from polyfence-core and hold from **core
+3.0.0** onward, the version this package pins. What the bridge enforces on
+every response, whatever core it is paired with, is narrower: a battery charge
+outside `0–100`, a latency average with no samples behind it, and any
+non-finite number are reported as `null`, because none of those can be a
+reading at any version.
+
 ### Reporting Issues
 
 When opening a GitHub issue, include:

@@ -625,6 +625,16 @@ function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
   // The argument is typed, but it arrives across a platform channel from a
   // native module whose version is not guaranteed to match this one — so
   // every field is read as unknown and coerced, and nothing is asserted.
+  //
+  // What is coerced here is limited to values that cannot be measurements
+  // whatever the core version: a charge outside 0-100, a mean with no samples
+  // behind it, anything non-finite. Which fields a *platform* can measure at
+  // all is core's knowledge, and it stays there — mirroring it into both
+  // bridges would put the same platform facts in three places, so an iOS that
+  // one day gains a wake-lock equivalent would need all three changed and
+  // would be overridden by two of them until it was. The null contract for
+  // those fields therefore holds from core 3.0.0 onward, which is the version
+  // this bridge pins.
   const raw = info as unknown as Partial<
     Record<string, Record<string, unknown>>
   >;
@@ -639,6 +649,8 @@ function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
   // the returned object — invisible to TypeScript and perfectly visible to
   // anyone who logs or serialises the result.
   return {
+    // Passed through: every entry here is either a real reading or a null
+    // core decides on, per the comment above.
     systemStatus: info.systemStatus,
     performance: {
       uptime: count(performance.uptime),

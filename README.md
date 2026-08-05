@@ -806,13 +806,42 @@ console.log('Active zones:', debug.zones.activeZones);
 
 // performance / battery
 console.log('Detections:', debug.performance.totalZoneDetections);
-console.log('Battery:', debug.battery.batteryLevel, debug.battery.isCharging ? '⚡' : '');
+console.log('Battery:', debug.battery.batteryLevel ?? 'not measured', debug.battery.isCharging ? '⚡' : '');
 
 // recent errors (already normalized to PolyfenceError shape)
 debug.recentErrors.forEach((err) => console.log(err.type, err.message));
 ```
 
 > Note: `debugInfo()` is for operational diagnostics. For the *current configuration* (accuracy profile, update strategy, intervals) call `getConfiguration()`. For the *current zone membership* (which zones the user is inside right now) call `getZoneStates()` or subscribe to `onZoneEnter` / `onZoneExit`.
+
+Where a platform cannot measure one of the following, the field is `null`
+rather than a filler value, so absence is distinguishable from a genuine zero:
+
+| Field | `null` when |
+|---|---|
+| `systemStatus.isBatteryOptimizationDisabled` | always on iOS — no such setting exists |
+| `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running |
+| `performance.restartCount` | always on iOS — no foreground service to restart |
+| `performance.averageDetectionLatency` | until at least one crossing has been **timed** |
+| `battery.batteryLevel` | when the platform has not reported a level |
+
+`performance.timedZoneDetections` says how many crossings contributed a latency
+sample. It is lower than `totalZoneDetections` when the engine synthesised a
+crossing outside a timed evaluation — a degraded-GPS exit, for instance. Those
+crossings are real and are counted; they simply carry no timing.
+
+`memoryUsageMB` measures whole-process resident size on iOS and Java heap only
+on Android, so the two are not comparable across platforms.
+
+Two older fields still use sentinels rather than `null`: `lastKnownAccuracy`
+is `-1` and `lastLocationUpdate` is `0` when no fix has arrived yet.
+
+The iOS `null`s in the table come from polyfence-core and hold from **core
+3.0.0** onward, the version this package pins. What the bridge enforces on
+every response, whatever core it is paired with, is narrower: a battery charge
+outside `0–100`, a latency average with no samples behind it, and any
+non-finite number are reported as `null`, because none of those can be a
+reading at any version.
 
 ### Reporting Issues
 

@@ -304,7 +304,7 @@ export class Polyfence {
 
   async debugInfo(): Promise<PolyfenceDebugInfo> {
     this.assertNotDisposed();
-    return NativePolyfence.getDebugInfo();
+    return normalizeDebugInfo(await NativePolyfence.getDebugInfo());
   }
 
   async getSessionTelemetry(): Promise<SessionTelemetry> {
@@ -608,4 +608,88 @@ export class Polyfence {
   removeAllListeners(): void {
     removeAllEventListeners();
   }
+}
+
+/**
+ * Rejects values the native side can report but that are not measurements.
+ *
+ * A native build older than this contract signals "not populated" with a
+ * sentinel rather than with null: a negative battery level, and a zero
+ * average latency for a session that has timed nothing. Both would read as
+ * ordinary values — and zero is the *best* possible latency, so passing it on
+ * makes an unmeasured device look like a perfect one. Version pins are meant
+ * to prevent that pairing, but a stale pin is the most repeated failure in
+ * this project's history, so the bridge does not assume a matched core.
+ */
+function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
+  // The argument is typed, but it arrives across a platform channel from a
+  // native module whose version is not guaranteed to match this one — so
+  // every field is read as unknown and coerced, and nothing is asserted.
+  //
+  // What is coerced here is limited to values that cannot be measurements
+  // whatever the core version: a charge outside 0-100, a mean with no samples
+  // behind it, anything non-finite. Which fields a *platform* can measure at
+  // all is core's knowledge, and it stays there — mirroring it into both
+  // bridges would put the same platform facts in three places, so an iOS that
+  // one day gains a wake-lock equivalent would need all three changed and
+  // would be overridden by two of them until it was. The null contract for
+  // those fields therefore holds from core 3.0.0 onward, which is the version
+  // this bridge pins.
+  const raw = info as unknown as Partial<
+    Record<string, Record<string, unknown>>
+  >;
+  const performance = raw.performance ?? {};
+  const battery = raw.battery ?? {};
+  const zones = raw.zones ?? {};
+
+  const timed = count(performance.timedZoneDetections);
+
+  // Rebuilt field by field rather than spread: a core older than this contract
+  // still sends the entries removed here, and a spread would carry them onto
+  // the returned object — invisible to TypeScript and perfectly visible to
+  // anyone who logs or serialises the result.
+  return {
+    // Passed through: every entry here is either a real reading or a null
+    // core decides on, per the comment above.
+    systemStatus: info.systemStatus,
+    performance: {
+      uptime: count(performance.uptime),
+      totalLocationUpdates: count(performance.totalLocationUpdates),
+      totalZoneDetections: count(performance.totalZoneDetections),
+      timedZoneDetections: timed,
+      averageDetectionLatency:
+        timed > 0 ? measurement(performance.averageDetectionLatency) : null,
+      memoryUsageMB: count(performance.memoryUsageMB),
+      restartCount: measurement(performance.restartCount),
+    },
+    battery: {
+      totalActiveTime: count(battery.totalActiveTime),
+      batteryLevel: percentage(battery.batteryLevel),
+      isCharging: battery.isCharging === true,
+    },
+    zones: {
+      activeZones: count(zones.activeZones),
+      circleZones: count(zones.circleZones),
+      polygonZones: count(zones.polygonZones),
+    },
+    recentErrors: Array.isArray(info.recentErrors) ? info.recentErrors : [],
+  };
+}
+
+/** A finite, non-negative number, or null. Anything else is not a measurement. */
+function measurement(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0
+    ? raw
+    : null;
+}
+
+/** A count that is absent or unusable reads as zero, never as undefined. */
+function count(raw: unknown): number {
+  return measurement(raw) ?? 0;
+}
+
+/** A charge outside 0-100 is not a measurement, whatever sentinel produced it. */
+function percentage(raw: unknown): number | null {
+  const value = measurement(raw);
+  return value !== null && value <= 100 ? value : null;
 }

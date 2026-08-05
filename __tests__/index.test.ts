@@ -187,27 +187,22 @@ describe('index exports', () => {
         },
         performance: {
           restartCount: 0,
-          cpuUsagePercent: 0,
           totalLocationUpdates: 0,
           averageDetectionLatency: 0,
           memoryUsageMB: 10,
           totalZoneDetections: 0,
+          timedZoneDetections: 0,
           uptime: 1000,
         },
         battery: {
           totalActiveTime: 0,
-          gpsActiveTimePercent: 0,
           batteryLevel: 100,
-          estimatedHourlyDrain: 0,
           isCharging: true,
-          wakeUpCount: 0,
         },
         zones: {
-          zoneEventCounts: {},
           polygonZones: 0,
           circleZones: 0,
           activeZones: 5,
-          lastZoneUpdate: 0,
         },
         recentErrors: [],
       };

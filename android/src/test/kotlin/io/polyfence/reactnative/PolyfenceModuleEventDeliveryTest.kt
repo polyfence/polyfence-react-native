@@ -104,8 +104,8 @@ class PolyfenceModuleEventDeliveryTest {
             )
         } catch (expected: IllegalStateException) {
             assertTrue(
-                "the failure should name the missing React instance",
-                expected.message?.contains("React instance") == true
+                "the failure should state that delivery did not happen",
+                expected.message?.contains("not delivered") == true
             )
         }
 

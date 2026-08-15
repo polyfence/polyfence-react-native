@@ -12,6 +12,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import java.lang.reflect.Method
 
 /**
@@ -179,6 +180,22 @@ class PolyfenceModulePendingEventsQueueTest {
                 "React Native no longer calls it, so the override would be dead code",
             !declared.contains("onCatalystInstanceDestroy")
         )
+    }
+
+    // The cases below invoke the host callbacks directly, which proves what
+    // they do but not that React Native ever calls them. These two close that
+    // gap: without the registration the callbacks are unreachable in
+    // production and every other lifecycle case here would still pass.
+    @Test
+    fun `module registers itself for host lifecycle callbacks`() {
+        verify(reactContext).addLifecycleEventListener(module)
+    }
+
+    @Test
+    fun `invalidate unregisters the lifecycle listener`() {
+        module.invalidate()
+
+        verify(reactContext).removeLifecycleEventListener(module)
     }
 
     // A destroyed Activity does not mean a destroyed React instance —

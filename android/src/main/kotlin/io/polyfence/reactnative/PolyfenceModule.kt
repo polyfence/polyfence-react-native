@@ -680,9 +680,10 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
      */
     override fun onGeofenceEvent(eventData: Map<String, Any>) {
         if (!sendGeofenceEvent(eventData)) {
-            throw IllegalStateException(
-                "React instance unavailable — geofence event was not delivered"
-            )
+            // Deliberately not naming a cause. A torn-down React instance, a
+            // failed emit and a payload that would not convert all arrive here,
+            // and each is logged with its own detail at the point it happened.
+            throw IllegalStateException("geofence event was not delivered")
         }
     }
 

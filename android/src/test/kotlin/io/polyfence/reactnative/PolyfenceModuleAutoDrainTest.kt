@@ -135,13 +135,29 @@ class PolyfenceModuleAutoDrainTest {
     }
 
     @Test
-    fun `catalyst instance destruction reports the listener as gone`() {
+    fun `module teardown reports the listener as gone`() {
         val module = PolyfenceModule(reactContext)
         val activate: Promise = mock()
         module.setEventListenerActive(true, activate)
 
-        module.onCatalystInstanceDestroy()
+        module.invalidate()
 
         assertEquals(false, readPendingListenerActive())
+    }
+
+    // Host destruction must NOT touch the listener signal. The JS subscription
+    // count owns it, and a module-scoped subscription survives Activity
+    // destruction — clearing it here would report a listener gone while it is
+    // still receiving, and nothing would restore it on resume, so the next
+    // subscribe would produce no 0→1 edge and the queue would never replay.
+    @Test
+    fun `host destruction leaves the listener signal to the JS subscription count`() {
+        val module = PolyfenceModule(reactContext)
+        val activate: Promise = mock()
+        module.setEventListenerActive(true, activate)
+
+        module.onHostDestroy()
+
+        assertEquals(true, readPendingListenerActive())
     }
 }

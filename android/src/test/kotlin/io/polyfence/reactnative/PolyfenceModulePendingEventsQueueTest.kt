@@ -140,24 +140,93 @@ class PolyfenceModulePendingEventsQueueTest {
         )
     }
 
-    // The RN catalyst-destroy path must invoke the companion helper with
-    // `false` so a Service that outlives the JS runtime routes subsequent
-    // events through the durable queue instead of dropping them silently.
-    // Observed through the `pendingBridgeAttached` staging field the core's
-    // `onCreate` reads back into the running instance.
+    // The module-teardown path must invoke the companion helper with `false`
+    // so a Service that outlives the JS runtime routes subsequent events
+    // through the durable queue instead of dropping them silently. Observed
+    // through the `pendingBridgeAttached` staging field the core's `onCreate`
+    // reads back into the running instance.
     @Test
-    fun `onCatalystInstanceDestroy calls LocationTracker setBridgeAttached with false`() {
+    fun `invalidate calls LocationTracker setBridgeAttached with false`() {
         assertEquals(
             "pending value should be null before the module is torn down",
             null, readPendingBridgeAttached()
         )
 
-        module.onCatalystInstanceDestroy()
+        module.invalidate()
 
         assertEquals(
-            "onCatalystInstanceDestroy must route the persist signal through " +
+            "invalidate must route the persist signal through " +
                 "LocationTracker.setBridgeAttached(false)",
             false, readPendingBridgeAttached()
+        )
+    }
+
+    // Teardown must hang off a hook React Native still calls. `invalidate()`
+    // is declared abstract on the `NativeModule` interface and implemented by
+    // `BaseJavaModule`, so an override always runs. `onCatalystInstanceDestroy`
+    // is an empty interface default from RN 0.76 onward: an override of it
+    // compiles and can be called directly by a test, but React Native never
+    // invokes it.
+    @Test
+    fun `teardown overrides the hook React Native invokes`() {
+        val declared = PolyfenceModule::class.java.declaredMethods.map { it.name }
+        assertTrue(
+            "PolyfenceModule must override invalidate() for teardown",
+            declared.contains("invalidate")
+        )
+        assertTrue(
+            "PolyfenceModule must not carry teardown on onCatalystInstanceDestroy — " +
+                "React Native no longer calls it, so the override would be dead code",
+            !declared.contains("onCatalystInstanceDestroy")
+        )
+    }
+
+    // A destroyed Activity does not mean a destroyed React instance —
+    // ReactInstanceManager only moves the lifecycle state to BEFORE_CREATE and
+    // leaves the context alive, so a module-scoped JS subscription still
+    // receives. Detaching here would divert deliverable crossings into the
+    // durable queue, which is off by default, dropping them outright.
+    @Test
+    fun `onHostDestroy leaves the attach signal untouched`() {
+        module.onHostResume()
+        assertEquals(true, readPendingBridgeAttached())
+
+        module.onHostDestroy()
+
+        assertEquals(
+            "onHostDestroy must not detach a sink that can still receive",
+            true, readPendingBridgeAttached()
+        )
+    }
+
+    // Re-arming on resume is what stops the detached hint from latching false
+    // for the rest of the process once a crossing has been reported undelivered.
+    @Test
+    fun `onHostResume calls LocationTracker setBridgeAttached with true`() {
+        module.invalidate()
+        assertEquals(false, readPendingBridgeAttached())
+
+        module.onHostResume()
+
+        assertEquals(
+            "onHostResume must re-arm live delivery",
+            true, readPendingBridgeAttached()
+        )
+    }
+
+    // Backgrounding is the normal operating state for a geofencing consumer
+    // and the React instance still receives events there. Detaching on pause
+    // would divert every background crossing into the durable queue.
+    @Test
+    fun `onHostPause leaves the attach signal untouched`() {
+        module.onHostResume()
+        assertEquals(true, readPendingBridgeAttached())
+
+        module.onHostPause()
+
+        assertEquals(
+            "onHostPause must not change the persist-vs-live signal",
+            true, readPendingBridgeAttached()
         )
     }
 

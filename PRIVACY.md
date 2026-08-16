@@ -49,6 +49,36 @@ Different defaults for different data — control on every axis, no privacy thea
 
 `polyfence-react-native` **never collects, transmits, or stores** location data on its own. All geofencing math runs in `polyfence-core` (Kotlin on Android, Swift on iOS); this package is a marshalling layer between JavaScript and the native engine.
 
+### The one exception: OS wake fences (opt-in, off by default)
+
+Phones close background apps to reclaim memory. If you want a zone crossing to still be caught while your app is
+closed, you can set `osGeofenceWakeEnabled` in the SDK configuration. It ships **off**, and only your own app code
+turns it on.
+
+With it on, the SDK registers **zone perimeters** — a centre point and a radius for the zones nearest the device —
+with the phone's own geofence service: Google Play Services on Android, CoreLocation on iOS. That list describes
+**your zones**, not your user: no position, no device identifier, and nothing about the person carrying the phone
+travels with it. When the operating system sees a boundary crossed it does one thing — it wakes your app.
+Polyfence's engine remains the only thing that decides what actually happened, evaluating every zone with full
+polygon geometry in-process.
+
+What that costs you, stated plainly: turning it on discloses part of your zone geography to Apple or Google. They
+already know where the device is — that is the platform your app runs on, not something Polyfence introduces — but
+they do not know where your zones are until your app registers them. That is why it stays off until you choose
+otherwise.
+
+- **How much** — only the zones nearest the device: at most 20 on iOS (Apple's cap) and 50 on Android by default,
+  however many you have. Lower it with `osGeofenceMaxRegions`. The set is re-chosen as the device travels, so over
+  a long journey more of your zones can be disclosed than the cap alone suggests.
+- **How precisely** — these platforms understand circles only, so a polygon zone is registered as a circle drawn
+  around it. What they hold is a rougher outline than the zone you drew, never a sharper one.
+- **Who receives it** — the operating system on your user's own phone. Nothing on this path reaches Polyfence
+  servers, so Apple and Google are not processing anything on our behalf. This is a disclosure **your app** makes,
+  and it belongs in your privacy policy rather than ours.
+- **What your users are asked** — waking a closed app needs a background location grant ("Allow all the time" on
+  Android, "Always" on iOS). Leave the setting off and the SDK asks only for location while your app is in use.
+
+
 ## polyfence-react-native specific
 
 Anonymous platform telemetry is **enabled by default**. Disable with one line:

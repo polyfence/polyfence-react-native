@@ -1,4 +1,4 @@
-import { DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter, NativeModules } from 'react-native';
 import type {
   ActivityAtEvent,
   GeofenceEvent,
@@ -73,6 +73,32 @@ const NATIVE_CODE_TO_TYPE: Record<string, PolyfenceErrorType> = {
   // filter warnings from real errors via
   // `error.context.severity === 'warning'`.
   polygon_self_intersecting: 'unknown',
+  // Fired by the durable pending-events queue when oldest-first eviction
+  // drops one or more events at cap. Carries `context.severity === 'warning'`
+  // and `context.droppedCount` (Number). Discriminate against real failures
+  // by branching on `type === 'pendingEventsEvicted'` — silent data loss
+  // would otherwise reach the consumer as an unknown-type error.
+  pending_events_evicted: 'pendingEventsEvicted',
+  // OS wake fences are enabled but the grant they need is missing
+  // (ACCESS_BACKGROUND_LOCATION on Android, "Always" authorization on
+  // iOS). Carries `context.severity === 'warning'`; the in-process
+  // engine keeps polling, so this reports lost wake-after-process-kill
+  // coverage rather than lost tracking.
+  os_geofence_permission_denied: 'osGeofencePermissionDenied',
+  // The OS refused a wake-fence registration for a reason other than a
+  // missing grant. `systemStatus.osGeofenceRegistrationHealth` reports
+  // how many regions are actually monitored.
+  os_geofence_registration_failed: 'osGeofenceRegistrationFailed',
+  // A crossing woke the app through an OS wake fence while
+  // `pendingEventsQueueSize` was 0, so there was nowhere durable to
+  // record it. Wake fences need the durable queue to deliver anything.
+  os_geofence_queue_disabled: 'osGeofenceQueueDisabled',
+  // The iOS CLLocationManager `didFailWithError` passthrough. It carries
+  // no failure classification of its own — the actionable conditions it
+  // can stand for already have dedicated types (`gpsTimeout`,
+  // `gpsServiceDisabled`, `gpsUnreliable`), so it resolves to `unknown`
+  // rather than widening the public union with a synonym.
+  gps_error: 'unknown',
 };
 
 /**
@@ -144,6 +170,42 @@ function addListener<T>(
   };
 }
 
+// Consumers subscribe through `DeviceEventEmitter` rather than
+// `NativeEventEmitter` (react-native#41394 drops events under Bridgeless), so
+// the native module's `addListener` / `removeListeners` codegen hooks are
+// never invoked and cannot serve as the listener-live signal. This counter is
+// the JS-side equivalent: it reports the 0↔1 transitions of the geofence
+// subscription to native, which is what triggers a replay of the durable
+// pending-events queue.
+let geofenceListenerCount = 0;
+
+function reportGeofenceListenerCount(): void {
+  const active = geofenceListenerCount > 0;
+  const nativeModule = NativeModules.Polyfence;
+  if (
+    !nativeModule ||
+    typeof nativeModule.setEventListenerActive !== 'function'
+  ) {
+    return;
+  }
+  // Fire-and-forget: subscribing must never be able to throw, and native
+  // treats a missed signal as "no listener" — events stay queued rather than
+  // being replayed into nothing.
+  try {
+    const result = nativeModule.setEventListenerActive(active);
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {});
+    }
+  } catch {
+    // Native module unavailable — nothing to report to.
+  }
+}
+
+/** Test seam so a suite can start from a known subscriber count. */
+export function __resetGeofenceListenerCountForTests(): void {
+  geofenceListenerCount = 0;
+}
+
 /** Collapse native variants (ENTER, recovery_enter, etc.) to a single upper key. */
 function canonicalGeofenceTypeKey(raw: string): string {
   return raw.trim().replace(/\s+/g, '_').toUpperCase();
@@ -167,7 +229,7 @@ function parseGeofenceEventType(raw: string): GeofenceEventType | null {
   return mapping[key] ?? null;
 }
 
-function normalizeGeofenceEvent(
+export function normalizeGeofenceEvent(
   raw: Record<string, unknown>,
 ): GeofenceEvent | null {
   const rawType = (raw.eventType as string | undefined) ?? '';
@@ -216,6 +278,13 @@ function normalizeGeofenceEvent(
     // dwellDurationMs is populated only for DWELL events (polyfence-core
     // sends the key only in that case; otherwise absent → undefined here).
     dwellDurationMs: raw.dwellDurationMs as number | undefined,
+    // Additive drain-only fields — live events never carry them so the
+    // reader sees `undefined`; drained events arrive with `deliveredLate`
+    // stamped `true` and the two duration/capture fields derived by the
+    // Polyfence drain path.
+    deliveredLate: raw.deliveredLate as boolean | undefined,
+    capturedTs: raw.capturedTs as number | undefined,
+    queuedDurationMs: raw.queuedDurationMs as number | undefined,
   };
 }
 
@@ -239,7 +308,9 @@ export function normalizePolyfenceError(
       ? raw.type
       : undefined;
 
-  // All 18 Flutter-aligned error types
+  // Cross-bridge PolyfenceErrorType roster — every value must be present in
+  // both the union in `types.ts` and this Set, or normalisation silently
+  // falls through to `unknown` and consumers cannot discriminate the code.
   const ALLOWED_ERROR_TYPES: ReadonlySet<string> = new Set<PolyfenceErrorType>([
     'gpsTimeout',
     'gpsPermissionDenied',
@@ -258,6 +329,10 @@ export function normalizePolyfenceError(
     'analyticsUploadFailed',
     'permissionRevoked',
     'memoryLow',
+    'pendingEventsEvicted',
+    'osGeofencePermissionDenied',
+    'osGeofenceRegistrationFailed',
+    'osGeofenceQueueDisabled',
     'unknown',
   ]);
 
@@ -300,12 +375,32 @@ export function onLocationUpdate(
 export function onGeofenceEvent(
   callback: (event: GeofenceEvent) => void,
 ): Subscription {
-  return addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
+  const sub = addListener('onGeofenceEvent', (raw: Record<string, unknown>) => {
     const event = normalizeGeofenceEvent(raw);
     if (event !== null) {
       callback(event);
     }
   });
+  geofenceListenerCount += 1;
+  if (geofenceListenerCount === 1) {
+    reportGeofenceListenerCount();
+  }
+  let removed = false;
+  return {
+    remove: () => {
+      // Guard against a double-remove decrementing past zero, which would
+      // leave native believing a listener is live after the last one is gone.
+      if (removed) {
+        return;
+      }
+      removed = true;
+      sub.remove();
+      geofenceListenerCount -= 1;
+      if (geofenceListenerCount === 0) {
+        reportGeofenceListenerCount();
+      }
+    },
+  };
 }
 
 /**
@@ -372,4 +467,8 @@ export function removeAllListeners(): void {
   emitter.removeAllListeners('onGeofenceEvent');
   emitter.removeAllListeners('onError');
   emitter.removeAllListeners('onPerformance');
+  if (geofenceListenerCount > 0) {
+    geofenceListenerCount = 0;
+    reportGeofenceListenerCount();
+  }
 }

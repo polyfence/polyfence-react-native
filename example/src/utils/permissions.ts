@@ -16,8 +16,30 @@ export interface PermissionState {
   notification: boolean;
 }
 
-/** Request all permissions needed for geofence tracking. */
-export async function requestTrackingPermissions(): Promise<PermissionState> {
+/**
+ * Request the permissions geofence tracking needs.
+ *
+ * Foreground location is the whole requirement: the tracker runs as a
+ * foreground service typed `location` on Android and accepts "When In Use" on
+ * iOS, so neither platform needs a background grant to detect crossings.
+ *
+ * The background grant buys exactly one thing — OS wake fences
+ * (`osGeofenceWakeEnabled`), which capture a crossing after the app's process
+ * is killed. It is requested only when `osGeofenceWakeEnabled` is `true`, and
+ * never otherwise: on Android, requesting `ACCESS_BACKGROUND_LOCATION` once it
+ * has been denied shows no prompt and sends the user to the system settings
+ * screen, so a request "just in case" is a visible detour with nothing behind
+ * it — and declaring the permission at all puts the app into Google Play's
+ * manual background-location review.
+ *
+ * A denied background grant is not fatal. Tracking runs on the foreground
+ * grant, wake fences degrade to polling, and the engine reports the
+ * degradation as an `osGeofencePermissionDenied` error — so this returns the
+ * state rather than blocking.
+ */
+export async function requestTrackingPermissions({
+  osGeofenceWakeEnabled = false,
+}: { osGeofenceWakeEnabled?: boolean } = {}): Promise<PermissionState> {
   const state: PermissionState = {
     location: false,
     backgroundLocation: false,
@@ -36,16 +58,19 @@ export async function requestTrackingPermissions(): Promise<PermissionState> {
 
     if (!state.location) return state;
 
-    // Background location (requires fine location first)
-    const bgResult = await request(
-      PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION,
-    );
-    state.backgroundLocation = bgResult === RESULTS.GRANTED;
+    if (osGeofenceWakeEnabled) {
+      // Background location (requires fine location first)
+      const bgResult = await request(
+        PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION,
+      );
+      state.backgroundLocation = bgResult === RESULTS.GRANTED;
 
-    if (!state.backgroundLocation) {
-      // Some OEMs require settings
-      await openSettings();
-      return state;
+      if (!state.backgroundLocation) {
+        // Some OEMs only expose the "Allow all the time" toggle in settings.
+        // Tracking is already usable at this point, so this is an offer to
+        // restore wake coverage rather than a gate on continuing.
+        await openSettings();
+      }
     }
 
     // Activity recognition (optional)
@@ -54,11 +79,13 @@ export async function requestTrackingPermissions(): Promise<PermissionState> {
     );
     state.activityRecognition = actResult === RESULTS.GRANTED;
   } else if (Platform.OS === 'ios') {
-    // iOS: request when-in-use first, then always
+    // "When In Use" is enough for tracking; "Always" is what wake fences need,
+    // because region callbacks after process death cannot be delivered under
+    // "When In Use".
     const whenInUse = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
     state.location = whenInUse === RESULTS.GRANTED;
 
-    if (state.location) {
+    if (state.location && osGeofenceWakeEnabled) {
       const always = await request(PERMISSIONS.IOS.LOCATION_ALWAYS);
       state.backgroundLocation = always === RESULTS.GRANTED;
     }
@@ -75,7 +102,13 @@ export async function requestTrackingPermissions(): Promise<PermissionState> {
   return state;
 }
 
-/** Check current permission state without requesting. */
+/**
+ * Check current permission state without requesting.
+ *
+ * `backgroundLocation` is reported for diagnostics whether or not wake fences
+ * are enabled — `check` never prompts, so reading it costs the user nothing.
+ * It is not part of what tracking requires.
+ */
 export async function checkPermissions(): Promise<PermissionState> {
   const state: PermissionState = {
     location: false,

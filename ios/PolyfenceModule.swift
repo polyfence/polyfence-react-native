@@ -33,6 +33,16 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
     private var locationTracker: LocationTracker?
     private var zonePersistence: ZonePersistence?
 
+    override init() {
+        super.init()
+        // Declare that this bridge owns the listener-live signal, before any
+        // JS call can reach initialize() and register the delegate. Core would
+        // otherwise treat delegate registration as a direct-Swift consumer
+        // subscribing and replay the durable queue there — into a JS runtime
+        // that has not called onGeofenceEvent yet.
+        LocationTracker.setEventListenerActive(false)
+    }
+
     override func supportedEvents() -> [String] {
         return ["onLocation", "onGeofenceEvent", "onError", "onPerformance"]
     }
@@ -103,6 +113,13 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
                 zonePersistence = newPersistence
                 locationTracker = newTracker
             }
+
+            // A tracker carried over from a previous session may have
+            // bridgeAttached latched to false (previous JS runtime tore down
+            // and set it explicitly). Re-flip to true so events reach the live
+            // delegate rather than persisting to the durable queue on a
+            // healthy re-attach. Fresh trackers default to true — no-op there.
+            locationTracker?.setBridgeAttached(true)
 
             if let configDict = config?["config"] as? [String: Any],
                let disableAlerts = configDict["disableAlertNotifications"] as? Bool {
@@ -477,6 +494,13 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         // Explicit dispose() from JS *does* tear the tracker down — user
         // is opting out. Clears the static so a later initialize() builds
         // a fresh tracker.
+        //
+        // Flip bridgeAttached to false BEFORE unwiring the delegate so any
+        // event fired inside the stopTracking transition lands in the durable
+        // queue rather than reaching a torn-down JS runtime that would drop
+        // it silently.
+        locationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
         locationTracker?.stopTracking()
         setTrackingEnabled(false)
         locationTracker?.coreDelegate = nil
@@ -485,6 +509,50 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         Self.sharedLocationTracker = nil
         Self.sharedZonePersistence = nil
         resolve(nil)
+    }
+
+    /// Drain every event polyfence-core persisted while the JS side was
+    /// unreachable. Returns oldest-first raw event maps; the JS layer stamps
+    /// `deliveredLate=true` and derives `capturedTs` / `queuedDurationMs`
+    /// before handing typed events back to the consumer.
+    @objc(drainPendingEvents:rejecter:)
+    func drainPendingEvents(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let events = locationTracker?.drainPendingEvents() ?? []
+        resolve(events)
+    }
+
+    /// Report whether a consumer's geofence-event listener is live. The JS
+    /// side subscribes through `RCTDeviceEventEmitter`, so the codegen
+    /// `addListener` hook above is never invoked and cannot carry this signal.
+    @objc(setEventListenerActive:resolver:rejecter:)
+    func setEventListenerActive(active: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        LocationTracker.setEventListenerActive(active)
+        resolve(nil)
+    }
+
+    /// Cumulative count of events that oldest-first eviction has dropped
+    /// since a store was first constructed on this device. Persists across
+    /// process restarts; does not reset.
+    @objc(pendingEventsDroppedCount:rejecter:)
+    func pendingEventsDroppedCount(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let count = locationTracker?.pendingEventsDroppedCount() ?? 0
+        // NSNumber preserves the Int64 domain across the RN bridge; a bare
+        // Int64 downgrades to Int on 32-bit platforms.
+        resolve(NSNumber(value: count))
+    }
+
+    /// RCTBridgeModule lifecycle hook called when the RN bridge is being torn
+    /// down (bridge reload, JS runtime shutdown). The shared LocationTracker
+    /// survives this so any event fired after this point would reach a
+    /// torn-down JS runtime and drop silently — signal core to persist
+    /// instead until a new initialize() call re-attaches. RCTEventEmitter
+    /// declares invalidate with `NS_REQUIRES_SUPER` — always chain up.
+    /// `@objc override` matches the file's convention for `RCTEventEmitter`
+    /// method overrides so the ObjC dispatcher resolves the same selector.
+    @objc override func invalidate() {
+        Self.sharedLocationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
+        super.invalidate()
     }
 
     // MARK: - Private Helper Methods

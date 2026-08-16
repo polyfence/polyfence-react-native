@@ -17,7 +17,10 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
   s.dependency "React-Core"
-  s.dependency "PolyfenceCore", "~> 1.0.14"
+  # Coordinated major with the polyfence-core 3.0.0 release train.
+  # Example app pins the same core revision by git ref via example/ios/Podfile
+  # so local builds and CI resolve to the same code path before publication.
+  s.dependency "PolyfenceCore", "~> 3.0.0"
 
   s.frameworks = "CoreLocation", "CoreMotion"
 

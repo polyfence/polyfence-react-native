@@ -40,6 +40,9 @@ jest.mock('react-native', () => {
           .fn()
           .mockResolvedValue(undefined),
         getErrorHistory: jest.fn().mockResolvedValue([]),
+        drainPendingEvents: jest.fn().mockResolvedValue([]),
+        pendingEventsDroppedCount: jest.fn().mockResolvedValue(0),
+        setEventListenerActive: jest.fn().mockResolvedValue(null),
         dispose: jest.fn().mockResolvedValue(null),
       },
     },

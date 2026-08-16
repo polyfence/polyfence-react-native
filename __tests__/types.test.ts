@@ -566,30 +566,28 @@ describe('Types', () => {
         lastLocationUpdate: 0,
         platformVersion: '15',
         pluginVersion: '2.0.1',
+        // Null is the "no registration attempted" state, which is what a
+        // consumer with osGeofenceWakeEnabled off always sees.
+        osGeofenceRegistrationHealth: null,
       },
       performance: {
         restartCount: 0,
-        cpuUsagePercent: 0,
         totalLocationUpdates: 0,
         averageDetectionLatency: 0,
         memoryUsageMB: 10,
         totalZoneDetections: 100,
+        timedZoneDetections: 100,
         uptime: 1000,
       },
       battery: {
         totalActiveTime: 0,
-        gpsActiveTimePercent: 0,
         batteryLevel: 100,
-        estimatedHourlyDrain: 0,
         isCharging: true,
-        wakeUpCount: 0,
       },
       zones: {
-        zoneEventCounts: {},
         polygonZones: 0,
         circleZones: 0,
         activeZones: 5,
-        lastZoneUpdate: 0,
       },
       recentErrors: [],
     });

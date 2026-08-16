@@ -80,7 +80,7 @@ npm install polyfence-react-native
 yarn add polyfence-react-native
 ```
 
-**Current version:** <!-- pf:version -->2.1.1<!-- /pf:version -->
+**Current version:** <!-- pf:version -->3.0.0<!-- /pf:version -->
 
 **Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 
@@ -94,15 +94,36 @@ cd ios && pod install
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
 
+The minimum viable set. Tracking runs as a foreground service typed `location`, which holds location access for as long as it runs, so foreground location is all it needs:
+
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 ```
+
+You must also declare the tracker service. This package declares no `<service>` of its own, and `foregroundServiceType="location"` is what grants a foreground service its location access — required from API 29, hard-enforced from API 34, where `startForeground()` throws without it:
+
+```xml
+<service
+    android:name="io.polyfence.core.LocationTracker"
+    android:foregroundServiceType="location"
+    android:exported="false" />
+```
+
+**Required only if you set `osGeofenceWakeEnabled: true`:**
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+```
+
+`ACCESS_BACKGROUND_LOCATION` governs location access *outside* a foreground service, which is exactly what OS wake fences are: they fire when nothing of yours is running. Declaring it puts your app into Google Play's manual background-location review, which is why base tracking does not need it. `RECEIVE_BOOT_COMPLETED` lets Polyfence re-register wake fences after a device restart — Play Services drops all registered geofences on reboot.
+
+If the grant is missing or revoked, **tracking still runs**: wake fences degrade to polling-only and emit an `osGeofencePermissionDenied` error on `onError` with `context.severity === 'warning'`, and `debugInfo().systemStatus.osGeofenceRegistrationHealth` reports `lastError === 'background_location_denied'`.
 
 Ensure your `android/app/build.gradle` has the correct minimum SDK version:
 
@@ -186,22 +207,35 @@ await Polyfence.instance.initialize();
 
 ### Step 2: Request Permissions
 
-**iOS:** `requestPermissions({ always: true })` triggers the system permission dialog.
+Foreground location is the whole requirement — "While in use" on Android, "When In Use" on iOS. The stronger background grant is needed only for `osGeofenceWakeEnabled`; request it only when you set that flag, and never otherwise. On Android, requesting `ACCESS_BACKGROUND_LOCATION` once it has been denied shows no prompt and sends the user to the system settings screen.
+
+**iOS:** `requestPermissions()` triggers the system permission dialog. Pass `{ always: true }` only alongside `osGeofenceWakeEnabled: true`.
 
 **Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a library like [`react-native-permissions`](https://github.com/zoontek/react-native-permissions) first, then call `requestPermissions()` to verify the result.
 
 ```typescript
 import { Platform } from 'react-native';
+
+// One flag drives both the permission request and the configuration —
+// requesting the background grant without enabling the feature buys a Play
+// review for nothing, and enabling the feature without the grant leaves it
+// permanently degraded.
+const osGeofenceWakeEnabled = false;
+
 // Android only — trigger the OS permission dialog.
 // import { request, PERMISSIONS } from 'react-native-permissions';
 // if (Platform.OS === 'android') {
 //   await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
-//   await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
+//   if (osGeofenceWakeEnabled) {
+//     await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
+//   }
 // }
 
 // Both platforms — verify the result. On iOS this ALSO shows the
 // system dialog on first call.
-const hasPermission = await Polyfence.instance.requestPermissions({ always: true });
+const hasPermission = await Polyfence.instance.requestPermissions({
+  always: osGeofenceWakeEnabled,
+});
 if (!hasPermission) {
   // Handle permission denied — e.g. guide the user to Settings.
   return;
@@ -374,6 +408,50 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `debugInfo()` | `Promise<PolyfenceDebugInfo>` | Get operational diagnostics in 5 groups: `systemStatus`, `performance`, `battery`, `zones`, `recentErrors`. For current configuration use `getConfiguration()`; for current zone membership use `getZoneStates()` |
 | `getSessionTelemetry()` | `Promise<SessionTelemetry>` | Get session metrics (GPS updates, zone events, battery impact) |
 | `errorHistory(options?)` | `Promise<PolyfenceError[]>` | Get recent errors |
+
+### Pending events queue
+
+Zone crossings that fire while the JS runtime is torn down but the native tracker is still alive (Doze kill, RN bundle reload, background foreground-service) can be persisted on disk and delivered on the next attach.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `drainPendingEvents()` | `Promise<GeofenceEvent[]>` | Read + clear the durable queue atomically; oldest-first. Each event carries `deliveredLate: true`, `capturedTs` (original native detection time), and `queuedDurationMs`. Returns `[]` when the queue is empty or the feature is off. |
+| `pendingEventsDroppedCount()` | `Promise<number>` | Cumulative count of events dropped by oldest-first eviction since a store was first constructed on this device. Persists across process restarts. |
+
+Enable persistence via `pendingEventsQueueSize` on `PolyfenceConfiguration`:
+
+```typescript
+await Polyfence.instance.initialize({
+  pendingEventsQueueSize: 500, // 0 (default) disables persistence — no behaviour change
+});
+
+// on next foreground / cold start
+const missed = await Polyfence.instance.drainPendingEvents();
+missed.forEach((event) => {
+  // Same shape as onGeofenceEvent — plus event.deliveredLate === true.
+});
+```
+
+#### Replayed events arrive out of order — sort by event time, not arrival
+
+A replayed crossing carries the timestamp of **when it happened**, not when you received it. It is delivered
+through the same subscription as a live event, so an event list that simply prepends new arrivals will put a
+crossing from half an hour ago above one that happened since — reading as though the driver were entering that
+zone *now*.
+
+That is the exact confusion this feature exists to prevent: a late-delivered congestion-charge entry presenting as
+current. Order by the event's own time:
+
+```typescript
+events.sort((a, b) => b.timestamp - a.timestamp);
+```
+
+Use `deliveredLate` to mark a replayed crossing in your UI rather than folding it into the event type — anything
+that compares the type by equality will silently misclassify a decorated value. `capturedTs` and
+`queuedDurationMs` tell you when it happened and how long it waited, so you can decide whether an action that made
+sense at the time still makes sense now.
+
+Silent-loss visibility surfaces through `onError`: a `PolyfenceError` with `type: 'pendingEventsEvicted'` fires when the queue evicts oldest-first at cap. The native eviction payload lands nested under the generic `PolyfenceError.context` envelope, so read the eviction fields via `error.context?.context?.droppedCount` and `error.context?.context?.severity`.
 
 ### Events
 
@@ -728,13 +806,42 @@ console.log('Active zones:', debug.zones.activeZones);
 
 // performance / battery
 console.log('Detections:', debug.performance.totalZoneDetections);
-console.log('Battery:', debug.battery.batteryLevel, debug.battery.isCharging ? '⚡' : '');
+console.log('Battery:', debug.battery.batteryLevel ?? 'not measured', debug.battery.isCharging ? '⚡' : '');
 
 // recent errors (already normalized to PolyfenceError shape)
 debug.recentErrors.forEach((err) => console.log(err.type, err.message));
 ```
 
 > Note: `debugInfo()` is for operational diagnostics. For the *current configuration* (accuracy profile, update strategy, intervals) call `getConfiguration()`. For the *current zone membership* (which zones the user is inside right now) call `getZoneStates()` or subscribe to `onZoneEnter` / `onZoneExit`.
+
+Where a platform cannot measure one of the following, the field is `null`
+rather than a filler value, so absence is distinguishable from a genuine zero:
+
+| Field | `null` when |
+|---|---|
+| `systemStatus.isBatteryOptimizationDisabled` | always on iOS — no such setting exists |
+| `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running |
+| `performance.restartCount` | always on iOS — no foreground service to restart |
+| `performance.averageDetectionLatency` | until at least one crossing has been **timed** |
+| `battery.batteryLevel` | when the platform has not reported a level |
+
+`performance.timedZoneDetections` says how many crossings contributed a latency
+sample. It is lower than `totalZoneDetections` when the engine synthesised a
+crossing outside a timed evaluation — a degraded-GPS exit, for instance. Those
+crossings are real and are counted; they simply carry no timing.
+
+`memoryUsageMB` measures whole-process resident size on iOS and Java heap only
+on Android, so the two are not comparable across platforms.
+
+Two older fields still use sentinels rather than `null`: `lastKnownAccuracy`
+is `-1` and `lastLocationUpdate` is `0` when no fix has arrived yet.
+
+The iOS `null`s in the table come from polyfence-core and hold from **core
+3.0.0** onward, the version this package pins. What the bridge enforces on
+every response, whatever core it is paired with, is narrower: a battery charge
+outside `0–100`, a latency average with no samples behind it, and any
+non-finite number are reported as `null`, because none of those can be a
+reading at any version.
 
 ### Reporting Issues
 

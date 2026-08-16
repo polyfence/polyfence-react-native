@@ -56,6 +56,12 @@ checks:
     pattern: "github\\.com/polyfence/polyfence-core"
     fix: Link README native dependency explanation to the public polyfence-core repo URL.
 
+  - id: core-error-types-mapped
+    description: every error type polyfence-core can emit resolves to a PolyfenceErrorType, and every mapped type is in ALLOWED_ERROR_TYPES (an unmapped code degrades silently to unknown)
+    type: subprocess
+    runs: bash scripts/consistency-core-error-types.sh
+    fix: Add the reported code to NATIVE_CODE_TO_TYPE in src/events.ts and its type to the union in src/types.ts plus ALLOWED_ERROR_TYPES. Mirror the decision in polyfence-flutter's PolyfenceErrorType enum.
+
   - id: no-internal-decision-ids
     description: internal decision-IDs (Dxxx) / job-codes (Jxx) must not appear in public docs or source
     type: subprocess

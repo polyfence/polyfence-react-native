@@ -20,6 +20,7 @@ import {
   onError,
   onPerformance,
   onHealthScore,
+  normalizeGeofenceEvent,
   normalizePolyfenceError,
   expandErrorTypesToNativeCodes,
   removeAllListeners as removeAllEventListeners,
@@ -46,6 +47,10 @@ const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'updateStrategy',
   'gpsAccuracyThreshold',
   'gpsStalenessTimeoutMs',
+  'pendingEventsQueueSize',
+  'pendingEventsAutoDrainEnabled',
+  'osGeofenceWakeEnabled',
+  'osGeofenceMaxRegions',
   'enableDebugLogging',
   'proximitySettings',
   'movementSettings',
@@ -76,27 +81,41 @@ const LEGACY_KEY_HINTS: Record<string, string> = {
     'use activitySettings.{still,walking,running,cycling,driving}IntervalMs',
 };
 
-// A negative gpsStalenessTimeoutMs would flow to native and read as "off":
-// both platforms gate the staleness watchdog on a strictly positive value.
-// For most config a bad value failing quietly is harmless, but this field is
-// a safety timeout — silently disabling it on a typo is the exact failure it
-// exists to prevent — so coerce a negative to 0 (off) and warn, rather than
-// let it turn off staleness detection unnoticed.
+// A negative value on either safety-guarded field would flow to native and
+// read as "off" — polyfence-core gates both the staleness watchdog and the
+// pending-events queue on a strictly positive value. For most config a bad
+// value failing quietly is harmless, but these two fields are the ones a
+// typo silently disables — the exact failure they exist to prevent — so
+// coerce a negative to 0 (off) and warn, rather than let them turn off
+// unnoticed. Cross-bridge parity: Flutter rejects negatives on both, RN
+// coerces + warns; either way the negative never reaches native.
 function coerceConfigValues(
   config: PolyfenceConfiguration,
 ): PolyfenceConfiguration {
+  let coerced: PolyfenceConfiguration = config;
   if (
-    typeof config.gpsStalenessTimeoutMs === 'number' &&
-    config.gpsStalenessTimeoutMs < 0
+    typeof coerced.gpsStalenessTimeoutMs === 'number' &&
+    coerced.gpsStalenessTimeoutMs < 0
   ) {
     console.warn(
-      `Polyfence: gpsStalenessTimeoutMs was ${config.gpsStalenessTimeoutMs} ` +
+      `Polyfence: gpsStalenessTimeoutMs was ${coerced.gpsStalenessTimeoutMs} ` +
         '(negative) — coercing to 0, which turns the staleness watchdog off. ' +
         'Pass a positive number of milliseconds to enable it.',
     );
-    return { ...config, gpsStalenessTimeoutMs: 0 };
+    coerced = { ...coerced, gpsStalenessTimeoutMs: 0 };
   }
-  return config;
+  if (
+    typeof coerced.pendingEventsQueueSize === 'number' &&
+    coerced.pendingEventsQueueSize < 0
+  ) {
+    console.warn(
+      `Polyfence: pendingEventsQueueSize was ${coerced.pendingEventsQueueSize} ` +
+        '(negative) — coercing to 0, which disables the durable queue. ' +
+        'Pass a positive cap (e.g. 500) to enable it.',
+    );
+    coerced = { ...coerced, pendingEventsQueueSize: 0 };
+  }
+  return coerced;
 }
 
 function assertKnownConfigKeys(
@@ -285,7 +304,7 @@ export class Polyfence {
 
   async debugInfo(): Promise<PolyfenceDebugInfo> {
     this.assertNotDisposed();
-    return NativePolyfence.getDebugInfo();
+    return normalizeDebugInfo(await NativePolyfence.getDebugInfo());
   }
 
   async getSessionTelemetry(): Promise<SessionTelemetry> {
@@ -443,6 +462,70 @@ export class Polyfence {
     return NativePolyfence.requestBatteryOptimizationExemption();
   }
 
+  /**
+   * Drain every zone-crossing event that polyfence-core persisted while the
+   * JS runtime was unreachable. Returns oldest-first; each event carries
+   * `deliveredLate: true` plus `capturedTs` (the native detection timestamp,
+   * ms since epoch) and `queuedDurationMs` (time the event sat in the queue).
+   *
+   * Safe to call whether or not `pendingEventsQueueSize > 0` — returns `[]`
+   * when persistence is disabled. Never throws on an empty queue. Rejects
+   * with the standard not-initialized error when called before
+   * {@link Polyfence.initialize}. Post-dispose access raises the disposed
+   * error from {@link assertNotDisposed}.
+   *
+   * Calling this method drains the queue on the native side (transactional
+   * read + clear) — replaying against the same session is not possible.
+   * The engine's persisted `zoneStates` are updated in the same call so the
+   * next reconcile only fires `RECOVERY_ENTER` / `RECOVERY_EXIT` for zones
+   * where a genuine mismatch remains.
+   */
+  async drainPendingEvents(): Promise<GeofenceEvent[]> {
+    this.assertNotDisposed();
+    this.assertInitialized();
+    const raw: unknown = await NativePolyfence.drainPendingEvents();
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const now = Date.now();
+    const events: GeofenceEvent[] = [];
+    for (const item of raw) {
+      if (item === null || typeof item !== 'object') {
+        continue;
+      }
+      const map = item as Record<string, unknown>;
+      const capturedTs =
+        typeof map.timestamp === 'number' ? map.timestamp : now;
+      const stamped: Record<string, unknown> = {
+        ...map,
+        deliveredLate: true,
+        capturedTs,
+        queuedDurationMs: Math.max(0, now - capturedTs),
+      };
+      const normalized = normalizeGeofenceEvent(stamped);
+      if (normalized !== null) {
+        events.push(normalized);
+      }
+    }
+    return events;
+  }
+
+  /**
+   * Cumulative count of events that oldest-first eviction has dropped since
+   * a store was first constructed on this device. Persists across process
+   * restarts; does not reset. Returns `0` when no store has ever been
+   * created (i.e. `pendingEventsQueueSize` has always been `0`).
+   */
+  async pendingEventsDroppedCount(): Promise<number> {
+    this.assertNotDisposed();
+    this.assertInitialized();
+    const raw: unknown = await NativePolyfence.pendingEventsDroppedCount();
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      return 0;
+    }
+    return raw;
+  }
+
   async errorHistory(options?: {
     limit?: number;
     timeRangeMs?: number;
@@ -525,4 +608,88 @@ export class Polyfence {
   removeAllListeners(): void {
     removeAllEventListeners();
   }
+}
+
+/**
+ * Rejects values the native side can report but that are not measurements.
+ *
+ * A native build older than this contract signals "not populated" with a
+ * sentinel rather than with null: a negative battery level, and a zero
+ * average latency for a session that has timed nothing. Both would read as
+ * ordinary values — and zero is the *best* possible latency, so passing it on
+ * makes an unmeasured device look like a perfect one. Version pins are meant
+ * to prevent that pairing, but a stale pin is the most repeated failure in
+ * this project's history, so the bridge does not assume a matched core.
+ */
+function normalizeDebugInfo(info: PolyfenceDebugInfo): PolyfenceDebugInfo {
+  // The argument is typed, but it arrives across a platform channel from a
+  // native module whose version is not guaranteed to match this one — so
+  // every field is read as unknown and coerced, and nothing is asserted.
+  //
+  // What is coerced here is limited to values that cannot be measurements
+  // whatever the core version: a charge outside 0-100, a mean with no samples
+  // behind it, anything non-finite. Which fields a *platform* can measure at
+  // all is core's knowledge, and it stays there — mirroring it into both
+  // bridges would put the same platform facts in three places, so an iOS that
+  // one day gains a wake-lock equivalent would need all three changed and
+  // would be overridden by two of them until it was. The null contract for
+  // those fields therefore holds from core 3.0.0 onward, which is the version
+  // this bridge pins.
+  const raw = info as unknown as Partial<
+    Record<string, Record<string, unknown>>
+  >;
+  const performance = raw.performance ?? {};
+  const battery = raw.battery ?? {};
+  const zones = raw.zones ?? {};
+
+  const timed = count(performance.timedZoneDetections);
+
+  // Rebuilt field by field rather than spread: a core older than this contract
+  // still sends the entries removed here, and a spread would carry them onto
+  // the returned object — invisible to TypeScript and perfectly visible to
+  // anyone who logs or serialises the result.
+  return {
+    // Passed through: every entry here is either a real reading or a null
+    // core decides on, per the comment above.
+    systemStatus: info.systemStatus,
+    performance: {
+      uptime: count(performance.uptime),
+      totalLocationUpdates: count(performance.totalLocationUpdates),
+      totalZoneDetections: count(performance.totalZoneDetections),
+      timedZoneDetections: timed,
+      averageDetectionLatency:
+        timed > 0 ? measurement(performance.averageDetectionLatency) : null,
+      memoryUsageMB: count(performance.memoryUsageMB),
+      restartCount: measurement(performance.restartCount),
+    },
+    battery: {
+      totalActiveTime: count(battery.totalActiveTime),
+      batteryLevel: percentage(battery.batteryLevel),
+      isCharging: battery.isCharging === true,
+    },
+    zones: {
+      activeZones: count(zones.activeZones),
+      circleZones: count(zones.circleZones),
+      polygonZones: count(zones.polygonZones),
+    },
+    recentErrors: Array.isArray(info.recentErrors) ? info.recentErrors : [],
+  };
+}
+
+/** A finite, non-negative number, or null. Anything else is not a measurement. */
+function measurement(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0
+    ? raw
+    : null;
+}
+
+/** A count that is absent or unusable reads as zero, never as undefined. */
+function count(raw: unknown): number {
+  return measurement(raw) ?? 0;
+}
+
+/** A charge outside 0-100 is not a measurement, whatever sentinel produced it. */
+function percentage(raw: unknown): number | null {
+  const value = measurement(raw);
+  return value !== null && value <= 100 ? value : null;
 }

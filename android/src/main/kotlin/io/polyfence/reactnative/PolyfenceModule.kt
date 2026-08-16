@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -36,7 +37,7 @@ import java.util.Locale
  * Implements PolyfenceCoreDelegate to receive events from LocationTracker.
  * Single responsibility: React ↔ LocationTracker communication.
  */
-class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext), PolyfenceCoreDelegate {
+class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext), PolyfenceCoreDelegate, LifecycleEventListener {
 
     companion object {
         private const val PREFS_NAME = "polyfence_state"
@@ -44,6 +45,22 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     }
 
     private val context: Context = reactContext
+
+    init {
+        // Declare that this bridge owns the listener-live signal, before any
+        // JS call can reach initialize() and register the delegate. Core would
+        // otherwise treat delegate registration as a direct-Kotlin consumer
+        // subscribing and replay the durable queue there — into a JS runtime
+        // that has not called onGeofenceEvent yet.
+        LocationTracker.setEventListenerActive(false)
+
+        // Host resume is what re-arms live delivery after a crossing has been
+        // reported undelivered. Without it the detached hint set by core on
+        // that report stays false for the rest of the process, because
+        // initialize() is the only other thing that clears it and a consumer
+        // returning to the foreground has no reason to call it again.
+        reactContext.addLifecycleEventListener(this)
+    }
 
     override fun getName(): String = "Polyfence"
 
@@ -74,6 +91,17 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             PolyfenceErrorManager.initialize { errorMap ->
                 sendErrorEvent(errorMap)
             }
+
+            // A running Service instance carried over from a previous session
+            // may have its bridgeAttached flag latched to false (either because
+            // this bridge instance was reloaded and set it explicitly, or the
+            // auto-flip on a previous delegate throw fired). Re-flip to true so
+            // events from this session route through the live delegate rather
+            // than the durable queue. When no Service instance exists the
+            // companion stages the value as pending and applies it in
+            // onCreate — fresh Services default to true on construction, so
+            // the pending value is a no-op there.
+            LocationTracker.setBridgeAttached(true)
 
             // Apply all remaining tracking config fields (accuracyProfile,
             // updateStrategy, gpsAccuracyThreshold, nested settings, etc.).
@@ -326,7 +354,7 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             // with Activity access and onRequestPermissionsResult handling, which is not feasible from NativeModule.
             // For production apps, use a library like react-native-permissions to trigger the system dialog,
             // then call this method to verify the result.
-            val hasPerms = hasAllRequiredPerms(context)
+            val hasPerms = hasCoreTrackingPerms(context)
             promise.resolve(hasPerms)
         } catch (e: Exception) {
             Log.e("PolyfenceModule", "Failed to check permissions: ${e.message}")
@@ -534,6 +562,12 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     @ReactMethod
     fun dispose(promise: Promise) {
         try {
+            // Flip the persist-vs-live signal on core BEFORE nulling the
+            // delegate below. Any event fired between now and delegate teardown
+            // lands in the durable queue instead of hitting a torn-down
+            // React instance and dropping silently.
+            LocationTracker.setBridgeAttached(false)
+            LocationTracker.setEventListenerActive(false)
             val intent = Intent(context, LocationTracker::class.java).apply {
                 action = LocationTracker.ACTION_STOP_TRACKING
             }
@@ -547,8 +581,110 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         }
     }
 
+    /**
+     * Drain every event that polyfence-core persisted while the JS side was
+     * unreachable. Returns oldest-first; each entry carries the same fields as
+     * a live geofence event, with `deliveredLate=true` and the additive
+     * `capturedTs` / `queuedDurationMs` fields stamped by the JS layer.
+     */
+    @ReactMethod
+    fun drainPendingEvents(promise: Promise) {
+        try {
+            val events = LocationTracker.drainPendingEvents(context)
+            val result = Arguments.createArray()
+            for (event in events) {
+                result.pushMap(mapToWritableMap(event))
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e("PolyfenceModule", "Failed to drain pending events: ${e.message}")
+            promise.reject("DRAIN_PENDING_EVENTS_FAILED", e.message)
+        }
+    }
+
+    /**
+     * Cumulative count of events that oldest-first eviction has dropped since
+     * a store was first constructed on this device. Persists across process
+     * restarts; does not reset.
+     */
+    @ReactMethod
+    fun pendingEventsDroppedCount(promise: Promise) {
+        try {
+            val count = LocationTracker.pendingEventsDroppedCount(context)
+            promise.resolve(count.toDouble())
+        } catch (e: Exception) {
+            Log.e("PolyfenceModule", "Failed to read dropped-count: ${e.message}")
+            promise.reject("PENDING_EVENTS_DROPPED_COUNT_FAILED", e.message)
+        }
+    }
+
+    /**
+     * Fires when this module is being torn down (RN reload, JS bundle swap,
+     * instance destruction). The native LocationTracker Service can outlive
+     * this, so any event fired after this point would reach a torn-down React
+     * instance and drop silently — signal core to persist instead.
+     *
+     * This must stay `invalidate()` rather than the older
+     * `onCatalystInstanceDestroy()`. `ModuleHolder` invokes `invalidate()` on
+     * every supported React Native version; `onCatalystInstanceDestroy` is only
+     * reached on 0.73–0.75, where `BaseJavaModule.invalidate()` still chains to
+     * it. From 0.76 that chaining is gone and it is an empty interface default,
+     * so an override of it compiles but never runs.
+     */
+    override fun invalidate() {
+        reactApplicationContext.removeLifecycleEventListener(this)
+        LocationTracker.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
+        super.invalidate()
+    }
+
+    /**
+     * A resumed host implies a live React instance, so live delivery can be
+     * attempted again. Re-arming here is what stops `bridgeAttached` from
+     * latching false for the rest of the process after a detached-sink event —
+     * `initialize()` is otherwise the only thing that clears it, and a consumer
+     * returning from a swipe-away has no reason to call it again.
+     */
+    override fun onHostResume() {
+        LocationTracker.setBridgeAttached(true)
+    }
+
+    /**
+     * Deliberately empty. Backgrounding is the normal operating state for a
+     * geofencing consumer and the React instance still receives events there —
+     * marking the sink detached on pause would divert every background
+     * crossing into the durable queue.
+     */
+    override fun onHostPause() {
+    }
+
+    /**
+     * Deliberately empty. A destroyed Activity does not imply a destroyed
+     * React instance: `ReactInstanceManager` only moves the lifecycle state to
+     * BEFORE_CREATE here, leaving the context — and any module-scoped JS
+     * subscription — alive and able to receive. Marking the sink detached here
+     * would divert live-deliverable crossings into the durable queue, and that
+     * queue is disabled by default, so they would be dropped outright. Real
+     * teardown arrives on `invalidate()`; a sink that cannot receive is
+     * detected by `sendEvent` reporting the failed delivery.
+     */
+    override fun onHostDestroy() {
+    }
+
+    /**
+     * Core reads a normal return as proof of live delivery and skips its
+     * persist branch, so a silent no-op here would drop the crossing while
+     * still firing its OS notification. Throwing is the documented signal that
+     * delivery failed: core catches it, flips its bridge-attached hint and
+     * routes the event to the durable queue instead.
+     */
     override fun onGeofenceEvent(eventData: Map<String, Any>) {
-        sendGeofenceEvent(eventData)
+        if (!sendGeofenceEvent(eventData)) {
+            // Deliberately not naming a cause. A torn-down React instance, a
+            // failed emit and a payload that would not convert all arrive here,
+            // and each is logged with its own detail at the point it happened.
+            throw IllegalStateException("geofence event was not delivered")
+        }
     }
 
     override fun onLocationUpdate(locationData: Map<String, Any>) {
@@ -627,11 +763,15 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         }
     }
 
-    private fun sendGeofenceEvent(eventData: Map<String, Any>) {
-        try {
+    /** @return whether the event actually reached a live React instance. */
+    private fun sendGeofenceEvent(eventData: Map<String, Any>): Boolean {
+        return try {
             sendEvent("onGeofenceEvent", mapToWritableMap(eventData))
         } catch (e: Exception) {
+            // A payload that will not convert is still an undelivered event.
+            // Reporting false persists it rather than dropping it.
             Log.e("PolyfenceModule", "Failed to send geofence event: ${e.message}")
+            false
         }
     }
 
@@ -651,6 +791,21 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         }
     }
 
+    /**
+     * Report whether a consumer's geofence-event listener is live. The JS side
+     * subscribes through `DeviceEventEmitter`, so the codegen `addListener`
+     * hook below is never invoked and cannot carry this signal.
+     */
+    @ReactMethod
+    fun setEventListenerActive(active: Boolean, promise: Promise) {
+        try {
+            LocationTracker.setEventListenerActive(active)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            promise.reject("SET_EVENT_LISTENER_ACTIVE_FAILED", e.message, e)
+        }
+    }
+
     // Required by NativeEventEmitter in RN 0.65+ / Bridgeless mode
     @ReactMethod
     fun addListener(eventName: String) {
@@ -665,17 +820,24 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     /**
      * Helper: send event to React Native listeners.
      * Guards against crashes when React context is not ready or has been torn down.
+     *
+     * @return true only when the payload was handed to a live React instance.
+     * Callers that own durable delivery must branch on this — a torn-down
+     * instance is indistinguishable from a successful emit otherwise.
      */
-    private fun sendEvent(eventName: String, params: WritableMap) {
-        try {
-            val hasInstance = reactApplicationContext.hasActiveReactInstance()
-            if (hasInstance) {
+    private fun sendEvent(eventName: String, params: WritableMap): Boolean {
+        return try {
+            if (!reactApplicationContext.hasActiveReactInstance()) {
+                false
+            } else {
                 reactApplicationContext
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                     .emit(eventName, params)
+                true
             }
         } catch (e: Exception) {
             Log.w("PolyfenceModule", "Failed to emit event $eventName: ${e.message}")
+            false
         }
     }
 
@@ -719,18 +881,33 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     }
 
     /**
-     * Check if all required permissions are granted
+     * Permissions required to run the tracker at all. Mirrors
+     * `LocationTracker.hasCoreTrackingPerms` in polyfence-core — this gate must
+     * never be stricter than the engine's own, or it refuses work the engine
+     * would have done.
+     *
+     * `ACCESS_BACKGROUND_LOCATION` is deliberately NOT part of this. The tracker
+     * is a foreground service, and a foreground service typed `location` has
+     * location access for as long as it runs. The background permission governs
+     * location access *outside* a foreground service — passive geofences, jobs,
+     * receivers — which is what OS wake fences use and nothing else here does.
+     * Requiring it unconditionally would refuse to start for consumers who
+     * never asked for that capability, and force every integrator through
+     * Google Play's background-location review for a feature they are not
+     * using. iOS accepts "when in use" here, so this is also what makes the
+     * platforms agree.
+     *
+     * With `osGeofenceWakeEnabled` on and the background grant missing, the
+     * engine still starts and reports `os_geofence_permission_denied` on the
+     * error channel; wake coverage degrades, tracking does not.
      */
-    private fun hasAllRequiredPerms(context: Context): Boolean {
+    private fun hasCoreTrackingPerms(context: Context): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val bgOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        } else true
         val fgsOk = if (Build.VERSION.SDK_INT >= 34) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else true
-        return (fine || coarse) && bgOk && fgsOk
+        return (fine || coarse) && fgsOk
     }
 
     /**

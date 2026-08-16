@@ -45,6 +45,20 @@ android {
         main {
             java.srcDirs += 'src/main/kotlin'
         }
+        test {
+            java.srcDirs += 'src/test/kotlin'
+        }
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs Android resources on the unit-test classpath to
+            // hand out a real Application context, which is what makes
+            // ContextCompat.checkSelfPermission observable in the permission
+            // matrix tests.
+            includeAndroidResources = true
+            returnDefaultValues = true
+        }
     }
 
     lintOptions {
@@ -59,7 +73,27 @@ repositories {
 
 dependencies {
     compileOnly "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '0.76.7')}"
-    implementation "io.polyfence:polyfence-core:1.0.14"
+    // Coordinated major with the polyfence-core 3.0.0 release train — introduces
+    // the durable pending-events queue primitive and the companion helpers
+    // (LocationTracker.setBridgeAttached, drainPendingEvents,
+    // pendingEventsDroppedCount) that this bridge exposes to JS.
+    implementation "io.polyfence:polyfence-core:3.0.0"
     implementation "com.google.android.gms:play-services-location:21.3.0"
     implementation "androidx.core:core-ktx:1.15.0"
+
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:5.4.0"
+    testImplementation "org.mockito:mockito-inline:5.2.0"
+    // Newer mockito-core is required for JDK 17 mock support of static/companion members.
+    testImplementation "org.mockito:mockito-core:5.14.2"
+    // react-android is compileOnly on the main source set (RN is provided at
+    // runtime by the host app); the reflection-based parity tests need
+    // com.facebook.react.bridge.ReactMethod on the test classpath too.
+    testImplementation "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '0.76.7')}"
+    // Robolectric supplies a real Application context with a controllable SDK
+    // level and grant set, which is the only way to assert the permission gate
+    // at a specific API level — a plain JVM stub reports SDK_INT as 0 and every
+    // version branch collapses.
+    testImplementation "org.robolectric:robolectric:4.11.1"
+    testImplementation "androidx.test:core:1.5.0"
 }

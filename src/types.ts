@@ -52,6 +52,27 @@ export interface GeofenceEvent {
    * dwell duration.
    */
   dwellDurationMs?: number;
+  /**
+   * `true` when this event was drained from the durable pending-events queue
+   * (persisted by polyfence-core while the JS runtime was unreachable). Live
+   * events never carry this field; absent is semantically equivalent to
+   * `false`. Only surfaces when `pendingEventsQueueSize > 0` is configured.
+   */
+  deliveredLate?: boolean;
+  /**
+   * Milliseconds since epoch when polyfence-core originally detected the
+   * crossing. Distinct from `timestamp`, which stays anchored to the event's
+   * native timestamp — for a drained event, both fields carry the same
+   * captured moment; consumers wanting the delivery time can add
+   * `queuedDurationMs`. Only present on drained events.
+   */
+  capturedTs?: number;
+  /**
+   * Milliseconds the event sat in the durable queue between core capture and
+   * consumer delivery. Only present on drained events
+   * (`deliveredLate === true`); live events leave the field `undefined`.
+   */
+  queuedDurationMs?: number;
 }
 
 /**
@@ -180,6 +201,59 @@ export interface PolyfenceConfiguration {
    * `signalLost` event is emitted (resolved by `signalRestored` or `exit`).
    */
   gpsStalenessTimeoutMs?: number;
+  /**
+   * Cap for the durable pending-events queue that polyfence-core writes to
+   * when the JS runtime is unreachable (Doze, memory pressure, RN reload).
+   * `0` (default) disables persistence entirely — today's behaviour. When
+   * `> 0`, the queue holds up to N events on disk with oldest-first eviction
+   * on cap; drain with {@link Polyfence.drainPendingEvents} on the next
+   * successful attach. A cap of ~500 is a reasonable starting point.
+   */
+  pendingEventsQueueSize?: number;
+  /**
+   * Whether queued events are delivered automatically the moment a consumer
+   * starts listening. `true` (default) replays the durable queue through
+   * {@link Polyfence.onGeofenceEvent} on the first subscription, so a crossing
+   * captured while the app was dead arrives without the consumer asking for it.
+   * `false` leaves the queue pull-only — {@link Polyfence.drainPendingEvents}
+   * is then the only way to get the events out. Only meaningful when
+   * `pendingEventsQueueSize > 0`.
+   */
+  pendingEventsAutoDrainEnabled?: boolean;
+  /**
+   * Registers the nearest active zones with the operating system's geofence
+   * service so a crossing can still be captured after the app's process is
+   * fully killed. `false` (default) registers nothing with the OS and shares no
+   * zone data with it — Polyfence's own engine remains the sole detector either
+   * way; this is only a wake source.
+   *
+   * Requires `pendingEventsQueueSize > 0` to be useful: an OS wake writes the
+   * crossing into that queue and it is delivered on the next
+   * {@link Polyfence.drainPendingEvents}. With the queue off, the woken
+   * crossing has nowhere to go and the engine reports
+   * `osGeofenceQueueDisabled`.
+   *
+   * Costs the stronger background-location grant: `ACCESS_BACKGROUND_LOCATION`
+   * (and `RECEIVE_BOOT_COMPLETED`) on Android, "Always" authorization on iOS.
+   * Without it, wake fences degrade to polling-only and the engine reports
+   * `osGeofencePermissionDenied` — tracking is unaffected. Request that grant
+   * only when this is on; it puts an Android app through Google Play's manual
+   * background-location review.
+   */
+  osGeofenceWakeEnabled?: boolean;
+  /**
+   * How many OS geofence slots Polyfence may occupy while the app is
+   * backgrounded. Omitted (default) uses the native engine's per-platform
+   * default — 50 of Android's 100-per-app allocation, leaving half free for
+   * geofences the consumer app registers itself, and 20 on iOS, which is
+   * already Apple's hard per-app cap.
+   *
+   * Values outside the platform's usable range are clamped by the native
+   * engine, so the effective budget is whatever `getConfiguration()` reports
+   * back rather than necessarily the value passed here. Only meaningful when
+   * `osGeofenceWakeEnabled` is `true`.
+   */
+  osGeofenceMaxRegions?: number;
   enableDebugLogging?: boolean;
   // Nested settings
   proximitySettings?: ProximitySettings;
@@ -257,6 +331,10 @@ export type PolyfenceErrorType =
   | 'analyticsUploadFailed'
   | 'permissionRevoked'
   | 'memoryLow'
+  | 'pendingEventsEvicted'
+  | 'osGeofencePermissionDenied'
+  | 'osGeofenceRegistrationFailed'
+  | 'osGeofenceQueueDisabled'
   | 'unknown';
 
 export interface PolyfenceError {
@@ -268,14 +346,25 @@ export interface PolyfenceError {
 }
 
 /**
- * Snapshot returned by {@link Polyfence.debugInfo}. Five flat metric groups —
- * the bridge passes the native engine's `PolyfenceDebugCollector.collectDebugInfo()`
- * response through unchanged on both platforms.
+ * Snapshot returned by {@link Polyfence.debugInfo}. Five flat metric groups,
+ * built from the native engine's `PolyfenceDebugCollector.collectDebugInfo()`
+ * response.
+ *
+ * The bridge rebuilds that response rather than forwarding it: entries this
+ * version no longer publishes are dropped, and a value that cannot be a
+ * measurement — a battery charge outside 0-100, a latency average with no
+ * samples behind it, anything non-finite — is reported as `null` whatever the
+ * native core sends, since none of those can be a reading at any version.
+ *
+ * Which fields a *platform* can measure at all is decided by polyfence-core,
+ * not here. The `null`s documented below for iOS therefore hold from core
+ * 3.0.0 onward — the version this bridge pins. An older core paired with this
+ * bridge reports the filler values it always did.
  *
  * For functional state (current tracking on/off, current configuration, zone
- * membership), prefer the focused getters: `getConfiguration()`, `getZoneStates()`,
- * and the `onPerformance` event stream. `debugInfo()` is for operational
- * diagnostics — battery, CPU, system permissions, error history.
+ * membership), prefer the focused getters: `getConfiguration()`,
+ * `getZoneStates()`, and the `onPerformance` event stream. `debugInfo()` is for
+ * operational diagnostics — battery, system permissions, error history.
  */
 export interface PolyfenceDebugInfo {
   systemStatus: PolyfenceSystemStatus;
@@ -288,11 +377,14 @@ export interface PolyfenceDebugInfo {
 export interface PolyfenceSystemStatus {
   isLocationPermissionGranted: boolean;
   isBackgroundLocationEnabled: boolean;
-  /** Android only — `true` on iOS (no equivalent system setting). */
-  isBatteryOptimizationDisabled: boolean;
+  /** `null` on iOS, which has no equivalent system setting to report. */
+  isBatteryOptimizationDisabled: boolean | null;
   isGpsEnabled: boolean;
-  /** Android only — `false` on iOS (no wake locks). */
-  isWakeLockAcquired: boolean;
+  /**
+   * `null` on iOS, which has no wake locks, and on Android when no tracking
+   * service is running — nothing could then be holding one.
+   */
+  isWakeLockAcquired: boolean | null;
   /** GPS accuracy of the last fix in metres. `-1` if no fix yet. */
   lastKnownAccuracy: number;
   /** Milliseconds since epoch; `0` if no fix yet. */
@@ -301,16 +393,64 @@ export interface PolyfenceSystemStatus {
   platformVersion: string;
   /** Bridge/plugin version reported via `initialize({ pluginVersion })`. `"unknown"` if not set. */
   pluginVersion: string;
+  /**
+   * State of the most recent OS wake-fence registration attempt, or `null` when
+   * no registration has been attempted — which is what a consumer with
+   * `osGeofenceWakeEnabled` off always sees, and what distinguishes "not opted
+   * in" from "opted in and failing".
+   */
+  osGeofenceRegistrationHealth: OsGeofenceRegistrationHealth | null;
+}
+
+/**
+ * State of the most recent attempt to register zone perimeters with the
+ * operating system's geofence service. Reached through
+ * {@link PolyfenceSystemStatus.osGeofenceRegistrationHealth}.
+ */
+export interface OsGeofenceRegistrationHealth {
+  /** How many zones Polyfence asked the OS to monitor. */
+  requested: number;
+  /**
+   * How many the OS accepted. Fewer than `requested` means the platform's
+   * per-app cap was reached and coverage is partial — expected on a large zone
+   * set, not a failure, and `lastError` stays `null`. Zero while the app is
+   * foregrounded is also deliberate: slots are released whenever the in-process
+   * engine is doing the detecting.
+   */
+  registered: number;
+  /**
+   * Why the last attempt could not register everything, or `null` when nothing
+   * went wrong. `"background_location_denied"` means the grant OS wake fences
+   * need is missing — `ACCESS_BACKGROUND_LOCATION` on Android, "Always"
+   * authorization on iOS.
+   */
+  lastError: string | null;
 }
 
 export interface PolyfencePerformanceMetrics {
-  restartCount: number;
-  cpuUsagePercent: number;
+  /** `null` on iOS, which has no foreground service to restart. */
+  restartCount: number | null;
   totalLocationUpdates: number;
-  /** Milliseconds. */
-  averageDetectionLatency: number;
+  /**
+   * Milliseconds, averaged over the crossings that were timed. `null` until
+   * at least one has been — zero is the best possible latency, so a device
+   * that has measured nothing is reported as unmeasured rather than perfect.
+   */
+  averageDetectionLatency: number | null;
+  /**
+   * Whole-process resident size on iOS, Java heap only on Android. The two
+   * are not comparable across platforms.
+   */
   memoryUsageMB: number;
+  /** Every zone crossing the consumer received, timed or not. */
   totalZoneDetections: number;
+  /**
+   * How many of those crossings were timed, and so how many samples
+   * {@link averageDetectionLatency} covers. Lower than
+   * {@link totalZoneDetections} when the engine synthesised a crossing
+   * outside a timed evaluation — a degraded-GPS exit, for instance.
+   */
+  timedZoneDetections: number;
   /** Milliseconds since session start. */
   uptime: number;
 }
@@ -318,25 +458,19 @@ export interface PolyfencePerformanceMetrics {
 export interface PolyfenceBatteryMetrics {
   /** Milliseconds the tracker has been actively listening this session. */
   totalActiveTime: number;
-  gpsActiveTimePercent: number;
-  /** `0–100`. */
-  batteryLevel: number;
-  /** Estimated battery drain attributable to tracking, percent per hour. */
-  estimatedHourlyDrain: number;
+  /**
+   * `0–100`, or `null` when the platform has not reported a level — on iOS
+   * before the OS populates it, which is always the case in the Simulator.
+   */
+  batteryLevel: number | null;
   isCharging: boolean;
-  /** Android only — counts CPU wake events; always `0` on iOS. */
-  wakeUpCount: number;
 }
 
 export interface PolyfenceZoneStatus {
-  /** Per-zone-id event counts (enter/exit/dwell aggregated). */
-  zoneEventCounts: Record<string, number>;
   polygonZones: number;
   circleZones: number;
   /** Number of zones currently in the active set (clustering-aware). */
   activeZones: number;
-  /** Milliseconds since epoch of the most recent zone add/remove/state change. */
-  lastZoneUpdate: number;
 }
 
 // Zone state

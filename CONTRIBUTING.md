@@ -84,7 +84,7 @@ npm run ios
 
 ### Kotlin (Android)
 
-- JVM target 1.8
+- JVM target 17
 - Use companion objects for static members
 - Follow official Kotlin style guide
 - Package: `io.polyfence.reactnative`

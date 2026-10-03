@@ -1,13 +1,13 @@
 # Polyfence React Native — Privacy Policy
 
 **Effective Date:** May 31, 2026  
-**Last Updated:** June 15, 2026
+**Last Updated:** October 3, 2026
 
 **Applies to:** `polyfence-react-native` SDK only. Server-side and SaaS-side privacy posture is described separately at `https://polyfence.io/privacy`.
 
 ## Zero PII about your end users
 
-Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information in our system is YOUR account info (email, billing) — same as any paid SaaS, identical to what Stripe or Vercel hold about you.
+Polyfence collects **zero PII about your end users. We never ask who they are.** The personal information in our system is about you, not them — your account details and billing, same as any paid SaaS, identical to what Stripe or Vercel hold about you.
 
 ## What we collect about your end users — the three buckets
 
@@ -17,7 +17,7 @@ Polyfence collects **zero PII and zero identifiable data about your end users.**
 | **Anonymous platform telemetry** | Aggregates only — accuracy averages, event frequencies, error counts. No end-user identifiers, no coordinates, no PII. (Carries your app's package id, `app_identifier` — that identifies _your app_, not your users.) | Opt-out (one-line disable). |
 | **Raw positions** | Not collected by default. Opt-in retention only. When opted in: positions only — never names / phones / emails / health / etc. | Opt-in only. |
 
-> **Zero PII. Zero identifiable data about end users.**
+> **Zero PII about end users. We never ask who they are.**
 
 ## What we hold about YOU (the customer)
 

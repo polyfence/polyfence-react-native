@@ -7,7 +7,7 @@
 
 ## Zero PII about your end users
 
-Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information in our system is YOUR account info (email, billing) — same as any paid SaaS, identical to what Stripe or Vercel hold about you.
+Polyfence collects **zero PII about your end users. We never learn who they are.** The personal information in our system is about you, not them — your account details and billing, same as any paid SaaS, identical to what Stripe or Vercel hold about you.
 
 ## What we collect about your end users — the three buckets
 

@@ -673,7 +673,7 @@ See [Expo Custom Development Client docs](https://docs.expo.dev/develop/developm
 Different defaults for different data classes:
 
 - **Positions** — opt-in. Never persisted on Polyfence servers by default. If you turn retention on, positions are stored in your tenant — never names, phones, emails, or health data.
-- **Anonymous telemetry** — opt-out, one line disables (see below). Never coordinates, never identifiers, never PII — only aggregates (platform, plugin version, accuracy averages, error counts).
+- **Anonymous telemetry** — opt-out, one line disables (see below). Never coordinates, never end-user identifiers, never PII — aggregates plus your app's package name (platform, plugin version, accuracy averages, error counts), and a link to your Polyfence account if you configure an API key.
 - **Zone events** — always on. They're the value we deliver, not surveillance.
 
 This is the deliberate posture, not an inconsistency. See [PRIVACY.md](PRIVACY.md) for the full breakdown.

@@ -59,7 +59,7 @@ This bridge sends anonymous platform telemetry by default (opt-out). Aside from 
 
 1. **Privacy by default** — Anonymous aggregate telemetry only (opt-out); no end-user tracking, identifiers, or coordinates
 2. **On-device processing** — All geofencing decisions happen locally
-3. **No PII leakage** — No user identifiers are collected or transmitted
+3. **No PII leakage** — No end-user identifiers are collected or transmitted; telemetry carries your app's package name, and a link to your Polyfence account if you configure an API key
 4. **Transparent APIs** — Developers know what data flows where
 5. **Minimal dependencies** — Reduces attack surface
 

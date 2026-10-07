@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   `endSession()` now reads `session_duration_minutes` and `app_identifier` directly off the typed object. Its `Record<string, unknown>` cast existed only to get around the wrong type and is gone. The uploaded payload is byte-for-byte unchanged.
 
+### Changed
+- **`PolyfenceCore` is pinned to an exact version on iOS, matching Android.** `polyfence-react-native.podspec` asked for `~> 3.0.0`, which accepts any `3.0.x`, while `android/build.gradle` pinned `3.0.0` exactly. Once a core patch is published, iOS consumers take it on their next `pod install` and Android consumers do not, so a single version of this bridge would sit on two different engines depending on the platform. Both now pin exactly. The `polyfence-core-version-sync` consistency check also fails on a version operator in the podspec, so the asymmetry cannot grow back unnoticed: it compared only the numeric triple before and was blind to the operator.
+
 ## [3.0.1] - 2026-10-07
 
 ### Changed

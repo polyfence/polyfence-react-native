@@ -84,10 +84,15 @@ jobs:
       - name: Build package
         run: npm run build
 
-      # No NODE_AUTH_TOKEN. The package has a trusted publisher registered on
-      # npmjs.com for this repository and workflow, so npm authenticates with
-      # a per-run OIDC token that cannot expire or leak. The NPM_TOKEN secret
-      # is retained, unused, until this path has published once.
+      # No NODE_AUTH_TOKEN. npm authenticates with a per-run OIDC token, which
+      # cannot expire or leak.
+      #
+      # This requires a trusted publisher on npmjs.com for this repository and
+      # workflow filename, with direct publish allowed rather than stage only.
+      # Check it is there before cutting a release: an unvalidated publisher
+      # expires two days after it is created, so one may need recreating.
+      # The NPM_TOKEN secret is retained, unused, as the fallback until this
+      # path has published once.
       - name: Publish to npm
         run: npm publish
 

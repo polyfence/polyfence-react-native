@@ -11,6 +11,22 @@ updates:
     labels:
       - "dependencies"
       - "automated"
+    ignore:
+      # React 19 against React Native is a deliberate compatibility decision,
+      # not a bot merge. PR #41 failed TypeScript and the example app lint.
+      # Patches and security fixes still come through; only majors are held.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      # Prettier 3 reformats every file: a repo-wide diff for no behaviour
+      # change, and it spoils git blame on a repo about to go public.
+      - dependency-name: "prettier"
+        update-types: ["version-update:semver-major"]
+      # ESLint 9 makes flat config mandatory, so this is an .eslintrc rewrite
+      # plus a plugin-compatibility pass, not an upgrade.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

@@ -470,49 +470,50 @@ describe('Types', () => {
   });
 
   describe('SessionTelemetry', () => {
+    // Field names are the snake_case ones the native bridge returns. A
+    // camelCase spelling compiles via the index signature but is `undefined`
+    // at runtime, so these assertions are what keeps the type honest.
     it('should have all required fields', () => {
       const telemetry: SessionTelemetry = {
-        sessionDurationMinutes: 60,
-        gpsUpdateCount: 120,
-        avgGpsIntervalMs: 30000,
-        zoneCount: 5,
-        enterEventCount: 10,
-        exitEventCount: 8,
-        dwellEventCount: 2,
-        falseEventCount: 1,
-        recoveryEventCount: 0,
-        zoneTransitionCount: 18,
-        accuracyProfile: 'balanced',
-        updateStrategy: 'proximityBased',
-        batteryDrainPercent: 15,
-        deviceCategory: 'phone',
-        bridgePlatform: 'react-native',
-        sessionStartHour: 9,
+        session_duration_minutes: 60,
+        avg_gps_interval_ms: 30000,
+        zone_count: 5,
+        false_event_count: 1,
+        zone_transition_count: 18,
+        session_start_hour: 9,
+        accuracy_profile: 'balanced',
+        update_strategy: 'proximityBased',
+        device_category: 'phone',
+        bridge_platform: 'react-native',
       };
-      expect(telemetry.sessionDurationMinutes).toBe(60);
-      expect(telemetry.gpsUpdateCount).toBe(120);
-      expect(telemetry.zoneCount).toBe(5);
-      expect(telemetry.bridgePlatform).toBe('react-native');
+      expect(telemetry.session_duration_minutes).toBe(60);
+      expect(telemetry.avg_gps_interval_ms).toBe(30000);
+      expect(telemetry.zone_count).toBe(5);
+      expect(telemetry.bridge_platform).toBe('react-native');
+    });
+
+    it('should leave the optional core fields absent when core omits them', () => {
+      const telemetry: SessionTelemetry = {
+        session_duration_minutes: 60,
+        avg_gps_interval_ms: 30000,
+        zone_count: 5,
+        false_event_count: 1,
+        zone_transition_count: 18,
+        session_start_hour: 9,
+      };
+      expect(telemetry.accuracy_profile).toBeUndefined();
+      expect(telemetry.core_version).toBeUndefined();
+      expect(telemetry.app_identifier).toBeUndefined();
     });
 
     it('should support additional fields via indexer', () => {
       const telemetry: SessionTelemetry = {
-        sessionDurationMinutes: 60,
-        gpsUpdateCount: 120,
-        avgGpsIntervalMs: 30000,
-        zoneCount: 5,
-        enterEventCount: 10,
-        exitEventCount: 8,
-        dwellEventCount: 2,
-        falseEventCount: 1,
-        recoveryEventCount: 0,
-        zoneTransitionCount: 18,
-        accuracyProfile: 'balanced',
-        updateStrategy: 'proximityBased',
-        batteryDrainPercent: 15,
-        deviceCategory: 'phone',
-        bridgePlatform: 'react-native',
-        sessionStartHour: 9,
+        session_duration_minutes: 60,
+        avg_gps_interval_ms: 30000,
+        zone_count: 5,
+        false_event_count: 1,
+        zone_transition_count: 18,
+        session_start_hour: 9,
         customField: 'custom-value',
       };
       expect((telemetry as any).customField).toBe('custom-value');

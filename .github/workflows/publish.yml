@@ -56,14 +56,27 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     needs: [validate-version-sync, validate-code]
+    permissions:
+      # Declaring any explicit permissions sets every other scope to `none`,
+      # so `contents: read` has to be restated or actions/checkout fails with
+      # "Repository not found". `id-token: write` is what npm's trusted
+      # publishing exchanges for a short-lived publish token.
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
+      # Node 24, not the 18 that validate-code uses. Trusted publishing needs
+      # npm 11.5.1 or newer; Node 18 ships npm 9 and Node 22 still ships 10.
+      # Installing a newer npm globally does not work either, because current
+      # npm declares a Node 22+ engine and would not start here. validate-code
+      # stays on 18 so the package's own engines floor is still tested.
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '18'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -71,10 +84,12 @@ jobs:
       - name: Build package
         run: npm run build
 
+      # No NODE_AUTH_TOKEN. The package has a trusted publisher registered on
+      # npmjs.com for this repository and workflow, so npm authenticates with
+      # a per-run OIDC token that cannot expire or leak. The NPM_TOKEN secret
+      # is retained, unused, until this path has published once.
       - name: Publish to npm
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   github-release:
     name: Create GitHub Release

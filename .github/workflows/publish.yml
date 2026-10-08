@@ -71,11 +71,15 @@ jobs:
       # Installing a newer npm globally does not work either, because current
       # npm declares a Node 22+ engine and would not start here. validate-code
       # stays on 18 so the package's own engines floor is still tested.
+      # No registry-url. setup-node@v6 writes
+      # `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` into .npmrc and
+      # exports NODE_AUTH_TOKEN as the literal XXXXX-XXXXX-XXXXX-XXXXX when the
+      # variable is unset. npm would send that dummy token and never attempt
+      # the OIDC exchange. registry.npmjs.org is npm's default anyway.
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
       - name: Install dependencies
@@ -84,10 +88,15 @@ jobs:
       - name: Build package
         run: npm run build
 
-      # No NODE_AUTH_TOKEN. The package has a trusted publisher registered on
-      # npmjs.com for this repository and workflow, so npm authenticates with
-      # a per-run OIDC token that cannot expire or leak. The NPM_TOKEN secret
-      # is retained, unused, until this path has published once.
+      # No NODE_AUTH_TOKEN. npm authenticates with a per-run OIDC token, which
+      # cannot expire or leak.
+      #
+      # This requires a trusted publisher on npmjs.com for this repository and
+      # workflow filename, with direct publish allowed rather than stage only.
+      # Check it before cutting a release: an unvalidated publisher expires two
+      # days after it is created, so one may need recreating. There is no
+      # fallback. Nothing here reads NPM_TOKEN, so a missing or expired
+      # publisher fails the publish.
       - name: Publish to npm
         run: npm publish
 

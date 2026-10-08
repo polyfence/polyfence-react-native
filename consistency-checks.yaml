@@ -27,10 +27,10 @@ checks:
     fix: Restore polyfence-react-native.podspec s.version line aligned with package.json releases.
 
   - id: polyfence-core-version-sync
-    description: polyfence-core dependency pinned to the same version across Android (build.gradle) and iOS (podspec)
+    description: polyfence-core dependency pinned to the same version, exactly and without a version operator, across Android (build.gradle) and iOS (podspec)
     type: subprocess
     runs: bash scripts/consistency-polyfence-core-version.sh
-    fix: Update both android/build.gradle and polyfence-react-native.podspec to the same polyfence-core version so Android and iOS consumers get the same engine.
+    fix: Pin both android/build.gradle and polyfence-react-native.podspec to the same exact polyfence-core version so Android and iOS consumers get the same engine. An optimistic podspec pin lets iOS take a core patch that Android does not.
 
   - id: privacy-md-zero-pii-headline
     description: PRIVACY.md keeps the zero-PII-about-end-users headline (template anchor)

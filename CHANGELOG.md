@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed (BREAKING)
+- **`SessionTelemetry` is typed in the snake_case shape the native bridge actually returns, and six fields that had no source are gone.** The type declared camelCase names while polyfence-core builds this payload in the on-wire snake_case format the telemetry endpoint expects, and the bridge resolves it to JS without renaming. Every camelCase read was therefore `undefined` at runtime, which is what made the zero-duration guard in `endSession()` drop every session until #58 worked around it by casting to `Record<string, unknown>` and reading the real keys. The eleven fields with a real source are now spelled as they arrive: `session_duration_minutes`, `avg_gps_interval_ms`, `zone_count`, `false_event_count`, `zone_transition_count`, `session_start_hour`, and the optional `accuracy_profile`, `update_strategy`, `device_category`, `bridge_platform` and `core_version`. `app_identifier` joins them as a typed optional, since this bridge stamps it and core leaves it unset. **Code reading the old camelCase names no longer type-checks**, which is deliberate: it was reading `undefined` already, and a rename that still compiled would have preserved the silent bug rather than surfacing it.
+
+  Removed, because neither platform of polyfence-core emits any key they could map to: `gpsUpdateCount`, `enterEventCount`, `exitEventCount`, `dwellEventCount`, `recoveryEventCount` and `batteryDrainPercent`. These have no snake_case spelling on the wire and no counter behind them, so mapping names would have left them permanently `undefined` rather than populating them. The index signature still carries every core key without a typed field, so what core does report around those areas stays readable, including `detections_total`, `sample_events`, `battery_level_start` and `battery_level_end`.
+
+  `endSession()` now reads `session_duration_minutes` and `app_identifier` directly off the typed object. Its `Record<string, unknown>` cast existed only to get around the wrong type and is gone. The uploaded payload is byte-for-byte unchanged.
+
+### Changed
+- **`PolyfenceCore` is pinned to an exact version on iOS, matching Android.** `polyfence-react-native.podspec` asked for `~> 3.0.0`, which accepts any `3.0.x`, while `android/build.gradle` pinned `3.0.0` exactly. Once a core patch is published, iOS consumers take it on their next `pod install` and Android consumers do not, so a single version of this bridge would sit on two different engines depending on the platform. Both now pin exactly. The `polyfence-core-version-sync` consistency check also fails on a version operator in the podspec, so the asymmetry cannot grow back unnoticed: it compared only the numeric triple before and was blind to the operator.
+
 ## [3.0.1] - 2026-10-07
 
 ### Changed

@@ -131,20 +131,19 @@ export class PolyfenceAnalytics {
     try {
       const telemetry = await this._sessionTelemetryFetcher();
 
-      // polyfence-core's native bridge emits snake_case keys (the same on-wire
-      // format the telemetry endpoint expects), even though the public
-      // SessionTelemetry type is camelCase. Read the runtime (snake_case) keys
-      // directly — reading the camelCase fields yields `undefined`, so the
-      // guard below silently dropped EVERY session. See polyfence-react-native#58.
-      const raw = telemetry as Record<string, unknown>;
-      const durationMinutes = Number(raw.session_duration_minutes ?? 0);
+      // SessionTelemetry is typed in the snake_case shape the native bridge
+      // actually returns, so these read straight off it. Coerced through
+      // Number() because the value crosses an untyped native boundary: a
+      // malformed or absent reading must fail the guard below rather than
+      // reach the endpoint. See polyfence-react-native#58 and #63.
+      const durationMinutes = Number(telemetry.session_duration_minutes ?? 0);
 
       // Skip sessions with zero duration.
       if (!durationMinutes || durationMinutes <= 0) {
         return;
       }
 
-      const appIdentifier = raw.app_identifier;
+      const appIdentifier = telemetry.app_identifier;
       const payload: Record<string, unknown> = {
         ...telemetry,
         app_identifier:

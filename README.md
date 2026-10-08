@@ -45,7 +45,7 @@ Three storage choices — same plugin API in all cases:
 |----------|---------|---------|----------|
 | **Hardcode zones in your app** | None | Not needed | Static zones, full control, privacy-first apps |
 | **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
-| **Use the Polyfence dashboard** | polyfence.io | Required | Visual zone editor, analytics dashboard |
+| **Use the Polyfence dashboard** | polyfence.io | Required | Visual zone editor, hosted zone store |
 
 Same plugin API in all cases. The Polyfence platform layer (SDK + dashboard + API) is the geofence layer underneath your product, whether you store zones in code or in the dashboard.
 
@@ -199,13 +199,8 @@ await Polyfence.instance.initialize();
 
 > **Wire `onError` before the calls below.** Several SDK methods (including some used in steps 3 and 5) can emit errors as a side effect of being called. If `onError` isn't subscribed at the time, those errors are dropped silently — no replay, no warning in the return value. Skip ahead to [Step 6](#step-6-handle-errors-recommended), wire `onError` once, then come back here. The remaining steps assume you've done that.
 
-> **Want your sessions on _your_ dashboard?** Telemetry is anonymous by default — anonymous sessions feed only aggregate stats, not your account's analytics. To attribute them to your Polyfence account, pass your API key (the same one you use for the zone API) to `initialize`:
->
-> ```typescript
-> await Polyfence.instance.initialize(undefined, { apiKey: YOUR_POLYFENCE_API_KEY });
-> ```
->
-> It's sent as `x-api-key` with each telemetry upload. React Native has no compile-time env, so supply the key however your app manages config (e.g. `react-native-config`, an env file, or a constant). To turn telemetry off entirely: `initialize(undefined, { disableTelemetry: true })`.
+> **Telemetry is on by default.** It is anonymous and carries no coordinates or end-user
+> identifiers. To turn it off: `initialize(undefined, { disableTelemetry: true })`.
 
 ### Step 2: Request Permissions
 

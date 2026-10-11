@@ -5,6 +5,7 @@ import type {
   Zone,
   PolyfenceConfiguration,
   PolyfenceDebugInfo,
+  SessionTelemetry,
 } from '../src/types';
 
 describe('Polyfence', () => {
@@ -472,10 +473,19 @@ describe('Polyfence', () => {
 
   describe('getSessionTelemetry', () => {
     it('should return native result', async () => {
-      const mockTelemetry = {
-        sessionDurationMinutes: 60,
-        gpsUpdateCount: 100,
-        zoneCount: 2,
+      // Annotated rather than inferred: this mock stands in for the native
+      // result, so the compiler has to agree it is a shape the bridge could
+      // actually return. Left untyped, it carried the pre-#63 camelCase names
+      // long after the native boundary stopped producing them, and the
+      // assertion below passed anyway because it only compares the mock to
+      // itself.
+      const mockTelemetry: SessionTelemetry = {
+        session_duration_minutes: 60,
+        avg_gps_interval_ms: 30000,
+        zone_count: 2,
+        false_event_count: 0,
+        zone_transition_count: 4,
+        session_start_hour: 9,
       };
       (NativePolyfence.getSessionTelemetry as jest.Mock).mockResolvedValueOnce(
         mockTelemetry,

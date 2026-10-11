@@ -4,9 +4,12 @@ import type { SessionTelemetry } from '../src/types';
 /**
  * Regression coverage for #58: the native bridge (polyfence-core) emits
  * snake_case telemetry keys, but endSession() previously read the camelCase
- * fields off the (camelCase-typed) object — which were `undefined` at runtime,
+ * fields off the (camelCase-typed) object, which were `undefined` at runtime,
  * so the zero-duration guard dropped EVERY React Native session before upload.
  * These tests pin that endSession reads the real snake_case keys.
+ *
+ * Since #63 the SessionTelemetry type carries those same snake_case names, so
+ * the fixture below needs no reshaping to satisfy it.
  */
 describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', () => {
   const resetSingleton = () => {
@@ -15,18 +18,24 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
     )._instance = null;
   };
 
-  // The runtime shape the native bridge actually returns (snake_case),
-  // cast to the public camelCase type exactly as Polyfence.getSessionTelemetry does.
+  // The runtime shape the native bridge actually returns. The assertion
+  // covers the `over` spread and the keys core emits that SessionTelemetry
+  // leaves to its index signature, not any change of case.
   const nativeTelemetry = (
     over: Record<string, unknown> = {},
   ): SessionTelemetry =>
     ({
       app_identifier: 'io.polyfence.qar',
       session_duration_minutes: 24,
+      avg_gps_interval_ms: 30000,
+      zone_count: 3,
+      false_event_count: 0,
+      zone_transition_count: 6,
+      session_start_hour: 9,
       detection_time_avg_ms: 118,
       gps_ok_ratio: 0.92,
       ...over,
-    } as unknown as SessionTelemetry);
+    } as SessionTelemetry);
 
   let fetchMock: jest.Mock;
 

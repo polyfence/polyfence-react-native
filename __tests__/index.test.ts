@@ -220,24 +220,18 @@ describe('index exports', () => {
 
     it('should allow SessionTelemetry type usage', () => {
       const telemetry: SessionTelemetry = {
-        sessionDurationMinutes: 60,
-        gpsUpdateCount: 120,
-        avgGpsIntervalMs: 30000,
-        zoneCount: 5,
-        enterEventCount: 10,
-        exitEventCount: 8,
-        dwellEventCount: 2,
-        falseEventCount: 1,
-        recoveryEventCount: 0,
-        zoneTransitionCount: 18,
-        accuracyProfile: 'balanced',
-        updateStrategy: 'proximityBased',
-        batteryDrainPercent: 15,
-        deviceCategory: 'phone',
-        bridgePlatform: 'react-native',
-        sessionStartHour: 9,
+        session_duration_minutes: 60,
+        avg_gps_interval_ms: 30000,
+        zone_count: 5,
+        false_event_count: 1,
+        zone_transition_count: 18,
+        session_start_hour: 9,
+        accuracy_profile: 'balanced',
+        update_strategy: 'proximityBased',
+        device_category: 'phone',
+        bridge_platform: 'react-native',
       };
-      expect(telemetry.sessionDurationMinutes).toBe(60);
+      expect(telemetry.session_duration_minutes).toBe(60);
     });
 
     it('should allow Subscription type usage', () => {

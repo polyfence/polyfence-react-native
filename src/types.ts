@@ -485,24 +485,33 @@ export interface ZoneState {
 }
 
 // Session telemetry (aggregated in core)
+//
+// Keys are snake_case because that is what crosses the native boundary:
+// polyfence-core builds this payload in the on-wire format the telemetry
+// endpoint expects, and the bridge resolves it to JS without renaming.
+// The names below are therefore the ones that exist at runtime. Spelling a
+// field in camelCase reads `undefined`, which is what made the zero-duration
+// guard in `endSession()` drop every session before it was fixed.
+//
+// Only the keys promoted to a typed field are listed. core emits more than
+// these, and the index signature keeps the rest reachable as `unknown` so a
+// new core key needs no change here to be readable.
 export interface SessionTelemetry {
-  sessionDurationMinutes: number;
-  gpsUpdateCount: number;
-  avgGpsIntervalMs: number;
-  zoneCount: number;
-  enterEventCount: number;
-  exitEventCount: number;
-  dwellEventCount: number;
-  falseEventCount: number;
-  recoveryEventCount: number;
-  zoneTransitionCount: number;
-  accuracyProfile: string;
-  updateStrategy: string;
-  batteryDrainPercent: number;
-  deviceCategory: string;
-  bridgePlatform: string;
-  coreVersion?: string;
-  sessionStartHour: number;
+  session_duration_minutes: number;
+  avg_gps_interval_ms: number;
+  zone_count: number;
+  false_event_count: number;
+  zone_transition_count: number;
+  session_start_hour: number;
+  // Emitted only when core has a value to report, so absent rather than
+  // defaulted when it does not.
+  accuracy_profile?: string;
+  update_strategy?: string;
+  device_category?: string;
+  bridge_platform?: string;
+  core_version?: string;
+  // Stamped by this bridge rather than by core, which leaves it unset.
+  app_identifier?: string;
   [key: string]: unknown; // future-proof for new fields
 }
 

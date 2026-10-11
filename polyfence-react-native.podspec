@@ -20,7 +20,13 @@ Pod::Spec.new do |s|
   # Coordinated major with the polyfence-core 3.0.0 release train.
   # Example app pins the same core revision by git ref via example/ios/Podfile
   # so local builds and CI resolve to the same code path before publication.
-  s.dependency "PolyfenceCore", "~> 3.0.0"
+  #
+  # Exact version, not "~> 3.0.0". android/build.gradle pins the same core
+  # version exactly, and an optimistic pin here would let iOS pick up a core
+  # patch on the next pod install while Android stayed put. One version of
+  # this bridge would then sit on two different engines depending on the
+  # platform, which is not reproducible from the version number alone.
+  s.dependency "PolyfenceCore", "3.0.0"
 
   s.frameworks = "CoreLocation", "CoreMotion"
 

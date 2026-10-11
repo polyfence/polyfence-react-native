@@ -12,7 +12,10 @@ cd "$ROOT"
 GRADLE_COORD=$(grep -E '"io\.polyfence:polyfence-core:' android/build.gradle 2>/dev/null \
   | grep -oE 'io\.polyfence:polyfence-core:[^"]+' \
   | head -1)
-GRADLE_VER=$(echo "$GRADLE_COORD" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+# `|| true` so a coordinate carrying no numeric triple at all, such as
+# 'latest.release', leaves GRADLE_VER empty and reaches the checks below
+# instead of aborting here under `set -o pipefail` with nothing printed.
+GRADLE_VER=$(echo "$GRADLE_COORD" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
 
 # A -SNAPSHOT pin resolves only from a developer's mavenLocal, so a shipped
 # build would fail to resolve for every consumer. The comparison below reads
@@ -22,6 +25,20 @@ if [[ "$GRADLE_COORD" == *-SNAPSHOT* ]]; then
   echo "polyfence-core-version-sync: android/build.gradle pins a SNAPSHOT of polyfence-core"
   echo "  $GRADLE_COORD"
   echo "Fix: pin the released version. A SNAPSHOT resolves only from mavenLocal and would not resolve for consumers."
+  exit 1
+fi
+
+# Exact version on Android too. Gradle accepts dynamic selectors: a '3.0.0+'
+# prefix, a '[3.0.0,3.1.0)' range, 'latest.release'. The cross-platform
+# comparison below reads only the numeric triple, so '3.0.0+' and '3.0.0'
+# compare equal and a floating Android pin would pass unnoticed. Reject the
+# selector explicitly: this check exists to stop the two platforms resolving
+# different engines, and that can start from either side.
+GRADLE_VERSION_SPEC="${GRADLE_COORD##*:}"
+if [ -n "$GRADLE_COORD" ] && ! printf '%s' "$GRADLE_VERSION_SPEC" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "polyfence-core-version-sync: android/build.gradle does not pin polyfence-core to an exact version"
+  echo "  $GRADLE_COORD"
+  echo "Fix: pin a single version, as in io.polyfence:polyfence-core:3.0.0. A dynamic selector lets Android resolve a core the podspec does not pin."
   exit 1
 fi
 

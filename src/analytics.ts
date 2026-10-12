@@ -34,6 +34,24 @@ const DEFAULT_ENDPOINT = 'https://polyfence.io/api/v1/telemetry/session';
 const RETRY_KEY_PREFIX = 'polyfence_analytics_retry_';
 const MAX_RETRY_ENTRIES = 50;
 
+/**
+ * The idempotency key for a payload: the session's own id where the engine
+ * supplies one, otherwise a fresh uuid.
+ *
+ * Keyed on the session rather than the request. The server deduplicates on
+ * (app_identifier, platform, plugin_version, session_date, idempotency_key),
+ * and the payload is a running total, so a session re-sent while it is still
+ * accumulating differs only in its duration. An engine old enough not to send
+ * session_id keeps the old behaviour, and an empty id is treated as absent so
+ * it cannot key every session alike.
+ */
+function idempotencyKeyFor(payload: Record<string, unknown>): string {
+  const sessionId = payload.session_id;
+  return typeof sessionId === 'string' && sessionId.length > 0
+    ? sessionId
+    : generateIdempotencyKey();
+}
+
 function generateIdempotencyKey(): string {
   // Simple UUID v4 without external dependency
   const hex = '0123456789abcdef';
@@ -186,9 +204,16 @@ export class PolyfenceAnalytics {
           const payload = JSON.parse(payloadStr) as Record<string, unknown>;
           const endpoint = this._config.apiEndpoint ?? DEFAULT_ENDPOINT;
 
+          // The header is required: without it the server answers 400 and the
+          // entry stays queued until the cap evicts it, so these retries never
+          // landed. Read from the stored payload so a retry still names the
+          // session that failed, even in a later process.
           const response = await fetch(endpoint, {
             method: 'POST',
-            headers: this._buildHeaders(),
+            headers: {
+              ...this._buildHeaders(),
+              'Idempotency-Key': idempotencyKeyFor(payload),
+            },
             body: JSON.stringify(payload),
           });
 
@@ -223,11 +248,7 @@ export class PolyfenceAnalytics {
     // session a new row. A core older than the one that added session_id sends
     // no id, and those installs keep the old behaviour rather than colliding
     // every session under one key.
-    const sessionId = payload.session_id;
-    const idempotencyKey =
-      typeof sessionId === 'string' && sessionId.length > 0
-        ? sessionId
-        : generateIdempotencyKey();
+    const idempotencyKey = idempotencyKeyFor(payload);
 
     try {
       const response = await fetch(endpoint, {

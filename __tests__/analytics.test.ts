@@ -52,7 +52,9 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
     JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
 
   const sentHeader = (name: string) =>
-    (fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers[name];
+    (fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers[
+      name
+    ];
 
   // The payload is a running total, so a session re-sent while it is still
   // growing differs only in its duration. A key minted per request made every
@@ -80,8 +82,12 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
     const store = new Map<string, string>();
     const storage = {
       getItem: async (k: string) => store.get(k) ?? null,
-      setItem: async (k: string, v: string) => void store.set(k, v),
-      removeItem: async (k: string) => void store.delete(k),
+      setItem: async (k: string, v: string) => {
+        store.set(k, v);
+      },
+      removeItem: async (k: string) => {
+        store.delete(k);
+      },
       getAllKeys: async () => [...store.keys()],
     };
 

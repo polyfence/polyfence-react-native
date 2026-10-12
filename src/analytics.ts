@@ -217,7 +217,17 @@ export class PolyfenceAnalytics {
 
   private async _sendPayload(payload: Record<string, unknown>): Promise<void> {
     const endpoint = this._config.apiEndpoint ?? DEFAULT_ENDPOINT;
-    const idempotencyKey = generateIdempotencyKey();
+    // Keyed on the session, not the request. The server deduplicates on
+    // (app_identifier, platform, plugin_version, session_date, idempotency_key),
+    // so a key minted per request made every re-send of one accumulating
+    // session a new row. A core older than the one that added session_id sends
+    // no id, and those installs keep the old behaviour rather than colliding
+    // every session under one key.
+    const sessionId = payload.session_id;
+    const idempotencyKey =
+      typeof sessionId === 'string' && sessionId.length > 0
+        ? sessionId
+        : generateIdempotencyKey();
 
     try {
       const response = await fetch(endpoint, {

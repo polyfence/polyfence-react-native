@@ -51,6 +51,28 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
   const sentBody = () =>
     JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
 
+  const sentHeader = (name: string) =>
+    (fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers[name];
+
+  // The payload is a running total, so a session re-sent while it is still
+  // growing differs only in its duration. A key minted per request made every
+  // re-send a new row at the server, which deduplicates on the key.
+  it('keys the upload on the session, not the request', async () => {
+    init(async () => nativeTelemetry({ session_id: 'sess-abc' }));
+    await PolyfenceAnalytics.instance.endSession();
+
+    expect(sentHeader('Idempotency-Key')).toBe('sess-abc');
+  });
+
+  it('falls back to a generated key when core sends no session id', async () => {
+    init(async () => nativeTelemetry());
+    await PolyfenceAnalytics.instance.endSession();
+
+    const key = sentHeader('Idempotency-Key');
+    expect(typeof key).toBe('string');
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
   it('uploads when native returns snake_case session_duration_minutes', async () => {
     init(async () => nativeTelemetry());
     await PolyfenceAnalytics.instance.endSession();

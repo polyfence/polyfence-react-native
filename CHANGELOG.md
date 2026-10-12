@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Telemetry uploads are keyed on the session, not the request, so a re-sent session is no longer counted twice.** The payload is a running total, so a session sent again while it is still accumulating differs from the first send only in its duration. The server deduplicates on `(app_identifier, platform, plugin_version, session_date, idempotency_key)`, and the key was minted per request, so every re-send became a new row. It now uses the `session_id` the engine supplies, and falls back to a generated key when running against an engine old enough not to send one.
+
 ### Changed (BREAKING)
 - **`SessionTelemetry` is typed in the snake_case shape the native bridge returns.** The type declared camelCase names; polyfence-core builds this payload in the on-wire snake_case the telemetry endpoint expects, and the bridge passes it to JS unchanged. Every camelCase read was `undefined` at runtime while typed `number`.
 

@@ -4,12 +4,15 @@
   Android requires notification small-icons to be pure white with
   transparent background (Android tints and silhouettes them).
 
-  NOTE: Wiring this as the notification icon requires plugin-side
-  support. polyfence-core currently hardcodes
-  `android.R.drawable.ic_menu_mylocation` (see
-  polyfence-core/android/.../LocationTracker.kt). A follow-up is needed
-  in that package to expose a `smallIcon` setter or default to
-  `@drawable/ic_notification` from the host app.
+  To use it, set the drawable's NAME on the tracking notification:
+
+    Polyfence.updateConfiguration({
+      notificationText: { trackingIconName: 'ic_notification' },
+    })
+
+  A name rather than a resource id, because ids move when the host app's
+  resources change. Unset, polyfence-core falls back to the platform
+  location glyph. Needs polyfence-core 3.1.0 or later.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"

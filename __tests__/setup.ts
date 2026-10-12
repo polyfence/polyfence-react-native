@@ -22,6 +22,7 @@ jest.mock('react-native', () => {
         removeZone: jest.fn().mockResolvedValue(null),
         removeAllZones: jest.fn().mockResolvedValue(null),
         getZoneStates: jest.fn().mockResolvedValue([]),
+        getZone: jest.fn().mockResolvedValue(null),
         getDebugInfo: jest.fn().mockResolvedValue({}),
         getSessionTelemetry: jest.fn().mockResolvedValue({}),
         setTrackingSchedule: jest.fn().mockResolvedValue(null),

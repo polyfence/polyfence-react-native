@@ -17,16 +17,19 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
   s.dependency "React-Core"
-  # Coordinated major with the polyfence-core 3.0.0 release train.
-  # Example app pins the same core revision by git ref via example/ios/Podfile
-  # so local builds and CI resolve to the same code path before publication.
+  # Coordinated with the polyfence-core 3.1.0 release train, which is the first
+  # core carrying notificationText and ZonePersistence.loadZoneData. This
+  # bridge's getZone calls the latter, so it does not build against an earlier
+  # core.
+  # example/ios/Podfile pins the same version, so the example app and this
+  # library resolve to one core rather than two.
   #
-  # Exact version, not "~> 3.0.0". android/build.gradle pins the same core
+  # Exact version, not "~> 3.1.0". android/build.gradle pins the same core
   # version exactly, and an optimistic pin here would let iOS pick up a core
   # patch on the next pod install while Android stayed put. One version of
   # this bridge would then sit on two different engines depending on the
   # platform, which is not reproducible from the version number alone.
-  s.dependency "PolyfenceCore", "3.0.0"
+  s.dependency "PolyfenceCore", "3.1.0"
 
   s.frameworks = "CoreLocation", "CoreMotion"
 

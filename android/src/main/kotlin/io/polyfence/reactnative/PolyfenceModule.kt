@@ -27,6 +27,7 @@ import io.polyfence.core.PolyfenceCoreDelegate
 import io.polyfence.core.PolyfenceErrorManager
 import io.polyfence.core.PolyfenceDebugCollector
 import io.polyfence.core.ZonePersistence
+import org.json.JSONObject
 import io.polyfence.core.configuration.ActivitySettings
 import io.polyfence.core.configuration.SmartGpsConfig
 import io.polyfence.core.configuration.SmartGpsConfigFactory
@@ -42,6 +43,41 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     companion object {
         private const val PREFS_NAME = "polyfence_state"
         private const val KEY_TRACKING_ENABLED = "tracking_enabled"
+
+        /**
+         * Replace every `JSONObject.NULL` in a loaded zone with a Java null, at
+         * any depth.
+         *
+         * `ZonePersistence` stores zone data as an `org.json.JSONObject`, whose
+         * map constructor turns a null value into the `JSONObject.NULL`
+         * sentinel, and hands it back that way because its map's value type is
+         * non-null and a Java null cannot travel in it. That sentinel is a live
+         * object, so `Arguments.makeNativeMap` does not recognise it as null and
+         * does not recognise its type either: it throws, and `getZone` rejects.
+         * A zone added with `polygon: null`, which is every circle a caller
+         * builds from a full Zone object, would therefore never read back.
+         *
+         * Java null is what the bridge wants, because `makeNativeMap` emits
+         * `putNull` for it, nested maps and lists included. The identity check
+         * is deliberate: `JSONObject.NULL.equals(null)` is true, so an
+         * `== null` test on a value of this type is misleading rather than
+         * wrong, and reading `=== NULL` says what is actually being matched.
+         *
+         * @param value a loaded zone's map, or any value inside it.
+         * @return the same structure with every sentinel replaced by null.
+         */
+        internal fun withJsonNullsAsNull(value: Any?): Any? = when {
+            value === JSONObject.NULL -> null
+            value is Map<*, *> -> value.entries.associate { (k, v) ->
+                k.toString() to withJsonNullsAsNull(v)
+            }
+            value is List<*> -> value.map { withJsonNullsAsNull(it) }
+            else -> value
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        private fun withJsonNullsAsNull(data: Map<String, Any>): Map<String, Any?> =
+            withJsonNullsAsNull(data as Any?) as Map<String, Any?>
     }
 
     private val context: Context = reactContext
@@ -263,6 +299,42 @@ class PolyfenceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             promise.reject("ZONE_STATES_FAILED", e.message)
         }
     }
+
+    /**
+     * The zone as it was passed to `addZone`, or null when no zone is stored
+     * under that id.
+     *
+     * Both platforms persist the whole object the caller handed to `addZone`,
+     * so whatever a consumer attached to a zone comes back here, including its
+     * `metadata`. Reads from storage rather than the engine, so it answers
+     * before `startTracking` and after a process restart, which is what makes
+     * it usable from a crossing handler.
+     *
+     * One caveat on the write side: while tracking runs, `addZone` dispatches
+     * to the Service and resolves before the Service has persisted, so a
+     * `getZone` issued immediately after it can still answer null. A read
+     * before `startTracking`, and any read from a later crossing, both see the
+     * write.
+     */
+    @ReactMethod
+    fun getZone(zoneId: String?, promise: Promise) {
+        try {
+            if (zoneId.isNullOrBlank()) {
+                promise.reject("INVALID_ZONE_ID", "Zone ID is required")
+                return
+            }
+            val data = ZonePersistence(context).loadZoneData(zoneId)
+            if (data == null) {
+                promise.resolve(null)
+                return
+            }
+            promise.resolve(Arguments.makeNativeMap(withJsonNullsAsNull(data)))
+        } catch (e: Exception) {
+            Log.e("PolyfenceModule", "Failed to get zone $zoneId: ${e.message}")
+            promise.reject("GET_ZONE_FAILED", e.message)
+        }
+    }
+
 
     @ReactMethod
     fun getDebugInfo(promise: Promise) {

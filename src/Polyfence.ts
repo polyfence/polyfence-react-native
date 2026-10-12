@@ -59,6 +59,7 @@ const ALLOWED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'clusterSettings',
   'scheduleSettings',
   'activitySettings',
+  'notificationText',
 ]);
 
 // Pre-2.x flat properties → migration hint. Removed in this release;
@@ -300,6 +301,42 @@ export class Polyfence {
     this.assertNotDisposed();
     this.assertInitialized();
     return NativePolyfence.getZoneStates();
+  }
+
+  /**
+   * The zone as you passed it to {@link addZone}, or `null` when no zone is
+   * stored under that id.
+   *
+   * Whatever you attached to a zone comes back, `metadata` included, so a
+   * crossing handler can look up what the zone meant to your app from the
+   * `zoneId` the event carries, without you keeping a parallel copy.
+   *
+   * Reads persisted storage rather than the running engine, so unlike
+   * {@link getZoneStates} it answers before `startTracking()` and after the
+   * app's process has been restarted.
+   *
+   * One caveat on the write side: while tracking is running, {@link addZone}
+   * hands the zone to the native service and resolves before that service has
+   * persisted it, so a `getZone` issued immediately afterwards can still
+   * return `null`. A read before `startTracking()`, and any read from a later
+   * crossing, both see the write.
+   *
+   * ```ts
+   * Polyfence.onGeofenceEvent(async (event) => {
+   *   const zone = await Polyfence.getZone(event.zoneId);
+   *   console.log(zone?.metadata);
+   * });
+   * ```
+   *
+   * Values make the round trip through the platform's own serialisation, so
+   * what comes back is the JSON-compatible form of what went in: objects,
+   * arrays, strings, numbers and booleans survive, and anything that is not
+   * JSON does not.
+   */
+  async getZone(zoneId: string): Promise<Zone | null> {
+    this.assertNotDisposed();
+    this.assertInitialized();
+    return NativePolyfence.getZone(zoneId);
   }
 
   async debugInfo(): Promise<PolyfenceDebugInfo> {

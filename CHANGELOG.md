@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`notificationText`: every string Polyfence shows your users, for you to write.** Fourteen were fixed in the library, in English, so an app embedding Polyfence showed Polyfence's words to its own users. Pass any of them to `initialize` or `updateConfiguration`:
+
+  ```ts
+  await Polyfence.instance.updateConfiguration({
+    notificationText: {
+      enterTitle: 'Arrivé à {zone}',
+      exitTitle: 'Départ de {zone}',
+      dwellBodyMinutes: '{minutes} minutes sur place',
+    },
+  });
+  ```
+
+  Keys: `trackingTitle`, `trackingText`, `trackingIconName`, `enterTitle`, `dwellTitle`, `exitTitle`, `dwellBodyUnderMinute`, `dwellBodyMinutes`, `dwellBodyHours`, `dwellBodyHoursMinutes`, `trackingChannelName`, `trackingChannelDescription`, `alertChannelName`, `alertChannelDescription`. Each string keeps its English default until you set it, so omitting the whole group changes nothing. A field you leave out of a later call keeps the value you set before, rather than reverting to English: pass the English text to undo one, or `resetConfiguration()` to undo all of them. The one exception is `trackingIconName`, where an empty string is the clear.
+
+  The zone titles take `{zone}`, and the dwell bodies also take `{hours}` and `{minutes}`. Placeholders rather than a fixed prefix, because word order moves between languages: a Japanese app needs `{zone}に到着`. There are four dwell bodies rather than one template plus a unit because plural rules differ, and only your app knows which language it is writing. Polyfence ships no translations and does not detect the device language, so pass the strings for the language your app is in, and call `updateConfiguration` again if that changes.
+
+  The three `tracking*` fields and the four channel fields describe Android surfaces iOS has no equivalent for. Pass them anyway from a cross-platform app: iOS stores them and returns them from `getConfiguration()`, so this group survives being read back on either platform rather than coming back half empty on iOS. The channel name and description appear in the phone's own Settings app rather than the notification tray.
+
+- **`getZone(zoneId)`: read back what you attached to a zone.** Returns the zone as you passed it to `addZone`, `metadata` included, or `null` if no zone is stored under that id. A crossing handler can now look up what a zone meant to your app from the `zoneId` the event carries, instead of keeping a parallel copy in app state:
+
+  ```ts
+  Polyfence.instance.onGeofenceEvent(async (event) => {
+    const zone = await Polyfence.instance.getZone(event.zoneId);
+    console.log(zone?.metadata);
+  });
+  ```
+
+  Reads persisted storage rather than the running engine, so unlike `getZoneStates()` it answers before `startTracking()` and after the app's process has been restarted. Values make the round trip through the platform's own serialisation, so the JSON-compatible form of what went in is what comes back.
+
+### Changed
+- **Requires polyfence-core 3.1.0.** Both additions above need it: `notificationText` is inert against an earlier core, and `getZone` calls an accessor that does not exist there. The Android dependency and the podspec both pin it exactly, so one version of this bridge cannot sit on two different engines depending on the platform.
+- **The example app's Podfile pins `PolyfenceCore` by version rather than by git branch.** It pointed at `feat/pending-events-queue`, which stopped matching the podspec once that work was released, so the example and the library could resolve to different engines.
+
+
 ### Changed (BREAKING)
 - **`SessionTelemetry` is typed in the snake_case shape the native bridge returns.** The type declared camelCase names; polyfence-core builds this payload in the on-wire snake_case the telemetry endpoint expects, and the bridge passes it to JS unchanged. Every camelCase read was `undefined` at runtime while typed `number`.
 

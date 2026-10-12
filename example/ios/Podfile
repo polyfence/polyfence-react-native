@@ -37,9 +37,11 @@ target 'PolyfenceExample' do
   # polyfence-react-native is consumed from the parent repo via the
   # "polyfence-react-native": "../" entry in package.json — RN autolinking
   # discovers the podspec there. PolyfenceCore is the underlying native
-  # engine; pinned via git ref so the example builds against the same
-  # revision the library declares against in its podspec.
-  pod 'PolyfenceCore', :git => 'https://github.com/polyfence/polyfence-core.git', :branch => 'feat/pending-events-queue'
+  # engine; pinned to the same version the library declares against in its
+  # podspec, so the example and the library resolve to one core. This replaces
+  # a git pin on the feat/pending-events-queue branch, which stopped matching
+  # the podspec once that work was released.
+  pod 'PolyfenceCore', '3.1.0'
 
   target 'PolyfenceExampleTests' do
     inherit! :complete

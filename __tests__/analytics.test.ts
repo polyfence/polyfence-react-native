@@ -51,6 +51,65 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
   const sentBody = () =>
     JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
 
+  const sentHeader = (name: string) =>
+    (fetchMock.mock.calls[0][1] as { headers: Record<string, string> }).headers[
+      name
+    ];
+
+  // The payload is a running total, so a session re-sent while it is still
+  // growing differs only in its duration. A key minted per request made every
+  // re-send a new row at the server, which deduplicates on the key.
+  it('keys the upload on the session, not the request', async () => {
+    init(async () => nativeTelemetry({ session_id: 'sess-abc' }));
+    await PolyfenceAnalytics.instance.endSession();
+
+    expect(sentHeader('Idempotency-Key')).toBe('sess-abc');
+  });
+
+  it('falls back to a generated key when core sends no session id', async () => {
+    init(async () => nativeTelemetry());
+    await PolyfenceAnalytics.instance.endSession();
+
+    const key = sentHeader('Idempotency-Key');
+    expect(typeof key).toBe('string');
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  // The retry request carried no Idempotency-Key at all. The server requires
+  // it and answers 400, so queued entries were resent forever and evicted by
+  // the cap rather than ever landing.
+  it('sends an idempotency key when retrying a queued session', async () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: async (k: string) => store.get(k) ?? null,
+      setItem: async (k: string, v: string) => {
+        store.set(k, v);
+      },
+      removeItem: async (k: string) => {
+        store.delete(k);
+      },
+      getAllKeys: async () => [...store.keys()],
+    };
+
+    // First send fails, so the payload lands in the retry queue.
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 });
+    PolyfenceAnalytics.instance.initialize(
+      {},
+      '2.0.1',
+      async () => nativeTelemetry({ session_id: 'sess-retry' }),
+      storage,
+    );
+    await PolyfenceAnalytics.instance.endSession();
+
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    const retryCall = fetchMock.mock.calls[1][1] as {
+      headers: Record<string, string>;
+    };
+    expect(retryCall.headers['Idempotency-Key']).toBe('sess-retry');
+  });
+
   it('uploads when native returns snake_case session_duration_minutes', async () => {
     init(async () => nativeTelemetry());
     await PolyfenceAnalytics.instance.endSession();

@@ -35,6 +35,10 @@ RCT_EXTERN_METHOD(removeAllZones:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(getZoneStates:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getZone:(NSString *)zoneId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(getDebugInfo:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 

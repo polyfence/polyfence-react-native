@@ -48,4 +48,5 @@ export type {
   TimeWindow,
   TimeOfDay,
   ActivitySettings,
+  NotificationText,
 } from './types';

@@ -197,6 +197,31 @@ class PolyfenceModule: RCTEventEmitter, PolyfenceCoreDelegate {
         }
     }
 
+    /**
+     * The zone as it was passed to `addZone`, or nil when no zone is stored
+     * under that id.
+     *
+     * Both platforms persist the whole object the caller handed to `addZone`,
+     * so whatever a consumer attached to a zone comes back here, including its
+     * `metadata`. Reads from storage rather than the engine, so it answers
+     * before `startTracking` and after a process restart, which is what makes
+     * it usable from a crossing handler. Does not need the tracker, unlike the
+     * zone mutators, because storage is reachable on its own.
+     */
+    @objc(getZone:resolver:rejecter:)
+    func getZone(zoneId: String?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        // Blank, not just empty, to match Android's isNullOrBlank. A whitespace
+        // id would otherwise be rejected on one platform and looked up on the
+        // other, and it cannot name a real zone on either.
+        guard let zoneId = zoneId,
+              !zoneId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            reject("INVALID_ZONE_ID", "Zone ID is required", nil)
+            return
+        }
+        let persistence = Self.sharedZonePersistence ?? ZonePersistence()
+        resolve(persistence.loadZoneData(zoneId: zoneId))
+    }
+
     @objc(removeZone:resolver:rejecter:)
     func removeZone(zoneId: String?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         do {

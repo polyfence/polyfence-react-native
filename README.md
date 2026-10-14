@@ -375,10 +375,22 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `removeZone(zoneId)` | `Promise<void>` | Remove a zone by ID |
 | `clearAllZones()` | `Promise<void>` | Remove all zones |
 | `getZoneStates()` | `Promise<ZoneState[]>` | Get current INSIDE/OUTSIDE state for all zones |
+| `getZone(zoneId)` | `Promise<Zone \| null>` | Read a zone back as you passed it, metadata included |
 
 > **`getZoneStates()` only reports reliable inside/outside state after `startTracking()`.** Inside/outside is computed by the running location service, so before tracking starts there is nothing evaluated to report — on Android `getZoneStates()` returns `[]` even after `addZone()`. Always follow this order: `initialize()` → `addZone()` → `startTracking()` → `getZoneStates()`. (To track membership while running, use the `onZoneEnter` / `onZoneExit` events.)
 
 > **`addZone(zone)` treats `zone.id` as the primary key — duplicate IDs silently overwrite.** Calling `addZone` with an `id` already being monitored replaces the previous zone entry; no error is thrown. **Re-adding also resets the persisted INSIDE/OUTSIDE state for that zone (and on iOS, its confidence state).** If the device is currently inside the zone, the next reconciliation may fire a fresh `enter` / `recoveryEnter` event. In-place metadata edits without a re-enter are a known limitation. If your workflow requires unique IDs, dedupe before calling.
+
+> **`getZone(zoneId)` reads persisted storage, not the running engine.** Unlike `getZoneStates()` it answers before `startTracking()` and after your app's process has been restarted, which is what makes it usable from a crossing handler. It returns `null` when no zone is stored under that id.
+>
+> While tracking is running, `addZone` resolves before the native service has persisted the zone, so a `getZone` immediately afterwards can still return `null`.
+
+```ts
+Polyfence.onGeofenceEvent(async (event) => {
+  const zone = await Polyfence.getZone(event.zoneId);
+  console.log(zone?.metadata);
+});
+```
 
 ### Configuration
 
@@ -388,6 +400,67 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 | `updateConfiguration(config)` | `Promise<void>` | Update configuration |
 | `resetConfiguration()` | `Promise<void>` | Reset to defaults |
 | `setAccuracyProfile(profile)` | `Promise<void>` | Set GPS accuracy profile |
+
+### Notification text
+
+Polyfence shows your users two kinds of notification, and every string in both is
+yours to write. Pass any of them to `initialize` or `updateConfiguration` under
+`notificationText`:
+
+```ts
+await Polyfence.updateConfiguration({
+  notificationText: {
+    enterTitle: 'Arrivé à {zone}',
+    exitTitle: 'Départ de {zone}',
+    dwellBodyMinutes: '{minutes} minutes sur place',
+  },
+});
+```
+
+| Key | Default | Surface |
+|---|---|---|
+| `trackingTitle` | `Polyfence Active` | The ongoing notification Android requires while background tracking runs. Android only. |
+| `trackingText` | `Monitoring geofence zones` | Body of the same notification. Android only. |
+| `trackingIconName` | unset | Drawable resource **name** for its small icon. Android only. |
+| `enterTitle` | `Entered {zone}` | Shown when someone enters a zone. |
+| `dwellTitle` | `Dwelling in {zone}` | Shown while someone stays in a zone. |
+| `exitTitle` | `Exited {zone}` | Shown when someone leaves a zone. |
+| `dwellBodyUnderMinute` | `Here under a minute` | Dwell body, under a minute. |
+| `dwellBodyMinutes` | `Here {minutes} min` | Dwell body, under an hour. |
+| `dwellBodyHours` | `Here {hours}h` | Dwell body, whole hours. |
+| `dwellBodyHoursMinutes` | `Here {hours}h {minutes} min` | Dwell body, hours and minutes. |
+| `trackingChannelName` | `Location Tracking` | Notification-channel label, shown in the phone's own Settings app. Android only. |
+| `trackingChannelDescription` | `Background location tracking` | Its description. Android only. |
+| `alertChannelName` | `Geofence Alerts` | Channel label for zone alerts. Android only. |
+| `alertChannelDescription` | `Zone entry and exit notifications` | Its description. Android only. |
+
+Put `{zone}` wherever your language needs it: a Japanese app writes
+`{zone}に到着`. A placeholder you misspell stays visible rather than blanking, so
+the mistake shows up in the tray.
+
+Polyfence ships no translations and does not detect the device language. Pass the
+strings for the language your app is in, and call `updateConfiguration` again if
+that changes.
+
+**A key you leave out keeps whatever is stored for it**, so omitting one later
+does not bring English back. Pass the English text yourself, or call
+`resetConfiguration()` to restore every default.
+
+`trackingIconName` is a resource **name** such as `ic_tracking`, not a resource
+id, and an empty string clears it. Android draws a small icon from its alpha
+channel alone, so use a monochrome asset with a transparent background or it
+arrives as a white square. A name that does not resolve falls back to the
+platform glyph.
+
+The Android-only keys are stored and echoed on iOS, so this group round-trips
+through `getConfiguration()` on either platform.
+
+If you change `trackingChannelName` or either description and the system Settings
+screen still shows the old one, you are most likely looking at a channel created
+by an earlier run or install. A clean install confirms which it is.
+
+If templates are not enough, `disableAlertNotifications: true` turns Polyfence's
+zone alerts off and leaves you to post your own.
 
 ### Permissions & System
 

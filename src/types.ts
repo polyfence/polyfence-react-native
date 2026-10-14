@@ -190,6 +190,114 @@ export interface ActivitySettings {
   drivingIntervalMs?: number;
 }
 
+/**
+ * Every string Polyfence shows your users, for you to write in your own words
+ * and your own language.
+ *
+ * Polyfence ships no translations and does not detect the device language. Your
+ * app knows which language it is in and already has the files that say so, so
+ * pass the right strings for that language.
+ *
+ * **A field you leave out is left as it is, not reset.** Each string keeps
+ * Polyfence's English default until you set it, so a first call that names a
+ * few fields changes only those. But once you have set a field, omitting it in
+ * a later call leaves your value in place: it does not go back to English. To
+ * undo one, pass the English text yourself; to undo all of them, call
+ * {@link Polyfence.resetConfiguration}. The per-field defaults below are the
+ * starting value, not what omission restores.
+ *
+ * The three `tracking*` fields and the four channel fields describe Android
+ * surfaces that iOS has no equivalent for. Pass them anyway from a
+ * cross-platform app: iOS stores them and returns them from
+ * {@link Polyfence.getConfiguration}, so this group survives being read back on
+ * either platform rather than coming back half empty on iOS.
+ *
+ * ```ts
+ * await Polyfence.updateConfiguration({
+ *   notificationText: {
+ *     enterTitle: 'Arrivé à {zone}',
+ *     exitTitle: 'Départ de {zone}',
+ *     dwellBodyMinutes: '{minutes} minutes sur place',
+ *   },
+ * });
+ * ```
+ */
+export interface NotificationText {
+  /**
+   * Title of the ongoing notification Android requires while background
+   * tracking runs. Default `'Polyfence Active'`. Android only.
+   */
+  trackingTitle?: string;
+  /**
+   * Body of that same notification. Default `'Monitoring geofence zones'`.
+   * Android only.
+   */
+  trackingText?: string;
+  /**
+   * Drawable resource **name** for that notification's small icon, for example
+   * `'ic_tracking'`, not an `R.drawable` id. Unset shows the platform location
+   * glyph. Pass an empty string to go back to that glyph after setting one.
+   *
+   * Android draws a small icon from its alpha channel alone, so point this at a
+   * monochrome asset with a transparent background or it arrives as a white
+   * square. A name that does not resolve falls back to the platform glyph.
+   * Android only.
+   */
+  trackingIconName?: string;
+  /**
+   * Title of the notification shown when someone enters a zone. Default
+   * `'Entered {zone}'`. `{zone}` is replaced with the zone's name, and you can
+   * put it wherever that language needs it.
+   */
+  enterTitle?: string;
+  /** Title shown while someone stays in a zone. Default `'Dwelling in {zone}'`. */
+  dwellTitle?: string;
+  /** Title shown when someone leaves a zone. Default `'Exited {zone}'`. */
+  exitTitle?: string;
+  /**
+   * Body of the dwell notification for under a minute in the zone. Default
+   * `'Here under a minute'`.
+   *
+   * There are four of these rather than one template plus a unit, because
+   * which one applies depends on the duration and each reads differently in a
+   * given language: English needs `1 minute` against `2 minutes`, Polish needs
+   * three forms. Each is a whole sentence so your own plural rules decide.
+   * `{hours}`, `{minutes}` and `{zone}` are available in all four.
+   */
+  dwellBodyUnderMinute?: string;
+  /** Body for under an hour in the zone. Default `'Here {minutes} min'`. */
+  dwellBodyMinutes?: string;
+  /** Body for a whole number of hours. Default `'Here {hours}h'`. */
+  dwellBodyHours?: string;
+  /** Body for hours and minutes. Default `'Here {hours}h {minutes} min'`. */
+  dwellBodyHoursMinutes?: string;
+  /**
+   * Name of the notification channel for the tracking notification. Default
+   * `'Location Tracking'`.
+   *
+   * Android has required notification channels since API 26 and shows a
+   * channel's name and description in the phone's own Settings app, under your
+   * app's notification settings, where they label the switches that turn
+   * tracking and zone alerts off independently. Android only.
+   */
+  trackingChannelName?: string;
+  /**
+   * Description of that channel, shown under its name in Settings. Default
+   * `'Background location tracking'`. Android only.
+   */
+  trackingChannelDescription?: string;
+  /**
+   * Name of the notification channel for zone alerts. Default
+   * `'Geofence Alerts'`. Android only.
+   */
+  alertChannelName?: string;
+  /**
+   * Description of that channel. Default
+   * `'Zone entry and exit notifications'`. Android only.
+   */
+  alertChannelDescription?: string;
+}
+
 export interface PolyfenceConfiguration {
   accuracyProfile?: AccuracyProfile;
   updateStrategy?: UpdateStrategy;
@@ -263,6 +371,13 @@ export interface PolyfenceConfiguration {
   clusterSettings?: ClusterSettings;
   scheduleSettings?: ScheduleSettings;
   activitySettings?: ActivitySettings;
+  /**
+   * Every string Polyfence shows your users, for you to write. See
+   * {@link NotificationText}. Omitting this entirely changes nothing, and a
+   * field you leave out keeps whatever is already stored for it rather than
+   * reverting to English.
+   */
+  notificationText?: NotificationText;
 }
 
 /**

@@ -386,8 +386,8 @@ const errorSubscription = Polyfence.instance.onError((error) => {
 > While tracking is running, `addZone` resolves before the native service has persisted the zone, so a `getZone` immediately afterwards can still return `null`.
 
 ```ts
-Polyfence.onGeofenceEvent(async (event) => {
-  const zone = await Polyfence.getZone(event.zoneId);
+Polyfence.instance.onGeofenceEvent(async (event) => {
+  const zone = await Polyfence.instance.getZone(event.zoneId);
   console.log(zone?.metadata);
 });
 ```
@@ -408,7 +408,7 @@ yours to write. Pass any of them to `initialize` or `updateConfiguration` under
 `notificationText`:
 
 ```ts
-await Polyfence.updateConfiguration({
+await Polyfence.instance.updateConfiguration({
   notificationText: {
     enterTitle: 'Arrivé à {zone}',
     exitTitle: 'Départ de {zone}',

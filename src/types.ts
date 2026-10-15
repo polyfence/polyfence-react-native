@@ -213,7 +213,7 @@ export interface ActivitySettings {
  * either platform rather than coming back half empty on iOS.
  *
  * ```ts
- * await Polyfence.updateConfiguration({
+ * await Polyfence.instance.updateConfiguration({
  *   notificationText: {
  *     enterTitle: 'Arrivé à {zone}',
  *     exitTitle: 'Départ de {zone}',

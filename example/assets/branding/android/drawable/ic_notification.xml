@@ -6,7 +6,7 @@
 
   To use it, set the drawable's NAME on the tracking notification:
 
-    Polyfence.updateConfiguration({
+    Polyfence.instance.updateConfiguration({
       notificationText: { trackingIconName: 'ic_notification' },
     })
 

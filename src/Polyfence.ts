@@ -322,8 +322,8 @@ export class Polyfence {
    * crossing, both see the write.
    *
    * ```ts
-   * Polyfence.onGeofenceEvent(async (event) => {
-   *   const zone = await Polyfence.getZone(event.zoneId);
+   * Polyfence.instance.onGeofenceEvent(async (event) => {
+   *   const zone = await Polyfence.instance.getZone(event.zoneId);
    *   console.log(zone?.metadata);
    * });
    * ```

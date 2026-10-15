@@ -50,7 +50,7 @@ All dependencies are regularly audited for vulnerabilities.
 This bridge sends anonymous platform telemetry by default (opt-out). Aside from that, it makes no network calls — all geofencing runs on-device via polyfence-core.
 
 - **Telemetry is opt-out** — enabled by default; disable with `initialize(undefined, { disableTelemetry: true })`
-- **No location coordinates are transmitted** — only anonymous aggregates (session counts, accuracy averages, error-class tallies)
+- **No location coordinates are transmitted**: telemetry carries aggregates only, some of them derived from location (average speed at events, dwell times, activity mix). See `doc/TELEMETRY.md`.
 - **No API key required** for the telemetry pipeline
 - **HTTPS only**
 - See [PRIVACY.md](PRIVACY.md) and [`doc/TELEMETRY.md`](doc/TELEMETRY.md) for the field-by-field contract, and the [polyfence-core security policy](https://github.com/polyfence/polyfence-core/blob/main/SECURITY.md) for the engine's on-device guarantees
@@ -89,18 +89,25 @@ When submitting apps using Polyfence to the App Store, include the following in 
 
 ```
 [Your App Name] uses background location services to provide geofence-based
-features. Location data is processed entirely on your device and is never
-transmitted to external servers without your explicit consent.
+features. Your position is processed on your device by the Polyfence SDK,
+which does not send it to external servers.
 
 We use the Polyfence open-source SDK for geofencing. By default, Polyfence:
-- Processes all location data locally on your device
-- Does not transmit location data to any external servers
+- Processes your position locally on your device
+- Does not send your position to any external server
 - Stores geofence zone definitions locally in device storage
 
-Anonymous performance metrics (GPS accuracy averages, battery usage, detection
-latency) are transmitted to polyfence.io by default. These metrics do NOT
-include your actual GPS coordinates or personal location history. Disable
-telemetry with one line: `Polyfence.instance.initialize(undefined, { disableTelemetry: true })`.
+Polyfence also sends usage statistics to polyfence.io by default, each time
+the app goes to the background or shuts Polyfence down, with totals since
+tracking started. They include GPS accuracy averages, battery level and usage,
+detection latency, average speed at zone events, time spent in zones, the mix
+of activities such as walking or driving, the hour tracking started, the
+device maker and class (for example, Samsung flagship) and OS version, and
+this app's package name. They do NOT include your GPS coordinates, your
+location history or anything that names you.
+Polyfence's servers see your device's IP address when the statistics arrive,
+as with any internet request; Polyfence does not keep it with them. [Delete
+this paragraph if your app turns Polyfence telemetry off.]
 
 You can disable location services at any time in your device Settings.
 ```
@@ -113,7 +120,8 @@ Geofence zone definitions are stored locally on your device and persist until:
 - You clear app data via device Settings
 - You explicitly remove zones within the app
 
-No location data is retained on external servers (unless you've enabled analytics).
+Your GPS coordinates are not sent to or retained on external servers by the
+Polyfence SDK.
 ```
 
 ## Secure Development Practices

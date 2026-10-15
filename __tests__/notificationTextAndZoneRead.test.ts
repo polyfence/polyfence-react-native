@@ -135,6 +135,14 @@ describe('getZone', () => {
     await expect(Polyfence.instance.getZone('nope')).resolves.toBeNull();
   });
 
+  it('returns null, not undefined, when iOS resolves a nil result', async () => {
+    // React Native on iOS passes no argument for a nil resolve, so the native
+    // promise settles with undefined. Android resolves null. The caller is
+    // promised null for an absent zone on both.
+    native.getZone.mockResolvedValueOnce(undefined);
+    await expect(Polyfence.instance.getZone('nope')).resolves.toBeNull();
+  });
+
   it('rejects before initialize, like the other zone methods', async () => {
     (Polyfence as unknown as { _instance: Polyfence | null })._instance = null;
     await expect(Polyfence.instance.getZone('zone-1')).rejects.toThrow();

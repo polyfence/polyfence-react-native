@@ -336,7 +336,11 @@ export class Polyfence {
   async getZone(zoneId: string): Promise<Zone | null> {
     this.assertNotDisposed();
     this.assertInitialized();
-    return NativePolyfence.getZone(zoneId);
+    // iOS resolves a nil result as undefined, not null: React Native drops a
+    // nil argument rather than converting it. Android resolves null. Coalesce
+    // so an absent zone reads the same on both platforms.
+    const zone: Zone | null | undefined = await NativePolyfence.getZone(zoneId);
+    return zone ?? null;
   }
 
   async debugInfo(): Promise<PolyfenceDebugInfo> {

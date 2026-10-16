@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '18'
 
@@ -77,7 +77,7 @@ jobs:
       # variable is unset. npm would send that dummy token and never attempt
       # the OIDC exchange. registry.npmjs.org is npm's default anyway.
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           package-manager-cache: false

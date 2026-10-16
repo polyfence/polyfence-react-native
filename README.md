@@ -1,6 +1,6 @@
 # Polyfence React Native
 
-**The Polyfence geofence layer for React Native.** Define zones once; same zones run on your mobile app, your IoT device, and your server (Polyfence platform). This package is the React Native bridge over polyfence-core (engine source: [github.com/polyfence/polyfence-core](https://github.com/polyfence/polyfence-core)). Privacy-first by default — positions never leave the device; only zone events.
+**The Polyfence geofence layer for React Native.** Define zones once; same zones run on your mobile app, your IoT device, and your server (Polyfence platform). This package is the React Native bridge over polyfence-core (engine source: [github.com/polyfence/polyfence-core](https://github.com/polyfence/polyfence-core)). Privacy-first by default: zones are checked on the device, and positions and zone events go to your code, never to us. Telemetry is on by default, turns off with one line, and never contains coordinates or end-user identifiers ([what it sends](doc/TELEMETRY.md)).
 
 [![npm version](https://img.shields.io/npm/v/polyfence-react-native.svg)](https://www.npmjs.com/package/polyfence-react-native)
 [![CI](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml/badge.svg)](https://github.com/polyfence/polyfence-react-native/actions/workflows/ci.yml)
@@ -30,7 +30,7 @@ This package is the React Native bridge. The same engine runs on iOS/Android via
 
 - **Polygon geofencing** — Not just circles. Define zones with arbitrary polygon boundaries (complex city zones, campus outlines, delivery areas).
 - **Unlimited zones** — No artificial limits. Monitor hundreds of zones simultaneously with zone clustering for performance.
-- **Privacy-first** — All geofencing runs on-device. Zero location data ever leaves the device by default. No cloud dependency.
+- **Privacy-first**: all geofencing runs on the device, and positions never leave it. No cloud dependency.
 - **SmartGPS** — Intelligent GPS scheduling based on proximity, movement, activity, and battery state. 40-50% less battery drain than naive polling.
 - **Activity recognition** — Automatically detect user activity (walking, driving, stationary) and optimize GPS intervals.
 - **Background tracking** — True background operation with foreground service (Android) and location background mode (iOS).
@@ -742,9 +742,9 @@ See [Expo Custom Development Client docs](https://docs.expo.dev/develop/developm
 
 Different defaults for different data classes:
 
-- **Positions** — opt-in. Never persisted on Polyfence servers by default. If you turn retention on, positions are stored in your tenant — never names, phones, emails, or health data.
-- **Anonymous telemetry** — opt-out, one line disables (see below). Never coordinates, never end-user identifiers, never PII — aggregates (platform, plugin version, accuracy averages, error counts), plus your app's package name, plus a link to your Polyfence account if you configure an API key.
-- **Zone events** — always on. They're the value we deliver, not surveillance.
+- **Positions**: never sent by this SDK. If your devices or servers send positions to the Polyfence platform, they are kept only when you turn retention on.
+- **Anonymous telemetry**: on by default, one line turns it off (see below). Never coordinates, never end-user identifiers, never PII. It carries aggregates, some derived from location (average speed at events, dwell times, activity mix), your app's package name, and a link to your Polyfence account if you configure an API key. [What it sends](doc/TELEMETRY.md).
+- **Zone events**: never sent by this SDK. It gives them to your code.
 
 This is the deliberate posture, not an inconsistency. See [PRIVACY.md](PRIVACY.md) for the full breakdown.
 
@@ -758,7 +758,7 @@ await Polyfence.instance.initialize(undefined, { disableTelemetry: true });
 
 - **On-device geofencing**: All zone detection runs locally using native GPS APIs
 - **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)
-- **No tracking**: No user behavior tracking, no cross-app tracking
+- **No cross-app tracking**: no advertising identifiers, no cross-app tracking tokens, no end-user identifiers
 - **GDPR/CCPA-friendly**: Anonymous aggregates only by default, one-line disable for telemetry, opt-in for position retention
 
 ---

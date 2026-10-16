@@ -1,6 +1,6 @@
 # Polyfence React Native Telemetry Reference
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-10-15
 
 This is the field-by-field technical reference for Polyfence's anonymous telemetry. For the privacy policy (opt-out instructions, legal basis, data retention, your rights), see [PRIVACY.md](../PRIVACY.md).
 
@@ -8,7 +8,7 @@ This is the field-by-field technical reference for Polyfence's anonymous telemet
 
 ## Complete Telemetry Payload
 
-Here's exactly what gets sent to the analytics endpoint when a session ends:
+Here's exactly what gets sent to the analytics endpoint each time the app goes to the background or shuts Polyfence down. Counts and averages are totals since tracking started, so each upload repeats what the one before it carried:
 
 ```json
 {
@@ -24,7 +24,6 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
   "detection_time_avg_ms": 125.5,
   "detection_time_p95_ms": 200.0,
   "gps_accuracy_avg_m": 15.2,
-  "battery_drain_avg_pct_per_hr": 2.5,
   "session_duration_minutes": 30,
 
   "zone_usage": { "circle": 3, "polygon": 2 },
@@ -48,6 +47,9 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
   "boundary_events_count": 2,
 
   "false_event_count": 0,
+  "false_event_ratio": 0.05,
+  "avg_gps_accuracy_at_event": 8.2,
+  "distance_to_boundary_avg_m": 12.4,
 
   "battery_level_start": 85.0,
   "battery_level_end": 72.0,
@@ -66,6 +68,7 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
   "device_category": "google_pixel",
   "os_version_major": 14,
   "charging_during_session": false,
+  "session_start_hour": 14,
 
   "bridge_platform": "react-native"
 }
@@ -93,7 +96,6 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 | `detection_time_avg_ms` | float | `125.5` | Average detection time (ms) |
 | `detection_time_p95_ms` | float | `200.0` | 95th percentile detection latency |
 | `gps_accuracy_avg_m` | float | `15.2` | Average GPS accuracy (meters) |
-| `battery_drain_avg_pct_per_hr` | float | `2.5` | Battery drain (% per hour) |
 | `session_duration_minutes` | integer | `30` | Session length (minutes) |
 
 ### Zone Usage
@@ -135,6 +137,9 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 | `avg_speed_at_event_mps` | float | `3.2` | Average speed at detection (m/s) |
 | `boundary_events_count` | integer | `2` | Events within 50m of zone boundary |
 | `false_event_count` | integer | `0` | Enter/exit reversals within 30s |
+| `false_event_ratio` | float | `0.05` | Share of zone events reversed within 30 seconds |
+| `avg_gps_accuracy_at_event` | float | `8.2` | Average GPS accuracy (m) at zone events |
+| `distance_to_boundary_avg_m` | float | `12.4` | Average distance (m) from the zone boundary at zone events |
 
 ### Battery
 
@@ -158,6 +163,8 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 | `avg_dwell_duration_minutes` | float | `6.9` | Average dwell time (minutes) |
 | `max_dwell_duration_minutes` | float | `12.5` | Maximum dwell time (minutes) |
 
+Dwell times and error counts are part of the payload, but polyfence-core 3.1.0 does not fill them yet: they arrive as 0 or empty.
+
 ### Device Context
 
 | Field | Type | Example | Description |
@@ -165,25 +172,25 @@ Here's exactly what gets sent to the analytics endpoint when a session ends:
 | `device_category` | string | `"google_pixel"` | Device manufacturer/tier bucket (not specific model) |
 | `os_version_major` | integer | `14` | OS major version |
 | `charging_during_session` | boolean | `false` | Was device charging during session? |
+| `session_start_hour` | integer | `14` | Local hour of day (0 to 23) the session started |
 
 ---
 
 ## What's NOT Sent
 
-Privacy-first design means:
+- **GPS coordinates**: never sent. Only aggregates such as accuracy and average distance to a zone boundary.
+- **Zone shapes**: never sent. Only zone counts by size (small, medium, large).
+- **End-user identifiers**: no names, emails, phone numbers, advertising IDs or device IDs.
+- **Event times**: no timestamp for any zone event. The session carries its length, the hour it started and the time from start to the first zone event (`ttfd_ms`).
 
-- **GPS coordinates** — Never sent (only aggregates like accuracy, distance to boundary)
-- **Zone definitions** — Never sent (only zone counts by type)
-- **PII** — No names, emails, IDs, or device identifiers
-- **User activity** — No app names, times, or behavioral patterns
-- **Timestamps** — No granular event times (only session duration)
+Sent, and worth naming in your own privacy notice: your app's package name (`app_identifier`), the mix of activities such as walking or driving (`activity_distribution`), each dwell time in minutes (`dwell_durations_minutes`), the hour the session started (`session_start_hour`) and the time to the first zone event (`ttfd_ms`). Each upload reaches us from the device's IP address, which our code does not store.
 
 ---
 
 ## Session Lifecycle
 
 ```
-App Launch → initialize() → Session Start → Data Collection → App Background → Session End → Send Telemetry
+App Launch → initialize() → tracking starts → app goes to background → upload → app returns → app goes to background again → upload (totals still counted from when tracking started)
 ```
 
 Sessions are managed automatically by polyfence-core. No manual session management needed.
@@ -227,6 +234,9 @@ All telemetry aggregation happens in polyfence-core's `TelemetryAggregator`. The
 ---
 
 ## Changelog
+
+### 2026-10-15
+- Documented four fields already sent, and removed `battery_drain_avg_pct_per_hr`, which was never sent (drain is worked out on the server from the start and end levels); payload unchanged.
 
 ### 2026-08-05 (package 3.0.0)
 - Sample payload and field-reference tables refreshed to reflect package `3.0.0` and native `core_version` `3.0.0`. No new telemetry fields; version identifiers only.

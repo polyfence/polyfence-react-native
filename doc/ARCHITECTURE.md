@@ -106,7 +106,7 @@ Application code
   ▼
 HTTPS POST → polyfence.io/api/v1/telemetry/session
   │  Anonymous aggregate metrics only
-  │  No GPS coordinates, no PII, no zone definitions
+  │  No GPS coordinates, no zone shapes, no end-user identifiers
 ```
 
 ## Bridge Design

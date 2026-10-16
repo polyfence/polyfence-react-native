@@ -1,9 +1,9 @@
 # Polyfence React Native — Privacy Policy
 
 **Effective Date:** May 31, 2026  
-**Last Updated:** October 3, 2026
+**Last Updated:** October 15, 2026
 
-**Applies to:** `polyfence-react-native` SDK only. Server-side and SaaS-side privacy posture is described separately at `https://polyfence.io/privacy`.
+**Applies to:** `polyfence-react-native` SDK only. Server-side and SaaS-side privacy posture is described separately at [polyfence.io/privacy](https://polyfence.io/privacy).
 
 ## Zero PII about your end users
 
@@ -13,9 +13,9 @@ Polyfence collects **zero PII about your end users. We never ask who they are.**
 
 | Data class | What we collect | When |
 |---|---|---|
-| **Zone events** | Zone references only (`zone_id`, `device_id`, timestamp). No PII. No coordinates. | Always — this is the product value. |
-| **Anonymous platform telemetry** | Aggregates only — accuracy averages, event frequencies, error counts. No end-user identifiers, no coordinates, no PII. (Carries your app's package id, `app_identifier` — that identifies _your app_, not your users.) | Opt-out (one-line disable). |
-| **Raw positions** | Not collected by default. Opt-in retention only. When opted in: positions only — never names / phones / emails / health / etc. | Opt-in only. |
+| **Zone events** | None from this SDK. It hands zone events to your app's code and never sends them to us. If your devices or servers report zone events to the Polyfence platform, we hold zone references only (`zone_id`, `device_id`, timestamp), with no coordinates. | Only for events you send to the platform. |
+| **Anonymous platform telemetry** | Aggregates only, such as accuracy averages, event frequencies and error counts. Some are derived from location or motion: average speed at events and activity mix (the dwell-time fields are in the payload, but core 3.1.0 leaves them empty). No end-user identifiers, no coordinates, no PII. (Carries your app's package name, `app_identifier`, which identifies _your app_, not your users. If you configure an API key, the SDK sends it too, and we link the session to your Polyfence account.) | Opt-out (one-line disable). |
+| **Raw positions** | None from this SDK. If your devices or servers send positions to the Polyfence platform, they are kept only when you turn retention on. | Only when you turn retention on. |
 
 > **Zero PII about end users. We never ask who they are.**
 
@@ -33,21 +33,21 @@ Polyfence collects **zero PII about your end users. We never ask who they are.**
 
 | Data class | Default | Why |
 |---|---|---|
-| **Raw positions** | **Opt-IN** | We don't have your customers' location data unless you explicitly turn retention on. |
-| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never end-user identifiers, never PII — the one app-side field, `app_identifier`, is your app's package name, not a user identifier. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
-| **Zone events** | **Always** | They're the value we deliver — collecting them isn't surveillance, it's the product. |
+| **Raw positions** | **Not sent by this SDK** | None from this SDK. If your devices or servers send positions to the Polyfence platform, they are kept only when you turn retention on. |
+| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never end-user identifiers, never PII — the one app-side field, `app_identifier`, is your app's package name, not a user identifier. If you configure an API key, we link the session to your Polyfence account. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
+| **Zone events** | **Not sent by this SDK** | The SDK gives them to your code and never sends them to us. Events your devices or servers report to the Polyfence platform are what we deliver there. |
 
 Different defaults for different data — control on every axis, no privacy theatre.
 
 ## Honest qualifiers
 
-- **`device_id` is pseudonymous** (hashed identifier). Not PII per se. If you correlate it against your own user database, it becomes identifiable on **your** side — never on ours. GDPR-clean pseudonymisation.
+- **`device_id` is pseudonymous.** This SDK does not send it. On the Polyfence platform we cannot tell who a `device_id` belongs to, but you can, so it is still personal data, and we treat it as data we hold for you.
 - **`display_name`** is user-typed and could contain PII ("John's truck"). Our `firmware_visible_name` flag defaults FALSE, so the name stays on the SaaS DB only and never reaches the firmware unless you explicitly turn it on. The customer chose to type it.
 - **Customer account PII** (email, billing) is unavoidable for a paid SaaS. We don't pretend otherwise — neither does Stripe.
 
-## This SDK never collects, transmits, or stores
+## What this SDK sends
 
-`polyfence-react-native` **never collects, transmits, or stores** location data on its own. All geofencing math runs in `polyfence-core` (Kotlin on Android, Swift on iOS); this package is a marshalling layer between JavaScript and the native engine.
+On its own, `polyfence-react-native` never puts positions, end-user identifiers or end-user PII in anything it sends. What it sends is the telemetry listed in [`doc/TELEMETRY.md`](doc/TELEMETRY.md): aggregates, some of them derived from location, plus your app's package name. If you configure an API key, the SDK sends it with each upload and we link the session, and your app's package name, to your Polyfence account. Each upload reaches us from the device's IP address, which our code does not store. All geofencing math runs in `polyfence-core` (Kotlin on Android, Swift on iOS); this package is a marshalling layer between JavaScript and the native engine.
 
 ### The one exception: OS wake fences (opt-in, off by default)
 
@@ -146,9 +146,7 @@ This SDK is open source. You can verify the claims in this policy against the co
 
 ## Changes to this policy
 
-- **Major changes:** Email notification to registered developers and a GitHub issue where feasible
-- **Minor changes:** Updated **Last Updated** date on this page
-- **All changes:** Summarized in [CHANGELOG](CHANGELOG.md)
+Every change moves the **Last Updated** date at the top of this page, including small ones, so if that date hasn't moved, nothing here has changed. We don't send policy updates by email. When a change affects what the SDK sends or how we handle it, we describe it in plain terms here and in the [CHANGELOG](CHANGELOG.md).
 
 **Where the law requires stronger notice or consent for material changes, we will comply.** Review this page when the date changes, especially if telemetry or retention affects your app's disclosures.
 

@@ -56,6 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **`PolyfenceCore` is pinned to an exact version on iOS, matching Android.** `polyfence-react-native.podspec` asked for `~> 3.0.0`, which accepts any `3.0.x`, while `android/build.gradle` pinned `3.0.0` exactly. Once a core patch is published, iOS consumers take it on their next `pod install` and Android consumers do not, so a single version of this bridge would sit on two different engines depending on the platform. Both now pin exactly. The `polyfence-core-version-sync` consistency check now rejects a floating pin on either side, so the asymmetry cannot grow back from whichever platform drifts first. It compared only the numeric triple before, which made `~> 3.0.0` on iOS and a Gradle selector such as `3.0.0+` or `[3.0.0,3.1.0)` on Android all compare equal to an exact `3.0.0`.
 
+### Fixed
+- **Telemetry uploads that failed are now delivered on retry, and counted once.** A session whose upload failed was queued and retried when the app returned to the foreground, but the retry sent no `Idempotency-Key` header, which the telemetry endpoint requires, so every retry was rejected and the session never arrived. Each queued session now keeps the key its first upload used and every retry sends it, so a session that did reach the server before its upload failed is not counted twice, provided the retry arrives on the same UTC day. Sessions already queued by an earlier version, which only exist if you pass a storage adapter, are now delivered too, each with a key derived from the stored session data, which stays the same on every retry. They are recorded under the date they arrive. A retry started while one is still running now waits for it instead of sending the same sessions in parallel. What a session contains is unchanged.
+
 ## [3.0.1] - 2026-10-07
 
 ### Changed

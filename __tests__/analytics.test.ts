@@ -92,3 +92,209 @@ describe('PolyfenceAnalytics.endSession — snake_case native telemetry (#58)', 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The server rejects a request with no Idempotency-Key (400) and dedupes on
+ * the key, so a retry must send the key its first send used. Before this, the
+ * retry sent no key at all: every queued session got a 400 and never landed.
+ */
+describe('PolyfenceAnalytics retry — Idempotency-Key reuse', () => {
+  const PREFIX = 'polyfence_analytics_retry_';
+  const UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  const telemetry = {
+    app_identifier: 'io.polyfence.qar',
+    session_duration_minutes: 12,
+  };
+
+  const resetSingleton = () => {
+    (
+      PolyfenceAnalytics as unknown as { _instance: PolyfenceAnalytics | null }
+    )._instance = null;
+  };
+
+  // Minimal in-memory AsyncStorage stand-in.
+  const makeStorage = (initial: Record<string, string> = {}) => {
+    const data = new Map(Object.entries(initial));
+    return {
+      data,
+      getItem: jest.fn(async (k: string) => data.get(k) ?? null),
+      setItem: jest.fn(async (k: string, v: string) => {
+        data.set(k, v);
+      }),
+      removeItem: jest.fn(async (k: string) => {
+        data.delete(k);
+      }),
+      getAllKeys: jest.fn(async () => [...data.keys()]),
+    };
+  };
+
+  let fetchMock: jest.Mock;
+
+  const keyOfCall = (i: number) =>
+    (fetchMock.mock.calls[i][1] as { headers: Record<string, string> }).headers[
+      'Idempotency-Key'
+    ];
+
+  beforeEach(() => {
+    resetSingleton();
+    fetchMock = jest.fn();
+    (global as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const init = (storage?: ReturnType<typeof makeStorage>) =>
+    PolyfenceAnalytics.instance.initialize(
+      {},
+      '3.0.1',
+      async () => telemetry as unknown as SessionTelemetry,
+      storage,
+    );
+
+  it('retries a failed upload with the same key as its first send', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ok: true, status: 201 });
+    init();
+
+    await PolyfenceAnalytics.instance.endSession();
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(keyOfCall(0)).toMatch(UUID);
+    expect(keyOfCall(1)).toBe(keyOfCall(0));
+
+    // Accepted, so the queue is empty and nothing is sent again.
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the same key across repeated failed retries and a server error', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+    init();
+
+    await PolyfenceAnalytics.instance.endSession();
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const first = keyOfCall(0);
+    expect(first).toMatch(UUID);
+    for (let i = 1; i < 4; i++) {
+      expect(keyOfCall(i)).toBe(first);
+    }
+  });
+
+  it('carries the key through a storage adapter', async () => {
+    const storage = makeStorage();
+    fetchMock
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ok: true, status: 201 });
+    init(storage);
+
+    await PolyfenceAnalytics.instance.endSession();
+    const entry = [...storage.data.keys()][0] ?? '';
+    expect(entry.endsWith(`_${keyOfCall(0)}`)).toBe(true);
+
+    // A fresh instance, as after an app restart, reads the key back from storage.
+    resetSingleton();
+    init(storage);
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    expect(keyOfCall(1)).toBe(keyOfCall(0));
+    expect(storage.data.size).toBe(0);
+  });
+
+  it('keeps two failures in the same millisecond as separate entries', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_760_000_000_000);
+    const storage = makeStorage();
+    fetchMock.mockRejectedValue(new Error('offline'));
+    init(storage);
+
+    await PolyfenceAnalytics.instance.endSession();
+    await PolyfenceAnalytics.instance.endSession();
+
+    expect(storage.data.size).toBe(2);
+  });
+
+  it('gives an entry from an older version a stable key without rewriting storage', async () => {
+    const legacyName = `${PREFIX}1743150000000`;
+    const legacyValue = JSON.stringify({ ...telemetry, platform: 'android' });
+    const storage = makeStorage({ [legacyName]: legacyValue });
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: true, status: 201 });
+    init(storage);
+
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(keyOfCall(0)).toMatch(/^legacy-[0-9a-f]{16}$/);
+    expect(keyOfCall(0)).not.toContain('1743150000000');
+    expect(keyOfCall(1)).toBe(keyOfCall(0));
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.data.size).toBe(0);
+  });
+
+  it('derives the same legacy key as the Flutter bridge', async () => {
+    // Same vector as polyfence-flutter's telemetry_retry_idempotency_test, so
+    // the two implementations cannot drift apart unnoticed.
+    const storage = makeStorage({
+      [`${PREFIX}1743150000000`]:
+        '{"app_identifier":"io.polyfence.qar","platform":"android","note":"é→"}',
+    });
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 201 });
+    init(storage);
+
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    expect(keyOfCall(0)).toBe('legacy-c8bbec26dfdca317');
+  });
+
+  it('does not let the queue time in a legacy name reach the key', async () => {
+    const value = JSON.stringify({ ...telemetry, platform: 'android' });
+    const storage = makeStorage({
+      [`${PREFIX}1743150000000`]: value,
+      [`${PREFIX}1760000000000`]: value,
+    });
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+    init(storage);
+
+    await PolyfenceAnalytics.instance.retryFailedRequests();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(keyOfCall(1)).toBe(keyOfCall(0));
+  });
+
+  it('joins a retry already in flight instead of sending entries twice', async () => {
+    let release: (v: { ok: boolean; status: number }) => void = () => {};
+    fetchMock
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
+    init();
+    await PolyfenceAnalytics.instance.endSession();
+
+    const a = PolyfenceAnalytics.instance.retryFailedRequests();
+    const b = PolyfenceAnalytics.instance.retryFailedRequests();
+    await new Promise((r) => setImmediate(r));
+    release({ ok: true, status: 201 });
+    await Promise.all([a, b]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

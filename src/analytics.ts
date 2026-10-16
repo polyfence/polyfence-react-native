@@ -33,6 +33,8 @@ export interface StorageAdapter {
 const DEFAULT_ENDPOINT = 'https://polyfence.io/api/v1/telemetry/session';
 const RETRY_KEY_PREFIX = 'polyfence_analytics_retry_';
 const MAX_RETRY_ENTRIES = 50;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function generateIdempotencyKey(): string {
   // Simple UUID v4 without external dependency
@@ -50,6 +52,46 @@ function generateIdempotencyKey(): string {
     }
   }
   return uuid;
+}
+
+/** 32-bit FNV-1a hash as 8 hex characters. Not cryptographic. */
+/* eslint-disable no-bitwise -- a hash is bit arithmetic by definition */
+function fnv1aHex(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+/* eslint-enable no-bitwise */
+
+/**
+ * The Idempotency-Key a queued entry must be retried with.
+ *
+ * Entries are named `<prefix><ms>_<key>`, carrying the key their first send
+ * used, so every retry dedupes against that send on the server. Entries
+ * queued by older versions are named `<prefix><ms>`; their key was not
+ * stored, and every retry of them was rejected for sending none. They get a
+ * key derived from the stored payload, so the same entry always maps to the
+ * same key without rewriting storage, and overlapping or repeated retries
+ * still dedupe. The name is left out because it holds the time the session
+ * was queued, which a hash of it would not hide. Two entries with identical
+ * payloads get the same key, so if both arrive on the same UTC day the server
+ * keeps one. That can undercount identical old sessions, such as empty ones
+ * sent while tracking was off, which is accepted for a one-off drain of old
+ * entries.
+ */
+function retryIdempotencyKey(entryName: string, payload: string): string {
+  const suffix = entryName.slice(RETRY_KEY_PREFIX.length);
+  const sep = suffix.indexOf('_');
+  if (sep !== -1) {
+    const key = suffix.slice(sep + 1);
+    if (UUID_PATTERN.test(key)) {
+      return key;
+    }
+  }
+  return `legacy-${fnv1aHex(payload)}${fnv1aHex(`legacy:${payload}`)}`;
 }
 
 /**
@@ -77,6 +119,10 @@ export class PolyfenceAnalytics {
 
   // In-memory retry queue (flushed to storage if adapter provided)
   private _memoryRetryQueue: Map<string, string> = new Map();
+
+  // The retry run in progress, so a second foreground transition joins it
+  // instead of sending the same entries again in parallel.
+  private _retryInFlight: Promise<void> | null = null;
 
   static get instance(): PolyfenceAnalytics {
     if (!PolyfenceAnalytics._instance) {
@@ -178,6 +224,15 @@ export class PolyfenceAnalytics {
       return;
     }
 
+    if (!this._retryInFlight) {
+      this._retryInFlight = this._retryQueuedEntries().finally(() => {
+        this._retryInFlight = null;
+      });
+    }
+    return this._retryInFlight;
+  }
+
+  private async _retryQueuedEntries(): Promise<void> {
     try {
       const entries = await this._getRetryEntries();
 
@@ -188,7 +243,10 @@ export class PolyfenceAnalytics {
 
           const response = await fetch(endpoint, {
             method: 'POST',
-            headers: this._buildHeaders(),
+            headers: {
+              ...this._buildHeaders(),
+              'Idempotency-Key': retryIdempotencyKey(key, payloadStr),
+            },
             body: JSON.stringify(payload),
           });
 
@@ -231,11 +289,11 @@ export class PolyfenceAnalytics {
 
       if (!response.ok && response.status !== 409) {
         // Queue for retry
-        await this._addRetryEntry(payload);
+        await this._addRetryEntry(payload, idempotencyKey);
       }
     } catch {
       // Network failure — queue for retry
-      await this._addRetryEntry(payload);
+      await this._addRetryEntry(payload, idempotencyKey);
     }
   }
 
@@ -253,8 +311,11 @@ export class PolyfenceAnalytics {
 
   private async _addRetryEntry(
     payload: Record<string, unknown>,
+    idempotencyKey: string,
   ): Promise<void> {
-    const key = `${RETRY_KEY_PREFIX}${Date.now()}`;
+    // The key rides in the entry name so the retry reuses it. The timestamp
+    // stays first so names still sort oldest first for pruning.
+    const key = `${RETRY_KEY_PREFIX}${Date.now()}_${idempotencyKey}`;
     const value = JSON.stringify(payload);
 
     if (this._storage) {
